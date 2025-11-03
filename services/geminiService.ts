@@ -2,11 +2,25 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import type { AiAnalysisResult } from '../types';
 
-if (!process.env.API_KEY) {
-  throw new Error("API_KEY environment variable is not set.");
-}
+// Get API key from environment (Vite maps GEMINI_API_KEY to process.env.API_KEY)
+const getAPIKey = (): string => {
+  const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    console.error("API_KEY environment variable is not set.");
+    console.error("Please set GEMINI_API_KEY in your .env.local file");
+    throw new Error("API_KEY environment variable is not set.");
+  }
+  return apiKey;
+};
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+let ai: GoogleGenAI | null = null;
+
+const getAI = (): GoogleGenAI => {
+  if (!ai) {
+    ai = new GoogleGenAI({ apiKey: getAPIKey() });
+  }
+  return ai;
+};
 
 export async function getAiAnalysis(
   artist: string,
@@ -43,7 +57,8 @@ export async function getAiAnalysis(
   `;
 
   try {
-    const response = await ai.models.generateContent({
+    const aiInstance = getAI();
+    const response = await aiInstance.models.generateContent({
       model: "gemini-2.5-flash",
       contents: prompt,
       config: {
