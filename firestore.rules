@@ -57,18 +57,89 @@ service cloud.firestore {
         request.auth.uid == request.resource.data.userId;
     }
 
-    // Users collection - users can read/write their own, admins can read all
+    // Users collection - users can read/write their own, admins can do everything
     match /users/{userId} {
+      // Allow user to read and write their own document
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow admins to read all users (use get() to check admin status)
       allow read: if request.auth != null && 
-        (request.auth.uid == userId || 
-         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin']));
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      
+      // Allow admins to update any user
+      allow update: if request.auth != null && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      
+      // Allow anyone to create their own user document (for first-time login)
+      allow create: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Genie Settings collection - public read, admin write
+    match /genieSettings/{settingsId} {
+      allow read: if true;
       allow write: if request.auth != null && 
-        (request.auth.uid == userId || 
-         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin']));
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Topics collection - public read, authenticated create, owner/admin edit/delete
+    match /topics/{topicId} {
+      allow read: if true;
+      allow create: if request.auth != null && 
+        request.auth.uid == request.resource.data.authorId;
+      allow update, delete: if request.auth != null && (
+        request.auth.uid == resource.data.authorId ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'moderator'])
+      );
+    }
+
+    // Topic Comments collection - public read, authenticated create, owner/admin edit/delete
+    match /topicComments/{commentId} {
+      allow read: if true;
+      allow create: if request.auth != null && 
+        request.auth.uid == request.resource.data.userId;
+      allow update, delete: if request.auth != null && (
+        request.auth.uid == resource.data.userId ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'moderator'])
+      );
+    }
+
+    // Topic Likes collection - authenticated read/write
+    match /topicLikes/{likeId} {
+      allow read, write: if request.auth != null;
+      allow create: if request.auth != null && 
+        request.auth.uid == request.resource.data.userId;
+    }
+
+    // Comment Likes collection - authenticated read/write
+    match /commentLikes/{likeId} {
+      allow read, write: if request.auth != null;
+      allow create: if request.auth != null && 
+        request.auth.uid == request.resource.data.userId;
+    }
+
+    // Topic Shares collection - authenticated read/write
+    match /topicShares/{shareId} {
+      allow read, write: if request.auth != null;
+      allow create: if request.auth != null && 
+        request.auth.uid == request.resource.data.userId;
+    }
+
+    // Forum Categories collection - public read, admin write
+    match /forumCategories/{categoryId} {
+      allow read: if true;
+      allow write: if request.auth != null && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
   }
 }
+
+
+
 
 

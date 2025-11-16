@@ -29,7 +29,9 @@ export async function getAiAnalysis(
   sourceLang: string,
   targetLang: string
 ): Promise<AiAnalysisResult> {
-  const prompt = `
+  const hasLyrics = lyrics.trim().length > 0 && !lyrics.includes('Provide cultural context');
+  
+  const prompt = hasLyrics ? `
     You are an expert in music, linguistics, and cultural studies, specializing in African music.
     Your task is to analyze the provided song lyrics.
 
@@ -52,6 +54,32 @@ export async function getAiAnalysis(
         - Explanations of any slang, idioms, or culturally specific references.
         - Insights into the cultural or historical background relevant to the song.
         Use markdown-style formatting within the string (e.g., using ### for headings, ** for bold) to structure the context for better readability.
+
+    The final output must be ONLY the JSON object.
+  ` : `
+    You are an expert in music, linguistics, and cultural studies, specializing in African music.
+    Your task is to provide cultural context and meaning for a song even without the exact lyrics.
+
+    Here is the song information:
+    - Artist: ${artist}
+    - Song Title: ${title}
+    - Original Language: ${sourceLang}
+    - Target Language for Analysis: ${targetLang}
+    - Note: Lyrics were not provided
+
+    Please perform the following two tasks and provide the output in a single, valid JSON object, adhering strictly to the provided schema. Do not include any text, markdown formatting like \`\`\`json, or any other characters outside of the JSON object itself.
+
+    1.  **Provide suggestive meaning**: Based on the artist's typical themes and the song title, provide a suggestive interpretation of what the song might be about in ${targetLang}. Clearly state this is suggestive and based on cultural context, not exact lyrics. The result should be a single string.
+
+    2.  **Provide cultural context**: Provide detailed cultural context about this song as a single string. This should include:
+        - Information about the artist and their musical style
+        - What this song title might suggest in the cultural context
+        - Common themes in this artist's work
+        - The cultural significance or impact of this song if known
+        - Any slang or idioms commonly associated with this artist
+        Use markdown-style formatting within the string (e.g., using ### for headings, ** for bold) to structure the context for better readability.
+
+    IMPORTANT: Make it clear that without lyrics, this is a suggestive analysis based on cultural knowledge and the artist's typical themes.
 
     The final output must be ONLY the JSON object.
   `;

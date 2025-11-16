@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getAllArtists, getAllSongs, getAllGenres, getAllUsers } from '../../services/firebaseService';
+import { getAllArtists, getAllSongs, getAllGenres, getAllUsers, getTopics, getCategories } from '../../services/firebaseService';
 import { 
   MusicNoteIcon, 
   ArtistIcon, 
@@ -19,7 +19,9 @@ const AdminDashboard: React.FC = () => {
     songs: 0,
     genres: 0,
     users: 0,
-    translations: 0
+    translations: 0,
+    topics: 0,
+    categories: 0
   });
   const [loading, setLoading] = useState(true);
   const [showAPIManagement, setShowAPIManagement] = useState(false);
@@ -27,11 +29,13 @@ const AdminDashboard: React.FC = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const [artists, songs, genres, users] = await Promise.all([
+        const [artists, songs, genres, users, topics, categories] = await Promise.all([
           getAllArtists(),
           getAllSongs(),
           getAllGenres(),
-          getAllUsers()
+          getAllUsers(),
+          getTopics(undefined, 'latest', 1000).catch(() => []),
+          getCategories().catch(() => [])
         ]);
 
         setStats({
@@ -39,7 +43,9 @@ const AdminDashboard: React.FC = () => {
           songs: songs.length,
           genres: genres.length,
           users: users.length,
-          translations: 0 // You can add this if you have a translations count
+          translations: 0, // You can add this if you have a translations count
+          topics: topics.length,
+          categories: categories.length
         });
       } catch (error) {
         console.error('Error fetching stats:', error);
@@ -55,11 +61,13 @@ const AdminDashboard: React.FC = () => {
     // Refresh stats after import
     const fetchStats = async () => {
       try {
-        const [artists, songs, genres, users] = await Promise.all([
+        const [artists, songs, genres, users, topics, categories] = await Promise.all([
           getAllArtists(),
           getAllSongs(),
           getAllGenres(),
-          getAllUsers()
+          getAllUsers(),
+          getTopics(undefined, 'latest', 1000).catch(() => []),
+          getCategories().catch(() => [])
         ]);
 
         setStats({
@@ -67,7 +75,9 @@ const AdminDashboard: React.FC = () => {
           songs: songs.length,
           genres: genres.length,
           users: users.length,
-          translations: 0
+          translations: 0,
+          topics: topics.length,
+          categories: categories.length
         });
       } catch (error) {
         console.error('Error fetching stats:', error);
@@ -120,7 +130,7 @@ const AdminDashboard: React.FC = () => {
         </div>
 
         {/* Stats Cards - Inspired by the dashboard */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
           {/* Artists Card */}
           <div className="bg-gradient-to-br from-purple-600 to-purple-700 rounded-xl p-6 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
             <div className="flex items-center justify-between">
@@ -188,6 +198,42 @@ const AdminDashboard: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* Topics Card */}
+          <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl p-6 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-indigo-100 text-sm font-medium">Total Topics</p>
+                <p className="text-3xl font-bold">{stats.topics}</p>
+                <div className="flex items-center mt-2">
+                  <TrendingUpIcon className="w-4 h-4 text-green-300" />
+                  <span className="text-green-300 text-sm ml-1">Active</span>
+                </div>
+              </div>
+              <div className="bg-white/20 rounded-full p-3">
+                <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          {/* Categories Card */}
+          <div className="bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl p-6 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-teal-100 text-sm font-medium">Categories</p>
+                <p className="text-3xl font-bold">{stats.categories}</p>
+                <div className="flex items-center mt-2">
+                  <TrendingUpIcon className="w-4 h-4 text-green-300" />
+                  <span className="text-green-300 text-sm ml-1">Forum</span>
+                </div>
+              </div>
+              <div className="bg-white/20 rounded-full p-3">
+                <GenreIcon className="w-8 h-8" />
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Quick Actions - Enhanced Design */}
@@ -242,6 +288,23 @@ const AdminDashboard: React.FC = () => {
                 <div>
                   <p className="font-bold text-white text-lg">Manage Genres</p>
                   <p className="text-gray-300 text-sm">Add, edit, or remove genres</p>
+                </div>
+              </div>
+            </Link>
+
+            <Link
+              to="/admin/community"
+              className="group bg-gradient-to-r from-gray-700 to-gray-600 rounded-xl p-6 hover:from-indigo-600 hover:to-indigo-700 transition-all duration-300 hover:scale-105 hover:shadow-lg"
+            >
+              <div className="flex items-center space-x-4">
+                <div className="bg-white/20 rounded-full p-3 group-hover:bg-white/30 transition-colors">
+                  <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
+                  </svg>
+                </div>
+                <div>
+                  <p className="font-bold text-white text-lg">Manage Community</p>
+                  <p className="text-gray-300 text-sm">Manage topics, categories, and comments</p>
                 </div>
               </div>
             </Link>

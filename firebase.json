@@ -1,0 +1,12 @@
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "storage": [
+    {
+      "bucket": "afrogenie.firebasestorage.app",
+      "rules": "storage.rules"
+    }
+  ]
+}
+

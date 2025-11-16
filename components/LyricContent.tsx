@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { 
     getSong, 
     getLatestTranslationForSong, 
@@ -12,6 +12,7 @@ import { useAuth } from '../context/AuthContext';
 import HeartIcon from './icons/HeartIcon';
 import ShareIcon from './icons/ShareIcon';
 import FontSizeIcon from './icons/FontSizeIcon';
+import type { Song } from '../types';
 
 const LyricContent: React.FC = () => {
     const { currentUser } = useAuth();
@@ -27,6 +28,7 @@ const LyricContent: React.FC = () => {
     const [isFavorite, setIsFavorite] = useState(false);
     const [favoriteId, setFavoriteId] = useState<string | null>(null);
     const [favoriteLoading, setFavoriteLoading] = useState(false);
+    const [song, setSong] = useState<Song | null>(null);
 
     useEffect(() => {
         let cancelled = false;
@@ -45,6 +47,7 @@ const LyricContent: React.FC = () => {
                 } else if (!cancelled) {
                     setTitle(song.title);
                     setArtist(song.artist);
+                    setSong(song);
                 }
 
                 const latest = await getLatestTranslationForSong(songId);
@@ -183,6 +186,18 @@ const LyricContent: React.FC = () => {
                 <ShareIcon className="h-6 w-6"/>
                 <span className="text-xs mt-1">Share</span>
             </button>
+            {song && (
+                <Link
+                    to={`/community/create?songId=${song.id}&artistId=${song.artistId}`}
+                    className="flex flex-col items-center justify-center w-20 h-14 rounded-full hover:bg-white/10 transition-colors text-amber-400"
+                    title="Discuss this song"
+                >
+                    <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                    <span className="text-xs mt-1">Discuss</span>
+                </Link>
+            )}
             <button className="flex flex-col items-center justify-center w-20 h-14 rounded-full hover:bg-white/10 transition-colors">
                 <FontSizeIcon className="h-6 w-6"/>
                 <span className="text-xs mt-1">Font Size</span>

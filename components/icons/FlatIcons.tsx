@@ -147,3 +147,9 @@ export const XIcon: React.FC<IconProps> = ({ className = "w-6 h-6" }) => (
     <path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/>
   </svg>
 );
+
+export const ChatIcon: React.FC<IconProps> = ({ className = "w-6 h-6" }) => (
+  <svg className={className} fill="currentColor" viewBox="0 0 24 24">
+    <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
+  </svg>
+);

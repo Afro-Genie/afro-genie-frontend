@@ -6,16 +6,19 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
+  setDoc,
   query,
   where,
   orderBy,
   limit,
   serverTimestamp,
-  Timestamp
+  Timestamp,
+  increment,
+  onSnapshot
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../config/firebase';
-import type { Artist, Song, Genre } from '../types';
+import type { Artist, Song, Genre, GenieSettings, Topic, TopicComment, ForumCategory } from '../types';
 
 // Collections
 const COLLECTIONS = {
@@ -26,7 +29,14 @@ const COLLECTIONS = {
   FAVORITES: 'favorites',
   HISTORY: 'history',
   GENRES: 'genres',
-  USERS: 'users'
+  USERS: 'users',
+  GENIE_SETTINGS: 'genieSettings',
+  TOPICS: 'topics',
+  TOPIC_COMMENTS: 'topicComments',
+  TOPIC_LIKES: 'topicLikes',
+  COMMENT_LIKES: 'commentLikes',
+  TOPIC_SHARES: 'topicShares',
+  FORUM_CATEGORIES: 'forumCategories'
 };
 
 // Artist Operations
@@ -327,5 +337,587 @@ export const updateUserRole = async (userId: string, role: 'user' | 'admin' | 'm
 
 export const deleteUser = async (userId: string) => {
   await deleteDoc(doc(db, COLLECTIONS.USERS, userId));
+};
+
+// Genie Settings Operations
+const GENIE_SETTINGS_DOC_ID = 'main';
+
+export const getGenieSettings = async (): Promise<GenieSettings | null> => {
+  const docRef = doc(db, COLLECTIONS.GENIE_SETTINGS, GENIE_SETTINGS_DOC_ID);
+  const docSnap = await getDoc(docRef);
+  
+  if (docSnap.exists()) {
+    return { id: docSnap.id, ...docSnap.data() } as GenieSettings;
+  }
+  
+  // Return default settings if none exist
+  return {
+    imageUrl: '/Images/gene.png',
+    animationType: 'float',
+    animationDuration: 3,
+    animationDelay: 0,
+    opacity: 20,
+    size: 'large'
+  };
+};
+
+export const updateGenieSettings = async (settings: Partial<GenieSettings>) => {
+  const docRef = doc(db, COLLECTIONS.GENIE_SETTINGS, GENIE_SETTINGS_DOC_ID);
+  await setDoc(docRef, {
+    ...settings,
+    updatedAt: serverTimestamp()
+  }, { merge: true });
+};
+
+export const uploadGenieImage = async (file: File) => {
+  const timestamp = Date.now();
+  const fileName = `genie_${timestamp}_${file.name}`;
+  return uploadImage(file, `genie/${fileName}`);
+};
+
+// Bulk Save Operations for API Imports
+export interface BulkSaveResult {
+  songId: string;
+  artistId: string;
+  translationId?: string;
+  success: boolean;
+  error?: string;
+}
+
+export const saveFullSongPackage = async (
+  songData: Omit<Song, 'id'>,
+  artistData: Omit<Artist, 'id'>,
+  lyrics: string,
+  userId: string,
+  sourceLang: string = 'en',
+  targetLang: string = 'en',
+  metadata?: any
+): Promise<BulkSaveResult> => {
+  try {
+    // Find or create artist
+    const allArtists = await getAllArtists();
+    const normalizedArtistName = artistData.name.toLowerCase().trim();
+    let artistId = '';
+    let isNewArtist = false;
+
+    const existingArtist = allArtists.find(
+      a => a.name.toLowerCase().trim() === normalizedArtistName
+    );
+
+    if (existingArtist) {
+      artistId = existingArtist.id;
+      // Update artist if new image provided
+      if (artistData.image && artistData.image !== existingArtist.image) {
+        await updateArtist(artistId, { image: artistData.image });
+      }
+    } else {
+      artistId = await addArtist(artistData);
+      isNewArtist = true;
+    }
+
+    // Create song with artistId
+    const songWithArtistId = {
+      ...songData,
+      artistId
+    };
+    const songId = await addSong(songWithArtistId);
+
+    // Save lyrics as translation
+    let translationId: string | undefined;
+    if (lyrics && lyrics.trim().length > 0) {
+      translationId = await saveTranslation({
+        songId,
+        userId,
+        originalLyrics: lyrics,
+        translatedLyrics: lyrics, // Will be translated later if needed
+        culturalContext: metadata?.culturalContext || '',
+        sourceLang,
+        targetLang
+      });
+    }
+
+    return {
+      songId,
+      artistId,
+      translationId,
+      success: true
+    };
+  } catch (error: any) {
+    console.error('Error saving full song package:', error);
+    return {
+      songId: '',
+      artistId: '',
+      success: false,
+      error: error.message || 'Failed to save song package'
+    };
+  }
+};
+
+export const updateFullSongPackage = async (
+  existingSongId: string,
+  songData: Partial<Omit<Song, 'id'>>,
+  artistData: Partial<Omit<Artist, 'id'>>,
+  lyrics?: string,
+  userId?: string,
+  sourceLang?: string,
+  targetLang?: string
+): Promise<BulkSaveResult> => {
+  try {
+    const existingSong = await getSong(existingSongId);
+    if (!existingSong) {
+      throw new Error('Song not found');
+    }
+
+    // Update song
+    await updateSong(existingSongId, songData);
+
+    // Update artist if provided
+    if (existingSong.artistId && Object.keys(artistData).length > 0) {
+      await updateArtist(existingSong.artistId, artistData);
+    }
+
+    // Update or create translation if lyrics provided
+    let translationId: string | undefined;
+    if (lyrics && userId) {
+      const existingTranslation = await getLatestTranslationForSong(existingSongId);
+      if (existingTranslation) {
+        // Update existing translation
+        const translationRef = doc(db, COLLECTIONS.TRANSLATIONS, existingTranslation.id!);
+        await updateDoc(translationRef, {
+          originalLyrics: lyrics,
+          updatedAt: serverTimestamp()
+        });
+        translationId = existingTranslation.id;
+      } else {
+        // Create new translation
+        translationId = await saveTranslation({
+          songId: existingSongId,
+          userId,
+          originalLyrics: lyrics,
+          translatedLyrics: lyrics,
+          culturalContext: '',
+          sourceLang: sourceLang || 'en',
+          targetLang: targetLang || 'en'
+        });
+      }
+    }
+
+    return {
+      songId: existingSongId,
+      artistId: existingSong.artistId,
+      translationId,
+      success: true
+    };
+  } catch (error: any) {
+    console.error('Error updating song package:', error);
+    return {
+      songId: existingSongId,
+      artistId: '',
+      success: false,
+      error: error.message || 'Failed to update song package'
+    };
+  }
+};
+
+// ==================== FORUM OPERATIONS ====================
+
+// Topic Operations
+export const createTopic = async (topic: Omit<Topic, 'id' | 'createdAt' | 'updatedAt' | 'likes' | 'shares' | 'commentCount' | 'isPinned' | 'isLocked'>) => {
+  const docRef = await addDoc(collection(db, COLLECTIONS.TOPICS), {
+    ...topic,
+    likes: 0,
+    shares: 0,
+    commentCount: 0,
+    isPinned: false,
+    isLocked: false,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  });
+  
+  // Increment user post count
+  if (topic.authorId) {
+    await incrementUserPostCount(topic.authorId);
+  }
+  
+  // Increment category topic count
+  await incrementCategoryTopicCount(topic.category);
+  
+  return docRef.id;
+};
+
+export const getTopic = async (topicId: string): Promise<Topic | null> => {
+  const docRef = doc(db, COLLECTIONS.TOPICS, topicId);
+  const docSnap = await getDoc(docRef);
+  
+  if (docSnap.exists()) {
+    return { id: docSnap.id, ...docSnap.data() } as Topic;
+  }
+  return null;
+};
+
+export const getTopics = async (
+  category?: string,
+  sortBy: 'latest' | 'mostLiked' | 'mostCommented' = 'latest',
+  limitCount: number = 20
+): Promise<Topic[]> => {
+  let q;
+  
+  if (category) {
+    q = query(
+      collection(db, COLLECTIONS.TOPICS),
+      where('category', '==', category),
+      orderBy('isPinned', 'desc'),
+      orderBy(sortBy === 'mostLiked' ? 'likes' : sortBy === 'mostCommented' ? 'commentCount' : 'createdAt', 'desc'),
+      limit(limitCount)
+    );
+  } else {
+    q = query(
+      collection(db, COLLECTIONS.TOPICS),
+      orderBy('isPinned', 'desc'),
+      orderBy(sortBy === 'mostLiked' ? 'likes' : sortBy === 'mostCommented' ? 'commentCount' : 'createdAt', 'desc'),
+      limit(limitCount)
+    );
+  }
+  
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Topic));
+};
+
+export const getTopicsBySong = async (songId: string): Promise<Topic[]> => {
+  const q = query(
+    collection(db, COLLECTIONS.TOPICS),
+    where('songId', '==', songId),
+    orderBy('createdAt', 'desc')
+  );
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Topic));
+};
+
+export const getTopicsByArtist = async (artistId: string): Promise<Topic[]> => {
+  const q = query(
+    collection(db, COLLECTIONS.TOPICS),
+    where('artistId', '==', artistId),
+    orderBy('createdAt', 'desc')
+  );
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Topic));
+};
+
+export const getUserTopics = async (userId: string): Promise<Topic[]> => {
+  const q = query(
+    collection(db, COLLECTIONS.TOPICS),
+    where('authorId', '==', userId),
+    orderBy('createdAt', 'desc')
+  );
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Topic));
+};
+
+export const updateTopic = async (topicId: string, updates: Partial<Omit<Topic, 'id'>>) => {
+  const docRef = doc(db, COLLECTIONS.TOPICS, topicId);
+  await updateDoc(docRef, { ...updates, updatedAt: serverTimestamp() });
+};
+
+export const deleteTopic = async (topicId: string) => {
+  // Get topic to decrement counts
+  const topic = await getTopic(topicId);
+  if (topic) {
+    if (topic.authorId) {
+      // Note: We don't decrement post count on delete, but could if needed
+    }
+    // Decrement category count
+    await decrementCategoryTopicCount(topic.category);
+  }
+  
+  await deleteDoc(doc(db, COLLECTIONS.TOPICS, topicId));
+};
+
+export const pinTopic = async (topicId: string, pinned: boolean) => {
+  await updateTopic(topicId, { isPinned: pinned });
+};
+
+export const lockTopic = async (topicId: string, locked: boolean) => {
+  await updateTopic(topicId, { isLocked: locked });
+};
+
+// Comment Operations
+export const addComment = async (comment: Omit<TopicComment, 'id' | 'createdAt' | 'updatedAt' | 'likes'>) => {
+  const docRef = await addDoc(collection(db, COLLECTIONS.TOPIC_COMMENTS), {
+    ...comment,
+    likes: 0,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  });
+  
+  // Increment topic comment count
+  const topicRef = doc(db, COLLECTIONS.TOPICS, comment.topicId);
+  await updateDoc(topicRef, {
+    commentCount: increment(1),
+    updatedAt: serverTimestamp()
+  });
+  
+  // Increment user comment count
+  if (comment.userId) {
+    await incrementUserCommentCount(comment.userId);
+  }
+  
+  return docRef.id;
+};
+
+export const getTopicComments = async (topicId: string): Promise<TopicComment[]> => {
+  const q = query(
+    collection(db, COLLECTIONS.TOPIC_COMMENTS),
+    where('topicId', '==', topicId),
+    orderBy('createdAt', 'asc')
+  );
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TopicComment));
+};
+
+export const updateComment = async (commentId: string, updates: Partial<Omit<TopicComment, 'id'>>) => {
+  const docRef = doc(db, COLLECTIONS.TOPIC_COMMENTS, commentId);
+  await updateDoc(docRef, { ...updates, updatedAt: serverTimestamp() });
+};
+
+export const deleteComment = async (commentId: string, topicId: string) => {
+  // Decrement topic comment count
+  const topicRef = doc(db, COLLECTIONS.TOPICS, topicId);
+  await updateDoc(topicRef, {
+    commentCount: increment(-1),
+    updatedAt: serverTimestamp()
+  });
+  
+  await deleteDoc(doc(db, COLLECTIONS.TOPIC_COMMENTS, commentId));
+};
+
+// Like Operations
+export const likeTopic = async (topicId: string, userId: string) => {
+  // Check if already liked
+  const likeQuery = query(
+    collection(db, COLLECTIONS.TOPIC_LIKES),
+    where('topicId', '==', topicId),
+    where('userId', '==', userId)
+  );
+  const existingLikes = await getDocs(likeQuery);
+  
+  if (!existingLikes.empty) {
+    // Already liked, unlike it
+    existingLikes.docs.forEach(doc => deleteDoc(doc.ref));
+    const topicRef = doc(db, COLLECTIONS.TOPICS, topicId);
+    await updateDoc(topicRef, {
+      likes: increment(-1),
+      updatedAt: serverTimestamp()
+    });
+    return false; // Unliked
+  } else {
+    // Add like
+    await addDoc(collection(db, COLLECTIONS.TOPIC_LIKES), {
+      topicId,
+      userId,
+      createdAt: serverTimestamp()
+    });
+    const topicRef = doc(db, COLLECTIONS.TOPICS, topicId);
+    await updateDoc(topicRef, {
+      likes: increment(1),
+      updatedAt: serverTimestamp()
+    });
+    return true; // Liked
+  }
+};
+
+export const isTopicLiked = async (topicId: string, userId: string): Promise<boolean> => {
+  const likeQuery = query(
+    collection(db, COLLECTIONS.TOPIC_LIKES),
+    where('topicId', '==', topicId),
+    where('userId', '==', userId)
+  );
+  const snapshot = await getDocs(likeQuery);
+  return !snapshot.empty;
+};
+
+export const likeComment = async (commentId: string, userId: string) => {
+  // Check if already liked
+  const likeQuery = query(
+    collection(db, COLLECTIONS.COMMENT_LIKES),
+    where('commentId', '==', commentId),
+    where('userId', '==', userId)
+  );
+  const existingLikes = await getDocs(likeQuery);
+  
+  if (!existingLikes.empty) {
+    // Already liked, unlike it
+    existingLikes.docs.forEach(doc => deleteDoc(doc.ref));
+    const commentRef = doc(db, COLLECTIONS.TOPIC_COMMENTS, commentId);
+    await updateDoc(commentRef, {
+      likes: increment(-1),
+      updatedAt: serverTimestamp()
+    });
+    return false; // Unliked
+  } else {
+    // Add like
+    await addDoc(collection(db, COLLECTIONS.COMMENT_LIKES), {
+      commentId,
+      userId,
+      createdAt: serverTimestamp()
+    });
+    const commentRef = doc(db, COLLECTIONS.TOPIC_COMMENTS, commentId);
+    await updateDoc(commentRef, {
+      likes: increment(1),
+      updatedAt: serverTimestamp()
+    });
+    return true; // Liked
+  }
+};
+
+export const isCommentLiked = async (commentId: string, userId: string): Promise<boolean> => {
+  const likeQuery = query(
+    collection(db, COLLECTIONS.COMMENT_LIKES),
+    where('commentId', '==', commentId),
+    where('userId', '==', userId)
+  );
+  const snapshot = await getDocs(likeQuery);
+  return !snapshot.empty;
+};
+
+// Share Operations
+export const shareTopic = async (topicId: string, userId: string) => {
+  await addDoc(collection(db, COLLECTIONS.TOPIC_SHARES), {
+    topicId,
+    userId,
+    createdAt: serverTimestamp()
+  });
+  
+  const topicRef = doc(db, COLLECTIONS.TOPICS, topicId);
+  await updateDoc(topicRef, {
+    shares: increment(1),
+    updatedAt: serverTimestamp()
+  });
+};
+
+// Category Operations
+export const getCategories = async (): Promise<ForumCategory[]> => {
+  const q = query(
+    collection(db, COLLECTIONS.FORUM_CATEGORIES),
+    orderBy('order', 'asc')
+  );
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ForumCategory));
+};
+
+export const getCategory = async (categoryId: string): Promise<ForumCategory | null> => {
+  const docRef = doc(db, COLLECTIONS.FORUM_CATEGORIES, categoryId);
+  const docSnap = await getDoc(docRef);
+  
+  if (docSnap.exists()) {
+    return { id: docSnap.id, ...docSnap.data() } as ForumCategory;
+  }
+  return null;
+};
+
+export const createCategory = async (category: Omit<ForumCategory, 'id' | 'topicCount'>) => {
+  const docRef = await addDoc(collection(db, COLLECTIONS.FORUM_CATEGORIES), {
+    ...category,
+    topicCount: 0
+  });
+  return docRef.id;
+};
+
+export const updateCategory = async (categoryId: string, updates: Partial<Omit<ForumCategory, 'id'>>) => {
+  const docRef = doc(db, COLLECTIONS.FORUM_CATEGORIES, categoryId);
+  await updateDoc(docRef, updates);
+};
+
+export const deleteCategory = async (categoryId: string) => {
+  await deleteDoc(doc(db, COLLECTIONS.FORUM_CATEGORIES, categoryId));
+};
+
+export const incrementCategoryTopicCount = async (categoryId: string) => {
+  const categoryRef = doc(db, COLLECTIONS.FORUM_CATEGORIES, categoryId);
+  await updateDoc(categoryRef, {
+    topicCount: increment(1)
+  });
+};
+
+export const decrementCategoryTopicCount = async (categoryId: string) => {
+  const categoryRef = doc(db, COLLECTIONS.FORUM_CATEGORIES, categoryId);
+  await updateDoc(categoryRef, {
+    topicCount: increment(-1)
+  });
+};
+
+// User Stats Operations
+export const incrementUserPostCount = async (userId: string) => {
+  const userRef = doc(db, COLLECTIONS.USERS, userId);
+  const userDoc = await getDoc(userRef);
+  
+  if (userDoc.exists()) {
+    const currentCount = userDoc.data().postCount || 0;
+    await updateDoc(userRef, {
+      postCount: currentCount + 1
+    });
+  } else {
+    await setDoc(userRef, {
+      postCount: 1
+    }, { merge: true });
+  }
+};
+
+export const incrementUserCommentCount = async (userId: string) => {
+  const userRef = doc(db, COLLECTIONS.USERS, userId);
+  const userDoc = await getDoc(userRef);
+  
+  if (userDoc.exists()) {
+    const currentCount = userDoc.data().commentCount || 0;
+    await updateDoc(userRef, {
+      commentCount: currentCount + 1
+    });
+  } else {
+    await setDoc(userRef, {
+      commentCount: 1
+    }, { merge: true });
+  }
+};
+
+export const getUserStats = async (userId: string) => {
+  const userRef = doc(db, COLLECTIONS.USERS, userId);
+  const userDoc = await getDoc(userRef);
+  
+  if (userDoc.exists()) {
+    const data = userDoc.data();
+    return {
+      postCount: data.postCount || 0,
+      commentCount: data.commentCount || 0,
+      reputation: data.reputation || 0,
+      badges: data.badges || []
+    };
+  }
+  return {
+    postCount: 0,
+    commentCount: 0,
+    reputation: 0,
+    badges: []
+  };
+};
+
+// Search Operations
+export const searchTopics = async (searchTerm: string, limitCount: number = 20): Promise<Topic[]> => {
+  // Note: Firestore doesn't support full-text search natively
+  // This is a simple implementation - for production, consider Algolia or similar
+  const allTopics = await getTopics(undefined, 'latest', 100);
+  const lowerSearchTerm = searchTerm.toLowerCase();
+  
+  return allTopics
+    .filter(topic => 
+      topic.title.toLowerCase().includes(lowerSearchTerm) ||
+      topic.content.toLowerCase().includes(lowerSearchTerm)
+    )
+    .slice(0, limitCount);
+};
+
+// Upload topic image
+export const uploadTopicImage = async (file: File, topicId: string) => {
+  const timestamp = Date.now();
+  const fileName = `topic_${topicId}_${timestamp}_${file.name}`;
+  return uploadImage(file, `topics/${topicId}/${fileName}`);
 };
 

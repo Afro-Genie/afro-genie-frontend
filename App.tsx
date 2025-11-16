@@ -7,14 +7,18 @@ import TranslationPage from './pages/TranslationPage';
 import SearchResultsPage from './pages/SearchResultsPage';
 import RequestTranslationPage from './pages/RequestTranslationPage';
 import CommunityPage from './pages/CommunityPage';
+import TopicDetail from './components/community/TopicDetail';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminLayout from './components/admin/AdminLayout';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import ArtistsManager from './pages/admin/ArtistsManager';
 import SongsManager from './pages/admin/SongsManager';
 import GenresManager from './pages/admin/GenresManager';
+import CommunityManager from './pages/admin/CommunityManager';
 import UsersManager from './pages/admin/UsersManager';
 import UnifiedManager from './pages/admin/UnifiedManager';
+import GenieManager from './pages/admin/GenieManager';
+import LyricImporter from './pages/admin/LyricImporter';
 
 function App() {
   return (
@@ -29,6 +33,8 @@ function App() {
             <Route path="/search/:query" element={<SearchResultsPage />} />
             <Route path="/request-translation" element={<RequestTranslationPage />} />
             <Route path="/community" element={<CommunityPage />} />
+            <Route path="/community/create" element={<CommunityPage />} />
+            <Route path="/community/topic/:topicId" element={<TopicDetail />} />
             <Route
               path="/admin/*"
               element={
@@ -41,8 +47,11 @@ function App() {
                   <Route path="artists" element={<ArtistsManager />} />
                   <Route path="songs" element={<SongsManager />} />
                   <Route path="genres" element={<GenresManager />} />
+                  <Route path="community" element={<CommunityManager />} />
                   <Route path="users" element={<UsersManager />} />
                   <Route path="unified" element={<UnifiedManager />} />
+                  <Route path="genie" element={<GenieManager />} />
+                  <Route path="lyric-importer" element={<LyricImporter />} />
             </Route>
           </Routes>
           </main>
