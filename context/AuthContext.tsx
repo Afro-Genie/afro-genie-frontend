@@ -7,9 +7,10 @@ import {
   onAuthStateChanged,
   GoogleAuthProvider,
   signInWithPopup,
-  signInAnonymously
+  signInAnonymously,
+  sendEmailVerification
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, serverTimestamp, collection, query, where, getDocs, addDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 
 interface UserProfile {
@@ -17,9 +18,24 @@ interface UserProfile {
   email: string | null;
   displayName: string | null;
   photoURL: string | null;
-  role: 'user' | 'admin' | 'moderator';
+  role: 'user' | 'admin' | 'moderator' | 'artist';
   createdAt: any;
   lastLogin: any;
+  artistProfile?: {
+    stageName: string;
+    genre: string;
+    bio: string;
+    location?: string;
+    website?: string;
+    socialLinks?: {
+      instagram?: string;
+      twitter?: string;
+      facebook?: string;
+      youtube?: string;
+    };
+    verified: boolean;
+    verifiedAt?: any;
+  };
 }
 
 interface AuthContextType {
@@ -28,10 +44,25 @@ interface AuthContextType {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, displayName: string) => Promise<void>;
+  signUpAsArtist: (email: string, password: string, artistData: {
+    stageName: string;
+    genre: string;
+    bio: string;
+    location?: string;
+    website?: string;
+    socialLinks?: {
+      instagram?: string;
+      twitter?: string;
+      facebook?: string;
+      youtube?: string;
+    };
+    photoURL?: string;
+  }) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signInAnonymously: () => Promise<void>;
   logout: () => Promise<void>;
   isAdmin: boolean;
+  isArtist: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -144,9 +175,85 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const result = await createUserWithEmailAndPassword(auth, email, password);
       // Update display name
       await result.user.updateProfile({ displayName });
+      // Send email verification
+      await sendEmailVerification(result.user);
       // Profile will be created in the useEffect listener
     } catch (error) {
       console.error('Sign up error:', error);
+      throw error;
+    }
+  };
+
+  const signUpAsArtist = async (
+    email: string,
+    password: string,
+    artistData: {
+      stageName: string;
+      genre: string;
+      bio: string;
+      location?: string;
+      website?: string;
+      socialLinks?: {
+        instagram?: string;
+        twitter?: string;
+        facebook?: string;
+        youtube?: string;
+      };
+      photoURL?: string;
+    }
+  ) => {
+    try {
+      const result = await createUserWithEmailAndPassword(auth, email, password);
+      
+      // Update display name to stage name
+      await result.user.updateProfile({ 
+        displayName: artistData.stageName,
+        photoURL: artistData.photoURL 
+      });
+
+      // Send email verification
+      await sendEmailVerification(result.user);
+
+      // Create artist profile in Firestore
+      const userRef = doc(db, 'users', result.user.uid);
+      await setDoc(userRef, {
+        uid: result.user.uid,
+        email: result.user.email,
+        displayName: artistData.stageName,
+        photoURL: artistData.photoURL || result.user.photoURL,
+        role: 'artist',
+        artistProfile: {
+          stageName: artistData.stageName,
+          genre: artistData.genre,
+          bio: artistData.bio,
+          location: artistData.location,
+          website: artistData.website,
+          socialLinks: artistData.socialLinks,
+          verified: true, // Auto-verified on signup
+          verifiedAt: serverTimestamp()
+        },
+        createdAt: serverTimestamp(),
+        lastLogin: serverTimestamp()
+      }, { merge: true });
+
+      // Create or update artist document
+      const artistsQuery = query(
+        collection(db, 'artists'),
+        where('name', '==', artistData.stageName)
+      );
+      const artistsSnapshot = await getDocs(artistsQuery);
+      
+      if (artistsSnapshot.empty) {
+        await addDoc(collection(db, 'artists'), {
+          name: artistData.stageName,
+          genre: artistData.genre,
+          image: artistData.photoURL || '',
+          userId: result.user.uid, // Link to user
+          createdAt: serverTimestamp()
+        });
+      }
+    } catch (error) {
+      console.error('Artist sign up error:', error);
       throw error;
     }
   };
@@ -181,6 +288,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const isAdmin = userProfile?.role === 'admin';
+  const isArtist = userProfile?.role === 'artist';
 
   const value = {
     user,
@@ -188,10 +296,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loading,
     signIn,
     signUp,
+    signUpAsArtist,
     signInWithGoogle,
     signInAnonymously: signInAsAnonymous,
     logout,
-    isAdmin
+    isAdmin,
+    isArtist
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

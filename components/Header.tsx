@@ -23,6 +23,12 @@ const Header: React.FC = () => {
             {/* Search, Actions */}
             <div className="flex items-center space-x-4">
               <SearchBar variant="header" />
+              <Link
+                to="/artist/signup"
+                className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors hidden md:block"
+              >
+                For Artists
+              </Link>
               <button className="p-2 rounded-md text-gray-300 hover:bg-[#2a3c30] hover:text-white transition-colors">
                 <MenuIcon className="h-6 w-6" />
               </button>

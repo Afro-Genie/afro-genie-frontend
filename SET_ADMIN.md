@@ -70,3 +70,4 @@ If you still get "Access Denied":
 - Sign out completely and sign back in
 - Check Firestore rules allow reading user documents
 
+

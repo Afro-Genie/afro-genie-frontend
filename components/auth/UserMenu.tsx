@@ -8,7 +8,7 @@ interface UserMenuProps {
 }
 
 const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
-  const { user, isAdmin, logout } = useAuth();
+  const { user, isAdmin, isArtist, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
@@ -28,6 +28,14 @@ const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
   if (user) {
     return (
       <div className="flex items-center space-x-4">
+        {isArtist && (
+          <Link 
+            to="/artist/dashboard" 
+            className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors"
+          >
+            Artist Dashboard
+          </Link>
+        )}
         {isAdmin && (
           <Link 
             to="/admin" 
@@ -81,6 +89,11 @@ const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
                     {user.displayName || 'User'}
                   </p>
                   <p className="text-xs text-gray-400 truncate">{user.email}</p>
+                  {isArtist && (
+                    <span className="inline-block mt-1 px-2 py-0.5 text-xs font-medium bg-purple-900/50 text-purple-300 rounded mr-1">
+                      Artist
+                    </span>
+                  )}
                   {isAdmin && (
                     <span className="inline-block mt-1 px-2 py-0.5 text-xs font-medium bg-green-900/50 text-green-300 rounded">
                       Admin
@@ -109,6 +122,19 @@ const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
                     </svg>
                     Request Translation
                   </Link>
+
+                  {isArtist && (
+                    <Link
+                      to="/artist/dashboard"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
+                    >
+                      <svg className="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                      </svg>
+                      Artist Dashboard
+                    </Link>
+                  )}
 
                   {isAdmin && (
                     <Link

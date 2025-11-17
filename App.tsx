@@ -20,6 +20,8 @@ import UnifiedManager from './pages/admin/UnifiedManager';
 import GenieManager from './pages/admin/GenieManager';
 import LyricImporter from './pages/admin/LyricImporter';
 import LyricsManager from './pages/admin/LyricsManager';
+import ArtistSignupPage from './pages/ArtistSignupPage';
+import ArtistDashboard from './pages/ArtistDashboard';
 
 function App() {
   return (
@@ -36,6 +38,15 @@ function App() {
             <Route path="/community" element={<CommunityPage />} />
             <Route path="/community/create" element={<CommunityPage />} />
             <Route path="/community/topic/:topicId" element={<TopicDetail />} />
+            <Route path="/artist/signup" element={<ArtistSignupPage />} />
+            <Route
+              path="/artist/dashboard"
+              element={
+                <ProtectedRoute requireArtist>
+                  <ArtistDashboard />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/admin/*"
               element={

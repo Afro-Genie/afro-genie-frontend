@@ -29,6 +29,9 @@ export interface Song {
   artist: string;
   artistId: string;
   image: string;
+  createdBy?: string; // User ID who created the song
+  createdAt?: any;
+  updatedAt?: any;
 }
 
 export interface Genre {
@@ -166,13 +169,29 @@ export interface UserProfileExtended {
   email: string | null;
   displayName: string | null;
   photoURL: string | null;
-  role: 'user' | 'admin' | 'moderator';
+  role: 'user' | 'admin' | 'moderator' | 'artist';
   createdAt: any;
   lastLogin: any;
   postCount?: number;
   commentCount?: number;
   reputation?: number;
   badges?: UserBadge[];
+  // Artist-specific fields
+  artistProfile?: {
+    stageName: string;
+    genre: string;
+    bio: string;
+    location?: string;
+    website?: string;
+    socialLinks?: {
+      instagram?: string;
+      twitter?: string;
+      facebook?: string;
+      youtube?: string;
+    };
+    verified: boolean;
+    verifiedAt?: any;
+  };
 }
 
 export interface Translation {

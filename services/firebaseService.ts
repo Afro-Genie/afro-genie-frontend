@@ -408,9 +408,24 @@ export interface UserProfile {
   email: string | null;
   displayName: string | null;
   photoURL: string | null;
-  role: 'user' | 'admin' | 'moderator';
+  role: 'user' | 'admin' | 'moderator' | 'artist';
   createdAt: Timestamp;
   lastLogin: Timestamp;
+  artistProfile?: {
+    stageName: string;
+    genre: string;
+    bio: string;
+    location?: string;
+    website?: string;
+    socialLinks?: {
+      instagram?: string;
+      twitter?: string;
+      facebook?: string;
+      youtube?: string;
+    };
+    verified: boolean;
+    verifiedAt?: Timestamp;
+  };
 }
 
 export const getAllUsers = async () => {
@@ -1112,5 +1127,205 @@ export const getAllSyncJobs = async (userId?: string): Promise<SyncJobData[]> =>
 
 export const deleteSyncJob = async (jobId: string): Promise<void> => {
   await deleteDoc(doc(db, COLLECTIONS.SYNC_JOBS, jobId));
+};
+
+// Artist-specific operations
+export const getArtistSongs = async (userId: string): Promise<Song[]> => {
+  // Get songs created by this artist user
+  const q = query(
+    collection(db, COLLECTIONS.SONGS),
+    where('createdBy', '==', userId),
+    orderBy('createdAt', 'desc')
+  );
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Song));
+};
+
+export const addSongAsArtist = async (
+  songData: Omit<Song, 'id'>,
+  artistId: string,
+  userId: string
+): Promise<string> => {
+  // Verify the user is the artist
+  const artist = await getArtist(artistId);
+  if (!artist) {
+    throw new Error('Artist not found');
+  }
+  
+  // Verify userId matches artistId (or check if user is the artist)
+  const userProfile = await getUserProfile(userId);
+  if (userProfile?.role !== 'artist' || userProfile.uid !== userId) {
+    throw new Error('Only artists can add their own songs');
+  }
+
+  const docRef = await addDoc(collection(db, COLLECTIONS.SONGS), {
+    ...songData,
+    artistId,
+    createdBy: userId,
+    createdAt: serverTimestamp()
+  });
+  return docRef.id;
+};
+
+export const updateArtistSong = async (
+  songId: string,
+  updates: Partial<Omit<Song, 'id'>>,
+  userId: string
+): Promise<void> => {
+  // Verify user owns the song
+  const song = await getSong(songId);
+  if (!song) {
+    throw new Error('Song not found');
+  }
+
+  const userProfile = await getUserProfile(userId);
+  if (userProfile?.role !== 'artist') {
+    throw new Error('Only artists can update their songs');
+  }
+
+  // Check if user is the creator (we'll need to add createdBy field to songs)
+  const songDoc = await getDoc(doc(db, COLLECTIONS.SONGS, songId));
+  const createdBy = songDoc.data()?.createdBy;
+  
+  if (createdBy !== userId) {
+    throw new Error('You can only update your own songs');
+  }
+
+  await updateDoc(doc(db, COLLECTIONS.SONGS, songId), {
+    ...updates,
+    updatedAt: serverTimestamp()
+  });
+};
+
+export const deleteArtistSong = async (songId: string, userId: string): Promise<void> => {
+  // Verify user owns the song
+  const song = await getSong(songId);
+  if (!song) {
+    throw new Error('Song not found');
+  }
+
+  const userProfile = await getUserProfile(userId);
+  if (userProfile?.role !== 'artist') {
+    throw new Error('Only artists can delete their songs');
+  }
+
+  const songDoc = await getDoc(doc(db, COLLECTIONS.SONGS, songId));
+  const createdBy = songDoc.data()?.createdBy;
+  
+  if (createdBy !== userId) {
+    throw new Error('You can only delete your own songs');
+  }
+
+  await deleteDoc(doc(db, COLLECTIONS.SONGS, songId));
+  
+  // Also delete associated translations
+  const translationsQuery = query(
+    collection(db, COLLECTIONS.TRANSLATIONS),
+    where('songId', '==', songId)
+  );
+  const translationsSnapshot = await getDocs(translationsQuery);
+  const deletePromises = translationsSnapshot.docs.map(doc => deleteDoc(doc.ref));
+  await Promise.all(deletePromises);
+};
+
+export const getArtistAnalytics = async (userId: string): Promise<{
+  totalSongs: number;
+  totalTranslations: number;
+  totalViews: number;
+  songs: Array<{
+    id: string;
+    title: string;
+    views: number;
+    translations: number;
+  }>;
+}> => {
+  const songs = await getArtistSongs(userId);
+  const allTranslations = await getAllTranslations();
+  
+  const songAnalytics = songs.map(song => {
+    const songTranslations = allTranslations.filter(t => t.songId === song.id);
+    return {
+      id: song.id,
+      title: song.title,
+      views: 0, // TODO: Add view tracking
+      translations: songTranslations.length
+    };
+  });
+
+  return {
+    totalSongs: songs.length,
+    totalTranslations: allTranslations.filter(t => songs.some(s => s.id === t.songId)).length,
+    totalViews: 0, // TODO: Add view tracking
+    songs: songAnalytics
+  };
+};
+
+export const updateArtistProfile = async (
+  userId: string,
+  profileData: {
+    stageName: string;
+    genre: string;
+    bio: string;
+    location?: string;
+    website?: string;
+    socialLinks?: {
+      instagram?: string;
+      twitter?: string;
+      facebook?: string;
+      youtube?: string;
+    };
+    photoURL?: string;
+  }
+): Promise<void> => {
+  const userRef = doc(db, COLLECTIONS.USERS, userId);
+  const userDoc = await getDoc(userRef);
+  
+  if (!userDoc.exists()) {
+    throw new Error('User not found');
+  }
+
+  const userData = userDoc.data();
+  if (userData.role !== 'artist') {
+    throw new Error('User is not an artist');
+  }
+
+  await updateDoc(userRef, {
+    displayName: profileData.stageName,
+    photoURL: profileData.photoURL || userData.photoURL,
+    artistProfile: {
+      stageName: profileData.stageName,
+      genre: profileData.genre,
+      bio: profileData.bio,
+      location: profileData.location,
+      website: profileData.website,
+      socialLinks: profileData.socialLinks,
+      verified: userData.artistProfile?.verified || false,
+      verifiedAt: userData.artistProfile?.verifiedAt || null
+    },
+    updatedAt: serverTimestamp()
+  });
+
+  // Also update the artist document if it exists
+  const artistsQuery = query(
+    collection(db, COLLECTIONS.ARTISTS),
+    where('name', '==', profileData.stageName)
+  );
+  const artistsSnapshot = await getDocs(artistsQuery);
+  
+  if (artistsSnapshot.empty) {
+    // Create artist document
+    await addArtist({
+      name: profileData.stageName,
+      genre: profileData.genre,
+      image: profileData.photoURL || ''
+    });
+  } else {
+    // Update existing artist
+    const artistDoc = artistsSnapshot.docs[0];
+    await updateArtist(artistDoc.id, {
+      genre: profileData.genre,
+      image: profileData.photoURL || artistDoc.data().image
+    });
+  }
 };
 

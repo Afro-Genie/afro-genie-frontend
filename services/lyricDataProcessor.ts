@@ -238,3 +238,4 @@ class LyricDataProcessor {
 
 export default new LyricDataProcessor();
 
+
