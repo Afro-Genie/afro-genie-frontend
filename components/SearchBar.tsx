@@ -75,7 +75,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ variant = 'header' }) => {
     if (query.trim()) {
       navigate(`/search/${encodeURIComponent(query.trim())}`);
       setSuggestions([]);
-      setQuery('');
+      // Don't clear query here - let the search page handle it
     }
   };
   

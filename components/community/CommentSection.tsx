@@ -42,8 +42,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({ topicId, comments, onCo
       await addComment({
         topicId,
         userId: user.uid,
-        userName: userProfile?.displayName || user.email || 'Anonymous',
-        userAvatar: userProfile?.photoURL || undefined,
+        userName: userProfile?.displayName || user.displayName || user.email || 'Anonymous',
+        userAvatar: userProfile?.photoURL || user.photoURL || undefined,
         content: newComment.trim(),
         parentCommentId: replyingTo || undefined
       });

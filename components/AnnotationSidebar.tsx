@@ -40,8 +40,8 @@ const AnnotationSidebar: React.FC<AnnotationSidebarProps> = ({ songId }) => {
       await addAnnotation({
         songId,
         userId: user.uid,
-        userName: userProfile?.displayName || user.email || 'Anonymous',
-        userAvatar: userProfile?.photoURL || undefined,
+        userName: userProfile?.displayName || user.displayName || user.email || 'Anonymous',
+        userAvatar: userProfile?.photoURL || user.photoURL || undefined,
         comment: newComment.trim()
       });
       

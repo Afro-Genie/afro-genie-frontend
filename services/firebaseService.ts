@@ -306,10 +306,21 @@ export interface Annotation {
 }
 
 export const addAnnotation = async (annotation: Omit<Annotation, 'id' | 'createdAt'>) => {
-  const docRef = await addDoc(collection(db, COLLECTIONS.ANNOTATIONS), {
-    ...annotation,
+  // Filter out undefined values - Firestore doesn't allow undefined
+  const annotationData: any = {
+    songId: annotation.songId,
+    userId: annotation.userId,
+    userName: annotation.userName,
+    comment: annotation.comment,
     createdAt: serverTimestamp()
-  });
+  };
+
+  // Only add optional fields if they have values
+  if (annotation.userAvatar) {
+    annotationData.userAvatar = annotation.userAvatar;
+  }
+
+  const docRef = await addDoc(collection(db, COLLECTIONS.ANNOTATIONS), annotationData);
   return docRef.id;
 };
 
@@ -640,8 +651,13 @@ export const updateFullSongPackage = async (
 
 // Topic Operations
 export const createTopic = async (topic: Omit<Topic, 'id' | 'createdAt' | 'updatedAt' | 'likes' | 'shares' | 'commentCount' | 'isPinned' | 'isLocked'>) => {
-  const docRef = await addDoc(collection(db, COLLECTIONS.TOPICS), {
-    ...topic,
+  // Filter out undefined values - Firestore doesn't allow undefined
+  const topicData: any = {
+    title: topic.title,
+    content: topic.content,
+    authorId: topic.authorId,
+    authorName: topic.authorName,
+    category: topic.category,
     likes: 0,
     shares: 0,
     commentCount: 0,
@@ -649,7 +665,23 @@ export const createTopic = async (topic: Omit<Topic, 'id' | 'createdAt' | 'updat
     isLocked: false,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
-  });
+  };
+
+  // Only add optional fields if they have values
+  if (topic.authorAvatar) {
+    topicData.authorAvatar = topic.authorAvatar;
+  }
+  if (topic.songId) {
+    topicData.songId = topic.songId;
+  }
+  if (topic.artistId) {
+    topicData.artistId = topic.artistId;
+  }
+  if (topic.imageUrl) {
+    topicData.imageUrl = topic.imageUrl;
+  }
+
+  const docRef = await addDoc(collection(db, COLLECTIONS.TOPICS), topicData);
   
   // Increment user post count
   if (topic.authorId) {
@@ -677,27 +709,105 @@ export const getTopics = async (
   sortBy: 'latest' | 'mostLiked' | 'mostCommented' = 'latest',
   limitCount: number = 20
 ): Promise<Topic[]> => {
-  let q;
-  
-  if (category) {
-    q = query(
-      collection(db, COLLECTIONS.TOPICS),
-      where('category', '==', category),
-      orderBy('isPinned', 'desc'),
-      orderBy(sortBy === 'mostLiked' ? 'likes' : sortBy === 'mostCommented' ? 'commentCount' : 'createdAt', 'desc'),
-      limit(limitCount)
-    );
-  } else {
-    q = query(
-      collection(db, COLLECTIONS.TOPICS),
-      orderBy('isPinned', 'desc'),
-      orderBy(sortBy === 'mostLiked' ? 'likes' : sortBy === 'mostCommented' ? 'commentCount' : 'createdAt', 'desc'),
-      limit(limitCount)
-    );
+  try {
+    let q;
+    
+    if (category && category.trim()) {
+      // Filter by category
+      const sortField = sortBy === 'mostLiked' ? 'likes' : sortBy === 'mostCommented' ? 'commentCount' : 'createdAt';
+      
+      // Try with pinned first, if that fails, try without
+      try {
+        q = query(
+          collection(db, COLLECTIONS.TOPICS),
+          where('category', '==', category),
+          orderBy('isPinned', 'desc'),
+          orderBy(sortField, 'desc'),
+          limit(limitCount)
+        );
+      } catch (error: any) {
+        // If composite index error, try without isPinned
+        if (error.code === 'failed-precondition') {
+          q = query(
+            collection(db, COLLECTIONS.TOPICS),
+            where('category', '==', category),
+            orderBy(sortField, 'desc'),
+            limit(limitCount)
+          );
+        } else {
+          throw error;
+        }
+      }
+    } else {
+      // Get all topics
+      const sortField = sortBy === 'mostLiked' ? 'likes' : sortBy === 'mostCommented' ? 'commentCount' : 'createdAt';
+      
+      try {
+        q = query(
+          collection(db, COLLECTIONS.TOPICS),
+          orderBy('isPinned', 'desc'),
+          orderBy(sortField, 'desc'),
+          limit(limitCount)
+        );
+      } catch (error: any) {
+        // If composite index error, try without isPinned
+        if (error.code === 'failed-precondition') {
+          q = query(
+            collection(db, COLLECTIONS.TOPICS),
+            orderBy(sortField, 'desc'),
+            limit(limitCount)
+          );
+        } else {
+          throw error;
+        }
+      }
+    }
+    
+    const querySnapshot = await getDocs(q);
+    const topics = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Topic));
+    
+    // Sort pinned topics to top manually if needed
+    return topics.sort((a, b) => {
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      return 0;
+    });
+  } catch (error: any) {
+    console.error('Error fetching topics:', error);
+    // Fallback: get all topics and filter in memory
+    try {
+      const allTopicsSnapshot = await getDocs(collection(db, COLLECTIONS.TOPICS));
+      let allTopics = allTopicsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Topic));
+      
+      // Filter by category if specified
+      if (category && category.trim()) {
+        allTopics = allTopics.filter(t => t.category === category);
+      }
+      
+      // Sort
+      const sortField = sortBy === 'mostLiked' ? 'likes' : sortBy === 'mostCommented' ? 'commentCount' : 'createdAt';
+      allTopics.sort((a, b) => {
+        // Pinned first
+        if (a.isPinned && !b.isPinned) return -1;
+        if (!a.isPinned && b.isPinned) return 1;
+        
+        // Then by sort field
+        const aVal = a[sortField] || 0;
+        const bVal = b[sortField] || 0;
+        if (sortField === 'createdAt') {
+          const aDate = aVal?.toDate ? aVal.toDate() : new Date(aVal);
+          const bDate = bVal?.toDate ? bVal.toDate() : new Date(bVal);
+          return bDate.getTime() - aDate.getTime();
+        }
+        return (bVal as number) - (aVal as number);
+      });
+      
+      return allTopics.slice(0, limitCount);
+    } catch (fallbackError) {
+      console.error('Fallback query also failed:', fallbackError);
+      return [];
+    }
   }
-  
-  const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Topic));
 };
 
 export const getTopicsBySong = async (songId: string): Promise<Topic[]> => {
@@ -759,12 +869,26 @@ export const lockTopic = async (topicId: string, locked: boolean) => {
 
 // Comment Operations
 export const addComment = async (comment: Omit<TopicComment, 'id' | 'createdAt' | 'updatedAt' | 'likes'>) => {
-  const docRef = await addDoc(collection(db, COLLECTIONS.TOPIC_COMMENTS), {
-    ...comment,
+  // Filter out undefined values - Firestore doesn't allow undefined
+  const commentData: any = {
+    topicId: comment.topicId,
+    userId: comment.userId,
+    userName: comment.userName,
+    content: comment.content,
     likes: 0,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
-  });
+  };
+
+  // Only add optional fields if they have values
+  if (comment.userAvatar) {
+    commentData.userAvatar = comment.userAvatar;
+  }
+  if (comment.parentCommentId) {
+    commentData.parentCommentId = comment.parentCommentId;
+  }
+
+  const docRef = await addDoc(collection(db, COLLECTIONS.TOPIC_COMMENTS), commentData);
   
   // Increment topic comment count
   const topicRef = doc(db, COLLECTIONS.TOPICS, comment.topicId);

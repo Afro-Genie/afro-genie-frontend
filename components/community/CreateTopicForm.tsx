@@ -92,12 +92,12 @@ const CreateTopicForm: React.FC<CreateTopicFormProps> = ({ initialCategory, init
         title: title.trim(),
         content: content.trim(),
         authorId: user.uid,
-        authorName: userProfile?.displayName || user.email || 'Anonymous',
-        authorAvatar: userProfile?.photoURL || undefined,
+        authorName: userProfile?.displayName || user.displayName || user.email || 'Anonymous',
+        authorAvatar: userProfile?.photoURL || user.photoURL || undefined,
         category,
         songId: songId || undefined,
         artistId: artistId || undefined,
-        imageUrl
+        imageUrl: imageUrl || undefined
       });
 
       navigate(`/community/topic/${topicId}`);

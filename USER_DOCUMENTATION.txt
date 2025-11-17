@@ -5,6 +5,9 @@
 Version: 1.0
 Last Updated: November 2024
 Website: https://afrogenie.web.app
+Acess:
+Admin Email: admin@afro-genie.com
+password: Admin@@87
 
 ================================================================================
                             TABLE OF CONTENTS
@@ -807,8 +810,12 @@ Solutions:
 - Try refreshing page
 - Clear browser cache
 
-9.6 ADMIN PANEL ACCESS DENIED
+9.6 ADMIN PANEL ACCESS AND DENY
 ------------------------------
+Acess:
+Admin Email: admin@afro-genie.com
+password: Admin@@87
+
 Problem: Can't access admin features
 
 Solutions:
@@ -817,6 +824,8 @@ Solutions:
 - Check with system administrator
 - Verify role in Firebase Console
 
+
+Adm
 ================================================================================
 10. FREQUENTLY ASKED QUESTIONS
 ================================================================================
