@@ -1,0 +1,898 @@
+================================================================================
+                    AFRO GENIE - COMPLETE USER DOCUMENTATION
+================================================================================
+
+Version: 1.0
+Last Updated: November 2024
+Website: https://afrogenie.web.app
+
+================================================================================
+                            TABLE OF CONTENTS
+================================================================================
+
+1. OVERVIEW
+2. GETTING STARTED
+3. MAIN FEATURES FOR REGULAR USERS
+4. COMMUNITY FORUM FEATURES
+5. ARTIST FEATURES
+6. ADMIN FEATURES
+7. NAVIGATION GUIDE
+8. KEY FUNCTIONS & HOW TO USE THEM
+9. TROUBLESHOOTING
+10. FREQUENTLY ASKED QUESTIONS
+
+================================================================================
+1. OVERVIEW
+================================================================================
+
+Afro Genie is Africa's premier AI-powered lyric translation and cultural 
+annotation platform. It provides:
+
+- The largest library of African lyrics in multiple languages
+- AI-powered translations that preserve cultural context
+- Community-driven discussions and cultural insights
+- Artist tools for managing their content
+- Comprehensive admin management system
+
+The platform supports various African languages and dialects, translating them
+into global languages while maintaining the original meaning, context, and
+cultural significance.
+
+================================================================================
+2. GETTING STARTED
+================================================================================
+
+2.1 ACCESSING THE APPLICATION
+-----------------------------
+- Website URL: https://afrogenie.web.app
+- No account required to browse and search
+- Sign in required for: saving favorites, creating topics, requesting translations
+
+2.2 CREATING AN ACCOUNT
+-----------------------
+1. Click "Sign In" button in the top right corner
+2. Choose your preferred sign-in method:
+   - Google Account (recommended)
+   - Email and password
+3. Complete your profile information
+4. You're ready to use all features!
+
+2.3 FIRST TIME USER GUIDE
+--------------------------
+1. Start at the homepage to explore trending artists and genres
+2. Use the search bar to find specific songs or artists
+3. Click on any song to view lyrics and translations
+4. Join the community forum to discuss music and culture
+5. Save your favorite songs for quick access later
+
+================================================================================
+3. MAIN FEATURES FOR REGULAR USERS
+================================================================================
+
+3.1 HOMEPAGE
+------------
+The homepage is your starting point with:
+
+- SEARCH BAR: Search for artists, songs, languages, or genres
+- TRENDING ARTISTS: Browse popular African artists with their images
+- EXPLORE BY GENRE: Discover music by genre categories
+- TRENDING DISCUSSIONS: See the most popular community topics
+- FLOATING GENIE: Animated mascot that can be customized by admins
+
+How to Use:
+- Click on any artist card to search for their songs
+- Click on any genre to filter by that genre
+- Use the search bar for specific queries
+- Click "View All" on trending discussions to join the community
+
+3.2 SEARCH FUNCTIONALITY
+-------------------------
+The search feature is available in the header and homepage.
+
+Search Capabilities:
+- Search by Artist Name
+- Search by Song Title
+- Search by Genre
+- Search by Language
+
+How to Use:
+1. Type your search query in the search bar
+2. Press Enter or click the search icon
+3. Results will show matching artists, songs, and genres
+4. Click on any result to view details
+
+3.3 VIEWING SONGS AND LYRICS
+-----------------------------
+When you click on a song, you'll see:
+
+- Song Title and Artist Information
+- Original Lyrics (in the original language)
+- Translated Lyrics (with cultural context)
+- Language Tabs: Switch between Original and Translation views
+- Action Bar with:
+  * Like/Unlike button (save to favorites)
+  * Share button
+  * Discuss button (link to community forum)
+  * Font size adjustment
+
+How to Use:
+1. Navigate to a song page
+2. Use tabs to switch between Original and Translation
+3. Click the heart icon to add to favorites (requires sign-in)
+4. Click Share to share the song with others
+5. Click Discuss to start or join a discussion about the song
+
+3.4 REQUESTING TRANSLATIONS
+----------------------------
+Request AI-powered translations for songs not yet in the database.
+
+How to Use:
+1. Click "Request Translation" in the header or homepage
+2. Fill in the form:
+   - Song Title (required)
+   - Artist Name (required)
+   - Original Language (select from dropdown)
+   - Target Language (select from dropdown)
+   - Original Lyrics (paste the lyrics)
+   - Additional Context (optional - cultural notes, background info)
+3. Click "Generate Translation"
+4. The AI will process your request and provide:
+   - Translated lyrics
+   - Cultural context explanations
+   - Meaning preservation notes
+5. Review and submit if satisfied
+
+Features:
+- AI-powered translation using Gemini AI
+- Cultural context preservation
+- Multiple language support
+- Context-aware translations
+
+3.5 FAVORITES AND HISTORY
+--------------------------
+Save songs you love and track your viewing history.
+
+Favorites:
+- Click the heart icon on any song page
+- Access your favorites from your profile
+- Remove favorites by clicking the heart again
+
+History:
+- Automatically tracks songs you've viewed
+- Access from your profile menu
+- Helps you find recently viewed content
+
+How to Access:
+1. Sign in to your account
+2. Click your profile icon in the top right
+3. Select "Favorites" or "History" from the menu
+
+3.6 SHARING SONGS
+-----------------
+Share songs with friends and family.
+
+How to Use:
+1. Navigate to any song page
+2. Click the "Share" button in the action bar
+3. Choose your sharing method:
+   - Copy link to clipboard
+   - Share via native share dialog (mobile)
+   - Share on social media platforms
+
+================================================================================
+4. COMMUNITY FORUM FEATURES
+================================================================================
+
+The community forum is where users discuss music, share experiences, and
+connect with fellow music lovers.
+
+4.1 ACCESSING THE COMMUNITY
+----------------------------
+- Click "Community" in the navigation menu
+- Or visit: /community
+- No sign-in required to browse, but required to post
+
+4.2 FORUM CATEGORIES
+--------------------
+The forum is organized into categories:
+- General Discussion
+- Translation Requests
+- Cultural Insights
+- Artist Spotlights
+- And more (customizable by admins)
+
+Each category shows:
+- Category name and description
+- Number of topics
+- Latest topic preview
+
+4.3 CREATING A TOPIC
+---------------------
+Start a new discussion thread.
+
+How to Create:
+1. Click "Create Topic" button (top right of community page)
+2. Fill in the topic form:
+   - Title (required)
+   - Content/Description (required)
+   - Category (select from dropdown)
+   - Link to Song (optional - if discussing a specific song)
+   - Link to Artist (optional - if discussing an artist)
+   - Upload Image (optional)
+3. Click "Create Topic"
+4. Your topic will appear in the selected category
+
+Quick Create from Song Page:
+- Click "Discuss" button on any song page
+- The form will be pre-filled with song and artist information
+- Just add your thoughts and submit
+
+4.4 VIEWING TOPICS
+------------------
+Browse topics by:
+- Category (filter by specific category)
+- Latest (most recent first)
+- Most Liked (most popular)
+- Most Discussed (most comments)
+
+How to View:
+1. Go to Community page
+2. Click on a category to see all topics in that category
+3. Or browse all topics using filters
+4. Click on any topic card to read the full discussion
+
+4.5 TOPIC DETAILS PAGE
+----------------------
+When viewing a topic, you can see:
+
+- Full topic content
+- Author information and avatar
+- Creation date
+- Like count
+- Comment count
+- Share count
+- Linked song/artist (if applicable)
+- All comments and replies
+
+Actions Available:
+- Like the topic (click heart icon)
+- Share the topic
+- Comment on the topic
+- Reply to comments
+- Like comments
+
+4.6 COMMENTING
+--------------
+Engage in discussions by commenting.
+
+How to Comment:
+1. Navigate to a topic detail page
+2. Scroll to the comment section
+3. Type your comment in the text box
+4. Click "Post Comment"
+5. Your comment will appear immediately
+
+Replying to Comments:
+1. Click "Reply" on any comment
+2. Type your reply
+3. Click "Post Reply"
+4. Replies are nested under the original comment
+
+Liking Comments:
+- Click the heart icon on any comment
+- Shows appreciation for helpful comments
+
+4.7 TOPIC ACTIONS
+-----------------
+Like Topics:
+- Click the heart icon to like a topic
+- See total likes count
+- Unlike by clicking again
+
+Share Topics:
+- Click the share icon
+- Share via link or social media
+
+4.8 USER PROFILE IN COMMUNITY
+------------------------------
+Your community profile shows:
+
+- Profile picture and name
+- Post count (topics you've created)
+- Comment count (comments you've made)
+- Reputation score
+- Badges earned
+- Quick actions:
+  * Request Translation
+  * Start Discussion
+  * Admin Panel (if you're an admin)
+
+4.9 USER BADGES
+---------------
+Earn badges for community participation:
+- First Post badge
+- Active Contributor badge
+- Helpful Translator badge
+- Community Leader badge
+- And more (awarded by admins)
+
+View badges on your profile card in the community section.
+
+================================================================================
+5. ARTIST FEATURES
+================================================================================
+
+Artists have special tools to manage their content on the platform.
+
+5.1 ARTIST SIGNUP
+-----------------
+Artists can create a dedicated account.
+
+How to Sign Up:
+1. Click "Artist Signup" or visit /artist/signup
+2. Fill in the registration form:
+   - Artist Name
+   - Email Address
+   - Password
+   - Genre
+   - Bio
+   - Profile Image (optional)
+3. Submit for approval
+4. Once approved, access the Artist Dashboard
+
+5.2 ARTIST DASHBOARD
+--------------------
+Access your dashboard at /artist/dashboard (requires artist account)
+
+Features Available:
+- View Your Songs: See all your songs in the database
+- Add New Songs: Submit new songs with lyrics
+- Manage Lyrics: Edit or update existing lyrics
+- View Statistics: See views, likes, and engagement
+- Update Profile: Edit your artist information
+- Request Translations: Request translations for your songs
+
+How to Use:
+1. Sign in with your artist account
+2. Navigate to Artist Dashboard
+3. Use the sidebar to access different sections
+4. Manage your content and track performance
+
+5.3 SUBMITTING SONGS AS AN ARTIST
+----------------------------------
+Artists can directly submit their songs.
+
+Steps:
+1. Go to Artist Dashboard
+2. Click "Add New Song"
+3. Fill in song details:
+   - Song Title
+   - Lyrics (original language)
+   - Language
+   - Genre
+   - Release Date
+   - Album (optional)
+4. Submit for review
+5. Once approved, your song appears in the database
+
+5.4 REQUESTING TRANSLATIONS AS AN ARTIST
+----------------------------------------
+Artists can request translations for their songs.
+
+Steps:
+1. Go to Artist Dashboard
+2. Select a song
+3. Click "Request Translation"
+4. Specify target language
+5. Add cultural context if needed
+6. Submit request
+7. Translation will be generated and added to your song
+
+================================================================================
+6. ADMIN FEATURES
+================================================================================
+
+Administrators have full control over the platform. Access requires admin role.
+
+6.1 ACCESSING ADMIN PANEL
+-------------------------
+1. Sign in with an admin account
+2. Click your profile icon
+3. Select "Admin Panel" from the menu
+4. Or navigate directly to /admin
+
+6.2 ADMIN DASHBOARD
+-------------------
+Overview of platform statistics:
+- Total Artists
+- Total Songs
+- Total Genres
+- Total Users
+- Total Topics
+- Total Categories
+- Recent activity
+- Quick action cards
+
+6.3 ARTISTS MANAGER
+-------------------
+Manage all artists in the database.
+
+Features:
+- View all artists in a table
+- Add new artists
+- Edit existing artists
+- Delete artists
+- Search and filter artists
+- Upload artist images
+- Set artist genres
+
+How to Use:
+1. Go to Admin Panel > Artists
+2. Click "Add Artist" to create new
+3. Click edit icon to modify existing
+4. Click delete icon to remove (with confirmation)
+5. Use search bar to find specific artists
+
+6.4 SONGS MANAGER
+-----------------
+Manage all songs in the database.
+
+Features:
+- View all songs
+- Add new songs
+- Edit song details
+- Delete songs
+- Link songs to artists
+- Link songs to genres
+- Search and filter songs
+
+How to Use:
+1. Go to Admin Panel > Songs
+2. Use filters to find songs
+3. Click "Add Song" to create new
+4. Edit or delete as needed
+
+6.5 GENRES MANAGER
+------------------
+Manage music genres.
+
+Features:
+- View all genres
+- Add new genres
+- Edit genre information
+- Delete genres
+- Upload genre images
+- Set genre descriptions
+
+6.6 COMMUNITY MANAGER
+--------------------
+Moderate the community forum.
+
+Features:
+- View all topics
+- Edit topics
+- Delete topics
+- Pin/unpin topics (featured topics)
+- Lock/unlock topics (prevent new comments)
+- View comments for each topic
+- Delete comments
+- Manage categories:
+  * Create new categories
+  * Edit categories
+  * Delete categories
+  * Set category icons and order
+
+How to Use:
+1. Go to Admin Panel > Community
+2. Switch between tabs:
+   - Topics: Manage all discussion topics
+   - Categories: Manage forum categories
+   - Comments: View and moderate comments
+3. Use filters to find specific content
+4. Take moderation actions as needed
+
+Topic Moderation:
+- Pin: Makes topic appear at top of category
+- Lock: Prevents new comments (useful for resolved discussions)
+- Edit: Modify topic title or content
+- Delete: Remove topic permanently
+
+6.7 USERS MANAGER
+------------------
+Manage user accounts and roles.
+
+Features:
+- View all users
+- Edit user information
+- Change user roles (user, moderator, admin)
+- View user activity
+- Search users by email or name
+
+User Roles:
+- User: Regular member
+- Moderator: Can moderate community content
+- Admin: Full platform access
+
+6.8 UNIFIED MANAGER
+-------------------
+Import content from external APIs.
+
+Features:
+- Import artists from external sources
+- Import songs with metadata
+- Import lyrics from various sources
+- Resolve duplicates
+- Batch import operations
+
+Supported Sources:
+- Genius API
+- MusicBrainz
+- Last.fm
+- LyricFind
+- And more (configurable)
+
+6.9 GENIE MANAGER
+-----------------
+Customize the floating genie mascot on the homepage.
+
+Features:
+- Upload custom genie image
+- Set animation type (float, bounce, pulse, spin, none)
+- Adjust animation duration (1-10 seconds)
+- Set animation delay (0-5 seconds)
+- Control background opacity (0-100%)
+- Set genie size (small, medium, large)
+- Live preview of changes
+
+How to Use:
+1. Go to Admin Panel > Genie Settings
+2. Upload a new image or adjust settings
+3. Use the live preview to see changes
+4. Click "Save Settings" to apply
+
+6.10 LYRIC IMPORTER
+-------------------
+Bulk import lyrics into the system.
+
+Features:
+- Import from text files
+- Import from CSV
+- Batch processing
+- Automatic artist/song matching
+- Duplicate detection
+
+6.11 LYRICS MANAGER
+-------------------
+Manage all lyrics and translations.
+
+Features:
+- View all lyrics
+- Edit lyrics
+- Add translations
+- Delete lyrics
+- Link to songs
+- Search lyrics
+
+================================================================================
+7. NAVIGATION GUIDE
+================================================================================
+
+7.1 HEADER NAVIGATION
+---------------------
+The header contains:
+- Logo (click to go home)
+- Search Bar (always accessible)
+- Menu Icon (mobile menu)
+- Sign In Button / User Profile Icon
+
+7.2 MAIN ROUTES
+---------------
+Public Routes (No sign-in required):
+- / (Homepage)
+- /search/:query (Search results)
+- /song/:id (Song detail page)
+- /request-translation (Request translation page)
+- /community (Community forum)
+- /community/topic/:topicId (Topic detail page)
+
+Protected Routes (Sign-in required):
+- /artist/dashboard (Artist dashboard)
+- /admin/* (Admin panel - requires admin role)
+
+7.3 QUICK NAVIGATION TIPS
+-------------------------
+- Use browser back button to navigate back
+- Click logo to return to homepage
+- Use search bar from anywhere
+- Access profile menu from top right icon
+- Use sidebar on community page for filters
+
+================================================================================
+8. KEY FUNCTIONS & HOW TO USE THEM
+================================================================================
+
+8.1 SEARCHING FOR CONTENT
+-------------------------
+Function: Find artists, songs, genres, or languages
+
+Steps:
+1. Click on search bar (top of page)
+2. Type your search query
+3. Press Enter or click search icon
+4. Review search results
+5. Click on any result to view details
+
+Tips:
+- Use specific terms for better results
+- Search by artist name, song title, or genre
+- Use filters on results page to narrow down
+
+8.2 REQUESTING A TRANSLATION
+----------------------------
+Function: Get AI-powered translation for a song
+
+Steps:
+1. Navigate to Request Translation page
+2. Enter song title and artist name
+3. Select original and target languages
+4. Paste original lyrics
+5. Add cultural context (optional)
+6. Click "Generate Translation"
+7. Review the translation
+8. Submit if satisfied
+
+Tips:
+- Provide accurate original lyrics
+- Include cultural context for better translations
+- Be patient - AI processing takes a moment
+
+8.3 CREATING A FORUM TOPIC
+--------------------------
+Function: Start a discussion in the community
+
+Steps:
+1. Go to Community page
+2. Click "Create Topic" button
+3. Enter topic title
+4. Write your content
+5. Select a category
+6. Link to song/artist (optional)
+7. Upload image (optional)
+8. Click "Create Topic"
+
+Tips:
+- Use descriptive titles
+- Choose the right category
+- Link to songs/artists when relevant
+- Add images to make topics more engaging
+
+8.4 SAVING FAVORITES
+--------------------
+Function: Save songs you love for quick access
+
+Steps:
+1. Navigate to any song page
+2. Click the heart icon in the action bar
+3. Song is saved to your favorites
+4. Access from your profile menu
+
+Tips:
+- Sign in to save favorites
+- Favorites sync across devices
+- Remove by clicking heart again
+
+8.5 SHARING CONTENT
+------------------
+Function: Share songs or topics with others
+
+Steps:
+1. Navigate to song or topic page
+2. Click Share button
+3. Choose sharing method:
+   - Copy link
+   - Native share (mobile)
+   - Social media
+
+8.6 COMMENTING ON TOPICS
+-------------------------
+Function: Participate in discussions
+
+Steps:
+1. Go to topic detail page
+2. Scroll to comment section
+3. Type your comment
+4. Click "Post Comment"
+5. Reply to comments by clicking "Reply"
+
+Tips:
+- Be respectful in comments
+- Stay on topic
+- Use replies for threaded discussions
+
+8.7 LIKING CONTENT
+------------------
+Function: Show appreciation for topics or comments
+
+Steps:
+1. Click heart icon on topic or comment
+2. Like count increases
+3. Click again to unlike
+
+8.8 MANAGING ARTIST CONTENT
+---------------------------
+Function: Artists manage their songs and profile
+
+Steps:
+1. Sign in as artist
+2. Go to Artist Dashboard
+3. Use sidebar to navigate:
+   - View Songs
+   - Add Song
+   - Manage Profile
+   - View Statistics
+
+8.9 ADMIN MODERATION
+--------------------
+Function: Admins moderate platform content
+
+Common Actions:
+- Pin Topics: Make important topics visible
+- Lock Topics: Prevent new comments
+- Delete Content: Remove inappropriate content
+- Edit Content: Fix errors or update information
+- Manage Users: Change roles, view activity
+
+Steps for Common Tasks:
+1. Go to relevant manager (Community, Users, etc.)
+2. Find the item to moderate
+3. Click appropriate action button
+4. Confirm action if prompted
+
+================================================================================
+9. TROUBLESHOOTING
+================================================================================
+
+9.1 IMAGES NOT LOADING
+----------------------
+Problem: Images (genie, artists, etc.) not showing
+
+Solutions:
+- Hard refresh browser (Cmd+Shift+R or Ctrl+Shift+R)
+- Clear browser cache
+- Check internet connection
+- Try different browser
+- Contact support if issue persists
+
+9.2 CAN'T SIGN IN
+-----------------
+Problem: Unable to sign in
+
+Solutions:
+- Check email and password
+- Try "Forgot Password" if available
+- Use Google sign-in as alternative
+- Clear browser cookies
+- Check if account exists
+
+9.3 SEARCH NOT WORKING
+----------------------
+Problem: Search returns no results
+
+Solutions:
+- Check spelling
+- Try different search terms
+- Use broader terms
+- Check if content exists in database
+- Try searching by artist name instead
+
+9.4 TRANSLATION NOT GENERATING
+------------------------------
+Problem: Translation request fails
+
+Solutions:
+- Check internet connection
+- Verify lyrics are provided
+- Try again (AI may be processing)
+- Check if languages are supported
+- Contact support if persistent
+
+9.5 CAN'T POST TOPIC/COMMENT
+----------------------------
+Problem: Unable to create topic or comment
+
+Solutions:
+- Ensure you're signed in
+- Check if topic is locked (admins can lock)
+- Verify you have permission
+- Try refreshing page
+- Clear browser cache
+
+9.6 ADMIN PANEL ACCESS DENIED
+------------------------------
+Problem: Can't access admin features
+
+Solutions:
+- Verify you have admin role
+- Sign out and sign back in
+- Check with system administrator
+- Verify role in Firebase Console
+
+================================================================================
+10. FREQUENTLY ASKED QUESTIONS
+================================================================================
+
+Q: Do I need an account to use Afro Genie?
+A: No, you can browse, search, and view lyrics without an account. Sign-in is
+   required for saving favorites, creating topics, and requesting translations.
+
+Q: How accurate are the translations?
+A: Translations use advanced AI that preserves cultural context. However, they
+   are AI-generated and may benefit from human review for perfect accuracy.
+
+Q: Can I contribute translations?
+A: Yes! You can request translations and participate in the community forum
+   to discuss and improve translations.
+
+Q: How do I become an artist on the platform?
+A: Use the Artist Signup page to register. Your account will be reviewed and
+   approved by administrators.
+
+Q: Can I upload my own songs?
+A: Artists can submit songs through the Artist Dashboard. Regular users can
+   request songs to be added through the community forum.
+
+Q: How do I report inappropriate content?
+A: Contact administrators through the admin panel or use the report feature
+   (if available) on content.
+
+Q: Is the platform free to use?
+A: Yes, Afro Genie is free for all users. Some features may require
+   registration.
+
+Q: What languages are supported?
+A: The platform supports multiple African languages and dialects, with
+   translations to global languages. Check the language dropdown for available
+   options.
+
+Q: How do I change my profile information?
+A: Click your profile icon, then select "Edit Profile" or "Settings" from the
+   menu.
+
+Q: Can I delete my account?
+A: Contact administrators to request account deletion. This action is
+   typically permanent.
+
+Q: How are topics organized?
+A: Topics are organized into categories. Admins can create and manage
+   categories. You can filter topics by category or view all topics.
+
+Q: What are user badges?
+A: Badges are earned through community participation. They appear on your
+   profile and recognize contributions like first post, active participation,
+   etc.
+
+Q: How do I contact support?
+A: Use the community forum to ask questions, or contact administrators if you
+   have admin access.
+
+================================================================================
+                            ADDITIONAL RESOURCES
+================================================================================
+
+Website: https://afrogenie.web.app
+Admin Panel: https://afrogenie.web.app/#/admin
+Community Forum: https://afrogenie.web.app/#/community
+
+For technical issues or feature requests, please use the community forum or
+contact the development team.
+
+================================================================================
+                            END OF DOCUMENTATION
+================================================================================
+
+This documentation covers all major features and functions of the Afro Genie
+platform. For the most up-to-date information, please visit the website.
+
+Last Updated: November 2024
+Version: 1.0
+
