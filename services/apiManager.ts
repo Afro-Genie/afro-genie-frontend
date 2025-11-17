@@ -1,6 +1,8 @@
 // Industry-Standard API Integration System
 // Supports multiple data sources with admin controls, rate limiting, caching, and validation
 
+import { saveSyncJob, updateSyncJob, getAllSyncJobs, getSyncJob, type SyncJobData } from './firebaseService';
+
 interface APIConfig {
   id: string;
   name: string;
@@ -51,6 +53,11 @@ interface SyncJob {
     songs: number;
     genres: number;
     errors: number;
+  };
+  resultData: {
+    artists: SearchResult[];
+    songs: SearchResult[];
+    genres: SearchResult[];
   };
   logs?: string[];
 }
@@ -196,27 +203,79 @@ class APIManager {
     const config = this.configs.get(apiId);
     if (!config) throw new Error(`API config not found: ${apiId}`);
 
+    // Check rate limit and wait if needed
     if (!this.canMakeRequest(apiId)) {
-      throw new Error(`Rate limit exceeded for ${apiId}`);
+      // Wait a bit before throwing to allow rate limit to reset
+      const limiter = this.rateLimiters.get(apiId);
+      if (limiter) {
+        const waitTime = limiter.resetTime - Date.now();
+        if (waitTime > 0 && waitTime < 60000) { // Wait max 60 seconds
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+      }
+      // Check again after waiting
+      if (!this.canMakeRequest(apiId)) {
+        throw new Error(`Rate limit exceeded for ${apiId}`);
+      }
     }
 
-    // For TheAudioDB v1, API key is a path segment between base and endpoint
     // Route through dev proxy to avoid CORS for browser calls
-    const proxiedBase = (
-      apiId === 'genius' ? '/proxy/genius' :
-      apiId === 'musicbrainz' ? '/proxy/musicbrainz' :
-      apiId === 'lastfm' ? '/proxy/lastfm' :
-      config.baseUrl
-    );
+    let proxiedBase: string;
+    let fullPath: string;
 
-    const baseForThisRequest = apiId === 'theaudiodb'
-      ? `${proxiedBase}/${config.apiKey || '123'}`
-      : proxiedBase;
+    if (apiId === 'genius') {
+      proxiedBase = '/proxy/genius';
+      fullPath = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    } else if (apiId === 'musicbrainz') {
+      proxiedBase = '/proxy/musicbrainz';
+      // MusicBrainz base is /ws/2, so we need to prepend that
+      fullPath = endpoint.startsWith('/ws/2') 
+        ? endpoint 
+        : `/ws/2${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+    } else if (apiId === 'lastfm') {
+      proxiedBase = '/proxy/lastfm';
+      // Last.fm API requires /2.0/ path
+      if (endpoint === '/' || endpoint === '') {
+        fullPath = '/2.0/';
+      } else if (endpoint.startsWith('/2.0')) {
+        fullPath = endpoint;
+      } else {
+        fullPath = `/2.0${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+      }
+    } else if (apiId === 'theaudiodb') {
+      proxiedBase = '/proxy/theaudiodb';
+      // TheAudioDB v1 format: /api/v1/json/{API_KEY}/{endpoint}
+      const apiKey = config.apiKey || '123';
+      fullPath = `/api/v1/json/${apiKey}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+    } else {
+      // Fallback to direct URL (shouldn't happen for browser-based calls)
+      proxiedBase = config.baseUrl;
+      fullPath = endpoint;
+    }
 
-    const url = new URL(endpoint, baseForThisRequest);
-    Object.entries(params).forEach(([key, value]) => {
-      url.searchParams.append(key, String(value));
-    });
+    // Build final URL with query params
+    // For proxy paths, construct relative URL
+    let finalUrl: string;
+    if (proxiedBase.startsWith('/')) {
+      // Use proxy path - build URL manually
+      const searchParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          searchParams.append(key, String(value));
+        }
+      });
+      const queryString = searchParams.toString();
+      finalUrl = `${proxiedBase}${fullPath}${queryString ? `?${queryString}` : ''}`;
+    } else {
+      // Fallback: use absolute URL (shouldn't happen in browser)
+      const url = new URL(fullPath, proxiedBase);
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          url.searchParams.append(key, String(value));
+        }
+      });
+      finalUrl = url.toString();
+    }
 
     const headers: HeadersInit = {
       'User-Agent': 'AfroGenie/1.0 (contact@afrogenie.com)',
@@ -225,12 +284,17 @@ class APIManager {
 
     if (config.apiKey) {
       if (apiId === 'genius') {
+        // Authorization header is injected by proxy, but we can set it here too
         headers['Authorization'] = `Bearer ${config.apiKey}`;
       } else if (apiId === 'lastfm') {
-        url.searchParams.append('api_key', config.apiKey);
-      } else if (apiId === 'theaudiodb') {
-        // Key is already in the path for v1; nothing to add here
+        // API key is injected by proxy, but add it here as fallback
+        // Append to query string if not already present
+        if (proxiedBase.startsWith('/')) {
+          const separator = finalUrl.includes('?') ? '&' : '?';
+          finalUrl = `${finalUrl}${separator}api_key=${encodeURIComponent(config.apiKey)}`;
+        }
       }
+      // TheAudioDB key is in the path, MusicBrainz doesn't need a key
     }
 
     let lastError: Error | null = null;
@@ -239,7 +303,7 @@ class APIManager {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), config.timeout);
 
-        const response = await fetch(url.toString(), {
+        const response = await fetch(finalUrl, {
           ...options,
           headers,
           signal: controller.signal
@@ -248,14 +312,63 @@ class APIManager {
         clearTimeout(timeoutId);
 
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          // Try to get error message from response
+          let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+          try {
+            const errorText = await response.text();
+            if (errorText) {
+              // Check if it's HTML (error page)
+              if (errorText.trim().startsWith('<')) {
+                errorMessage = `HTTP ${response.status}: Received HTML error page`;
+              } else {
+                // Try to parse as JSON for error details
+                try {
+                  const errorJson = JSON.parse(errorText);
+                  errorMessage = errorJson.error?.message || errorJson.message || errorMessage;
+                } catch {
+                  errorMessage = `HTTP ${response.status}: ${errorText.substring(0, 100)}`;
+                }
+              }
+            }
+          } catch {
+            // Ignore errors when reading response
+          }
+          throw new Error(errorMessage);
         }
 
-        return await response.json();
+        // Check content-type before parsing
+        const contentType = response.headers.get('content-type') || '';
+        const isJson = contentType.includes('application/json') || contentType.includes('text/json');
+        
+        // Get response text first
+        const responseText = await response.text();
+        
+        // Handle empty responses
+        if (!responseText || responseText.trim().length === 0) {
+          throw new Error(`Empty response from ${apiId}`);
+        }
+
+        // Check if response is HTML (error page)
+        if (responseText.trim().startsWith('<')) {
+          throw new Error(`Received HTML instead of JSON from ${apiId} (likely an error page)`);
+        }
+
+        // Parse JSON
+        if (isJson || responseText.trim().startsWith('{') || responseText.trim().startsWith('[')) {
+          try {
+            return JSON.parse(responseText);
+          } catch (parseError) {
+            throw new Error(`Invalid JSON response from ${apiId}: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
+          }
+        } else {
+          throw new Error(`Unexpected content-type from ${apiId}: ${contentType}`);
+        }
       } catch (error) {
         lastError = error as Error;
         if (attempt < config.retryAttempts - 1) {
-          await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+          // Exponential backoff with jitter
+          const delay = 1000 * Math.pow(2, attempt) + Math.random() * 1000;
+          await new Promise(resolve => setTimeout(resolve, delay));
         }
       }
     }
@@ -333,6 +446,12 @@ class APIManager {
     if (cached) return cached;
 
     try {
+      const config = this.configs.get('lastfm');
+      // Last.fm requires an API key
+      if (!config?.apiKey) {
+        console.warn('Last.fm API key not configured. Requests may fail.');
+      }
+
       const data = await this.makeRequest('lastfm', '/', {
         method,
         artist: method === 'artist.search' ? query : undefined,
@@ -368,22 +487,28 @@ class APIManager {
     }
   }
 
-  // TheAudioDB v1 search
+    // TheAudioDB v1 search
   async searchTheAudioDB(query: string, type: 'artist' | 'song' | 'genre' = 'artist'): Promise<SearchResult[]> {
     const cacheKey = `theaudiodb_${type}_${query}`;
     const cached = this.getCachedData(cacheKey);
     if (cached) return cached;
 
     try {
+      const config = this.configs.get('theaudiodb');
+      // TheAudioDB requires a valid API key (not the placeholder '123')
+      if (!config?.apiKey || config.apiKey === '123') {
+        console.warn('TheAudioDB API key not configured. Using placeholder may result in empty responses.');
+      }
+
       let endpoint = '/';
       let params: Record<string, any> = {};
 
       if (type === 'artist') {
-        // https://www.theaudiodb.com/api/v1/json/123/search.php?s=ARTIST
+        // https://www.theaudiodb.com/api/v1/json/{API_KEY}/search.php?s=ARTIST
         endpoint = '/search.php';
         params = { s: query };
       } else if (type === 'song') {
-        // https://www.theaudiodb.com/api/v1/json/123/searchtrack.php?s=QUERY
+        // https://www.theaudiodb.com/api/v1/json/{API_KEY}/searchtrack.php?s=QUERY
         endpoint = '/searchtrack.php';
         params = { s: query };
       } else {
@@ -393,10 +518,18 @@ class APIManager {
 
       const data = await this.makeRequest('theaudiodb', endpoint, params);
 
+      // Handle empty or null responses from TheAudioDB
+      if (!data || (typeof data === 'object' && Object.keys(data).length === 0)) {
+        return [];
+      }
+
       const results: SearchResult[] = [];
 
       if (type === 'artist') {
         const artists = data?.artists || [];
+        if (!Array.isArray(artists) || artists.length === 0) {
+          return [];
+        }
         artists.forEach((a: any) => {
           results.push({
             id: `tadb_artist_${a.idArtist}`,
@@ -415,6 +548,9 @@ class APIManager {
         });
       } else if (type === 'song') {
         const tracks = data?.track || [];
+        if (!Array.isArray(tracks) || tracks.length === 0) {
+          return [];
+        }
         tracks.forEach((t: any) => {
           results.push({
             id: `tadb_track_${t.idTrack}`,
@@ -446,32 +582,44 @@ class APIManager {
       .filter(config => config.enabled)
       .sort((a, b) => a.priority - b.priority);
 
-    const searchPromises = enabledConfigs.map(async (config) => {
+    // Execute searches sequentially with delays to respect rate limits
+    const allResults: SearchResult[] = [];
+    
+    for (const config of enabledConfigs) {
       try {
+        // Add delay between API calls to respect rate limits
+        if (allResults.length > 0) {
+          // Wait based on the API's rate limit configuration
+          const delay = Math.max(100, (config.rateLimit.per * 1000) / config.rateLimit.requests);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+
+        let results: SearchResult[] = [];
         switch (config.id) {
           case 'genius':
-            return await this.searchGenius(query, type === 'artist' ? 'artist' : 'song');
+            results = await this.searchGenius(query, type === 'artist' ? 'artist' : 'song');
+            break;
           case 'musicbrainz':
-            return await this.searchMusicBrainz(query, type === 'artist' ? 'artist' : 'release');
+            results = await this.searchMusicBrainz(query, type === 'artist' ? 'artist' : 'release');
+            break;
           case 'lastfm':
-            return await this.searchLastFM(query, type === 'artist' ? 'artist.search' : 'track.search');
+            results = await this.searchLastFM(query, type === 'artist' ? 'artist.search' : 'track.search');
+            break;
           case 'theaudiodb':
-            return await this.searchTheAudioDB(query, type);
+            results = await this.searchTheAudioDB(query, type);
+            break;
           default:
-            return [];
+            results = [];
         }
+        
+        allResults.push(...results);
       } catch (error) {
         const message = `Search error for ${config.id}: ${error instanceof Error ? error.message : String(error)}`;
         console.error(message);
         this.currentJobLog?.push(message);
-        return [];
+        // Continue with other APIs even if one fails
       }
-    });
-
-    const results = await Promise.allSettled(searchPromises);
-    const allResults = results
-      .filter(result => result.status === 'fulfilled')
-      .flatMap(result => (result as PromiseFulfilledResult<SearchResult[]>).value);
+    }
 
     // Deduplicate and merge results
     return this.deduplicateResults(allResults);
@@ -511,7 +659,7 @@ class APIManager {
     return Array.from(this.syncJobs.values());
   }
 
-  async startSyncJob(type: 'manual' | 'scheduled' | 'auto', query?: string): Promise<string> {
+  async startSyncJob(type: 'manual' | 'scheduled' | 'auto', query?: string, userId?: string): Promise<string> {
     const jobId = `sync_${Date.now()}`;
     const job: SyncJob = {
       id: jobId,
@@ -520,24 +668,92 @@ class APIManager {
       progress: 0,
       startTime: new Date(),
       results: { artists: 0, songs: 0, genres: 0, errors: 0 },
+      resultData: {
+        artists: [],
+        songs: [],
+        genres: []
+      },
       logs: []
     };
 
     this.syncJobs.set(jobId, job);
 
+    // Save to Firebase
+    try {
+      await saveSyncJob({
+        id: jobId,
+        type,
+        status: 'pending',
+        progress: 0,
+        startTime: job.startTime,
+        results: job.results,
+        resultData: job.resultData,
+        logs: job.logs || [],
+        userId,
+        query
+      });
+    } catch (error) {
+      console.error('Failed to save sync job to Firebase:', error);
+    }
+
     // Run sync in background
-    this.runSyncJob(jobId, query);
+    this.runSyncJob(jobId, query, userId);
 
     return jobId;
   }
 
-  private async runSyncJob(jobId: string, query?: string) {
+  // Load sync jobs from Firebase
+  async loadSyncJobsFromFirebase(userId?: string): Promise<void> {
+    try {
+      const firebaseJobs = await getAllSyncJobs(userId);
+      firebaseJobs.forEach(jobData => {
+        const job: SyncJob = {
+          id: jobData.id,
+          type: jobData.type,
+          status: jobData.status,
+          progress: jobData.progress,
+          startTime: jobData.startTime instanceof Date ? jobData.startTime : new Date(jobData.startTime),
+          endTime: jobData.endTime ? (jobData.endTime instanceof Date ? jobData.endTime : new Date(jobData.endTime)) : undefined,
+          results: jobData.results,
+          resultData: {
+            artists: jobData.resultData?.artists || [],
+            songs: jobData.resultData?.songs || [],
+            genres: jobData.resultData?.genres || []
+          },
+          logs: jobData.logs || []
+        };
+        this.syncJobs.set(job.id, job);
+      });
+    } catch (error) {
+      console.error('Failed to load sync jobs from Firebase:', error);
+    }
+  }
+
+  private async runSyncJob(jobId: string, query?: string, userId?: string) {
     const job = this.syncJobs.get(jobId);
     if (!job) return;
 
     job.status = 'running';
     job.progress = 0;
     this.currentJobLog = job.logs;
+
+    // Initialize result data arrays
+    job.resultData = {
+      artists: [],
+      songs: [],
+      genres: []
+    };
+
+    // Update Firebase
+    try {
+      await updateSyncJob(jobId, {
+        status: 'running',
+        progress: 0,
+        resultData: job.resultData
+      });
+    } catch (error) {
+      console.error('Failed to update sync job in Firebase:', error);
+    }
 
     try {
       const searchTerms = query ? [query] : [
@@ -547,34 +763,112 @@ class APIManager {
 
       for (let i = 0; i < searchTerms.length; i++) {
         const term = searchTerms[i];
-        job.progress = (i / searchTerms.length) * 100;
+        job.progress = Math.round((i / searchTerms.length) * 100);
 
         // Search for artists
         const artistResults = await this.searchAll(term, 'artist');
         job.results.artists += artistResults.length;
+        job.resultData.artists.push(...artistResults);
 
         // Search for songs
         const songResults = await this.searchAll(term, 'song');
         job.results.songs += songResults.length;
+        job.resultData.songs.push(...songResults);
 
         // Search for genres
         const genreResults = await this.searchAll(term, 'genre');
         job.results.genres += genreResults.length;
+        job.resultData.genres.push(...genreResults);
+
+        // Update Firebase periodically
+        try {
+          await updateSyncJob(jobId, {
+            progress: job.progress,
+            results: job.results,
+            resultData: job.resultData
+          });
+        } catch (error) {
+          console.error('Failed to update sync job progress in Firebase:', error);
+        }
 
         // Small delay to respect rate limits
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
 
+      // Deduplicate results
+      job.resultData.artists = this.deduplicateResults(job.resultData.artists);
+      job.resultData.songs = this.deduplicateResults(job.resultData.songs);
+      job.resultData.genres = this.deduplicateResults(job.resultData.genres);
+
+      // Update counts after deduplication
+      job.results.artists = job.resultData.artists.length;
+      job.results.songs = job.resultData.songs.length;
+      job.results.genres = job.resultData.genres.length;
+
       job.status = 'completed';
       job.progress = 100;
       job.endTime = new Date();
+
+      // Save final state to Firebase
+      try {
+        await updateSyncJob(jobId, {
+          status: 'completed',
+          progress: 100,
+          endTime: job.endTime,
+          results: job.results,
+          resultData: job.resultData
+        });
+      } catch (error) {
+        console.error('Failed to save completed sync job to Firebase:', error);
+      }
     } catch (error) {
       job.status = 'failed';
       job.results.errors++;
       job.logs?.push(`Sync failed: ${error instanceof Error ? error.message : String(error)}`);
       job.endTime = new Date();
+
+      // Save failed state to Firebase
+      try {
+        await updateSyncJob(jobId, {
+          status: 'failed',
+          endTime: job.endTime,
+          results: job.results,
+          logs: job.logs
+        });
+      } catch (error) {
+        console.error('Failed to save failed sync job to Firebase:', error);
+      }
     }
     this.currentJobLog = undefined;
+  }
+
+  // Get all results from a sync job
+  getSyncJobResults(jobId: string): SearchResult[] {
+    const job = this.syncJobs.get(jobId);
+    if (!job) return [];
+    
+    return [
+      ...job.resultData.artists,
+      ...job.resultData.songs,
+      ...job.resultData.genres
+    ];
+  }
+
+  // Get results by type from a sync job
+  getSyncJobResultsByType(jobId: string, type: 'artist' | 'song' | 'genre'): SearchResult[] {
+    const job = this.syncJobs.get(jobId);
+    if (!job) return [];
+    
+    switch (type) {
+      case 'artist':
+        return job.resultData.artists;
+      case 'song':
+        return job.resultData.songs;
+      case 'genre':
+        return job.resultData.genres;
+      default:
+        return [];
+    }
   }
 
   // Cache management

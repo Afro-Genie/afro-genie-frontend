@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { 
   SearchIcon, 
   PlusIcon, 
@@ -8,21 +9,27 @@ import {
   LoadingSpinner
 } from '../../components/icons/FlatIcons';
 import ExternalMusicAPIService from '../../services/externalMusicAPIService';
-import { addArtist, addSong, addGenre } from '../../services/firebaseService';
+import lyricAPIService from '../../services/lyricAPIService';
+import lyricDataProcessor from '../../services/lyricDataProcessor';
+import { addArtist, addSong, addGenre, saveFullSongPackage, getAllArtists } from '../../services/firebaseService';
+import type { APISearchResult, FullSongData } from '../../types';
 
 interface APIImportProps {
   onImportComplete: () => void;
 }
 
 const APIImportManager: React.FC<APIImportProps> = ({ onImportComplete }) => {
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchType, setSearchType] = useState<'artists' | 'songs' | 'genres'>('artists');
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState<string | null>(null);
-  const [geniusToken, setGeniusToken] = useState('');
+  const [importingWithLyrics, setImportingWithLyrics] = useState(false);
+  const [importProgress, setImportProgress] = useState<string>('');
 
-  const apiService = new ExternalMusicAPIService(geniusToken);
+  // Use proxy for Genius API (token is injected server-side from .env.local)
+  const apiService = new ExternalMusicAPIService();
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
@@ -37,8 +44,23 @@ const APIImportManager: React.FC<APIImportProps> = ({ onImportComplete }) => {
         const mbArtists = apiService.formatMusicBrainzArtists(data.musicbrainz.artists);
         searchResults = [...geniusArtists, ...mbArtists];
       } else if (searchType === 'songs') {
-        const data = await apiService.searchAfricanMusic(searchQuery);
-        searchResults = apiService.formatGeniusResults(data.genius);
+        // Use lyricAPIService for songs to get lyrics support
+        try {
+          const lyricResults = await lyricAPIService.searchSongs(searchQuery, true);
+          searchResults = lyricResults.map(result => ({
+            id: result.id,
+            title: result.title,
+            artist: result.artist,
+            image: result.image,
+            source: result.source,
+            metadata: result.metadata
+          }));
+        } catch (error) {
+          console.error('Lyric API search failed, falling back to basic search:', error);
+          // Fallback to basic search
+          const data = await apiService.searchAfricanMusic(searchQuery);
+          searchResults = apiService.formatGeniusResults(data.genius);
+        }
       } else if (searchType === 'genres') {
         // For genres, we'll use predefined African genres
         const africanGenres = apiService.getAfricanGenres();
@@ -61,7 +83,14 @@ const APIImportManager: React.FC<APIImportProps> = ({ onImportComplete }) => {
   };
 
   const handleImport = async (item: any) => {
+    if (!user) {
+      alert('Please log in to import items');
+      return;
+    }
+
     setImporting(item.id);
+    setImportProgress('Starting import...');
+    
     try {
       if (searchType === 'artists') {
         await addArtist({
@@ -69,29 +98,104 @@ const APIImportManager: React.FC<APIImportProps> = ({ onImportComplete }) => {
           genre: 'Afrobeats', // Default genre
           image: item.image || ''
         });
+        setImportProgress('Artist imported successfully');
       } else if (searchType === 'songs') {
-        await addSong({
-          title: item.title,
-          artist: item.artist,
-          artistId: '', // Will need to be linked to actual artist
-          image: item.image || '',
-          lyrics: '', // Genius doesn't provide lyrics in search results
-          language: 'English' // Default
-        });
+        // Check if this is from lyricAPIService (has metadata)
+        if (item.metadata || item.source === 'genius' || item.source === 'lyricfind') {
+          // Import with lyrics using full song package
+          setImportingWithLyrics(true);
+          setImportProgress('Fetching full song data with lyrics...');
+          
+          try {
+            // Convert item to APISearchResult format
+            const apiResult: APISearchResult = {
+              id: item.id,
+              title: item.title,
+              artist: item.artist,
+              image: item.image,
+              source: item.source || 'genius',
+              confidence: 0.85,
+              metadata: item.metadata || {}
+            };
+
+            // Fetch full song data including lyrics
+            const fullData = await lyricAPIService.fetchFullSongData(apiResult);
+            setImportProgress('Saving song with lyrics...');
+
+            // Check for duplicates
+            const duplicateCheck = await lyricDataProcessor.checkForDuplicates(fullData);
+            if (duplicateCheck.isDuplicate && duplicateCheck.existingSong) {
+              const proceed = confirm(
+                `Song "${item.title}" by ${item.artist} already exists. Do you want to update it?`
+              );
+              if (!proceed) {
+                setImporting(null);
+                setImportingWithLyrics(false);
+                return;
+              }
+            }
+
+            // Save full song package (song + artist + lyrics as translation)
+            const saveResult = await saveFullSongPackage(
+              fullData.song,
+              fullData.artist,
+              fullData.lyrics || '',
+              user.uid,
+              fullData.metadata.language || 'en',
+              'en',
+              fullData.metadata
+            );
+
+            if (saveResult.success) {
+              setImportProgress('Song with lyrics imported successfully!');
+            } else {
+              throw new Error(saveResult.error || 'Failed to save song package');
+            }
+          } catch (error: any) {
+            console.error('Error importing song with lyrics:', error);
+            // Fallback to basic import without lyrics
+            setImportProgress('Lyrics import failed, importing song metadata only...');
+            await addSong({
+              title: item.title,
+              artist: item.artist,
+              artistId: '',
+              image: item.image || '',
+              lyrics: '',
+              language: 'English'
+            });
+            setImportProgress('Song imported (without lyrics)');
+          } finally {
+            setImportingWithLyrics(false);
+          }
+        } else {
+          // Basic import without lyrics
+          await addSong({
+            title: item.title,
+            artist: item.artist,
+            artistId: '',
+            image: item.image || '',
+            lyrics: '',
+            language: 'English'
+          });
+          setImportProgress('Song imported successfully');
+        }
       } else if (searchType === 'genres') {
         await addGenre({
           name: item.name,
-          image: '' // No default image for genres
+          image: ''
         });
+        setImportProgress('Genre imported successfully');
       }
       
       // Remove imported item from results
       setResults(results.filter(r => r.id !== item.id));
       onImportComplete();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Import error:', error);
+      alert(`Import failed: ${error.message || 'Unknown error'}`);
     } finally {
       setImporting(null);
+      setImportProgress('');
     }
   };
 
@@ -144,31 +248,25 @@ const APIImportManager: React.FC<APIImportProps> = ({ onImportComplete }) => {
         </div>
       </div>
 
-      {/* API Token Input */}
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-300 mb-2">
-          Genius API Token (Optional - for lyrics)
-        </label>
-        <div className="flex space-x-4">
-          <input
-            type="text"
-            value={geniusToken}
-            onChange={(e) => setGeniusToken(e.target.value)}
-            placeholder="Get free token from: https://genius.com/api-clients"
-            className="flex-1 bg-gray-700 text-white placeholder-gray-400 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-          />
-          <a
-            href="https://genius.com/api-clients"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors whitespace-nowrap"
-          >
-            Get Token
-          </a>
+      {/* API Info */}
+      <div className="mb-6 p-4 bg-green-900/20 border border-green-700/50 rounded-lg">
+        <div className="flex items-start gap-3">
+          <div className="flex-shrink-0 mt-1">
+            <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <div className="flex-1">
+            <h4 className="font-semibold text-green-400 mb-1">Genius API Configured</h4>
+            <p className="text-sm text-gray-300">
+              Your Genius API token is configured in <code className="text-green-300">.env.local</code>. 
+              When importing songs, lyrics will be automatically fetched and saved.
+            </p>
+            <p className="text-xs text-gray-400 mt-2">
+              For songs: Full lyrics import is enabled. For artists and genres: Metadata only.
+            </p>
+          </div>
         </div>
-        <p className="text-xs text-gray-400 mt-1">
-          Without token: MusicBrainz metadata only. With token: + Genius lyrics & images
-        </p>
       </div>
 
       {/* Search Controls */}
@@ -251,17 +349,25 @@ const APIImportManager: React.FC<APIImportProps> = ({ onImportComplete }) => {
                       </span>
                     </div>
                   </div>
-                  <button
-                    onClick={() => handleImport(item)}
-                    disabled={importing === item.id}
-                    className="ml-2 p-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 rounded-lg transition-colors"
-                  >
-                    {importing === item.id ? (
-                      <LoadingSpinner />
-                    ) : (
-                      <PlusIcon className="w-4 h-4 text-white" />
+                  <div className="ml-2 flex flex-col items-end gap-1">
+                    <button
+                      onClick={() => handleImport(item)}
+                      disabled={importing === item.id}
+                      className="p-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 rounded-lg transition-colors"
+                      title={searchType === 'songs' ? 'Import song with lyrics' : 'Import'}
+                    >
+                      {importing === item.id ? (
+                        <LoadingSpinner />
+                      ) : (
+                        <PlusIcon className="w-4 h-4 text-white" />
+                      )}
+                    </button>
+                    {importing === item.id && importProgress && (
+                      <span className="text-xs text-gray-400 max-w-[100px] truncate" title={importProgress}>
+                        {importProgress}
+                      </span>
                     )}
-                  </button>
+                  </div>
                 </div>
               </div>
             ))}

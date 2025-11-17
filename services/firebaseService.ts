@@ -36,7 +36,8 @@ const COLLECTIONS = {
   TOPIC_LIKES: 'topicLikes',
   COMMENT_LIKES: 'commentLikes',
   TOPIC_SHARES: 'topicShares',
-  FORUM_CATEGORIES: 'forumCategories'
+  FORUM_CATEGORIES: 'forumCategories',
+  SYNC_JOBS: 'syncJobs'
 };
 
 // Artist Operations
@@ -147,6 +148,11 @@ export interface Translation {
   culturalContext: string;
   sourceLang: string;
   targetLang: string;
+  status?: 'pending' | 'approved' | 'rejected' | 'published';
+  source?: 'manual' | 'api' | 'user_request';
+  reviewedBy?: string; // Admin who reviewed
+  reviewedAt?: Timestamp;
+  rejectionReason?: string;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }
@@ -194,6 +200,98 @@ export const getLatestTranslationForSong = async (songId: string) => {
     return { id: d.id, ...d.data() } as Translation;
   }
   return null;
+};
+
+// Get all translations with optional filters
+export const getAllTranslations = async (
+  filters?: {
+    status?: 'pending' | 'approved' | 'rejected' | 'published';
+    source?: 'manual' | 'api' | 'user_request';
+    songId?: string;
+    userId?: string;
+  },
+  limitCount?: number
+) => {
+  let q = query(collection(db, COLLECTIONS.TRANSLATIONS));
+  
+  if (filters) {
+    if (filters.status) {
+      q = query(q, where('status', '==', filters.status));
+    }
+    if (filters.source) {
+      q = query(q, where('source', '==', filters.source));
+    }
+    if (filters.songId) {
+      q = query(q, where('songId', '==', filters.songId));
+    }
+    if (filters.userId) {
+      q = query(q, where('userId', '==', filters.userId));
+    }
+  }
+  
+  q = query(q, orderBy('createdAt', 'desc'));
+  
+  if (limitCount) {
+    q = query(q, limit(limitCount));
+  }
+  
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Translation));
+};
+
+// Get all translations for a specific song
+export const getTranslationsForSong = async (songId: string) => {
+  const q = query(
+    collection(db, COLLECTIONS.TRANSLATIONS),
+    where('songId', '==', songId),
+    orderBy('createdAt', 'desc')
+  );
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Translation));
+};
+
+// Update translation
+export const updateTranslation = async (
+  translationId: string,
+  data: Partial<Omit<Translation, 'id' | 'createdAt'>>
+) => {
+  const docRef = doc(db, COLLECTIONS.TRANSLATIONS, translationId);
+  await updateDoc(docRef, {
+    ...data,
+    updatedAt: serverTimestamp()
+  });
+};
+
+// Delete translation
+export const deleteTranslation = async (translationId: string) => {
+  await deleteDoc(doc(db, COLLECTIONS.TRANSLATIONS, translationId));
+};
+
+// Approve translation
+export const approveTranslation = async (translationId: string, reviewedBy: string) => {
+  const docRef = doc(db, COLLECTIONS.TRANSLATIONS, translationId);
+  await updateDoc(docRef, {
+    status: 'approved',
+    reviewedBy,
+    reviewedAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  });
+};
+
+// Reject translation
+export const rejectTranslation = async (
+  translationId: string,
+  reviewedBy: string,
+  reason?: string
+) => {
+  const docRef = doc(db, COLLECTIONS.TRANSLATIONS, translationId);
+  await updateDoc(docRef, {
+    status: 'rejected',
+    reviewedBy,
+    reviewedAt: serverTimestamp(),
+    rejectionReason: reason || '',
+    updatedAt: serverTimestamp()
+  });
 };
 
 // Annotation Operations
@@ -432,7 +530,9 @@ export const saveFullSongPackage = async (
         translatedLyrics: lyrics, // Will be translated later if needed
         culturalContext: metadata?.culturalContext || '',
         sourceLang,
-        targetLang
+        targetLang,
+        source: 'api',
+        status: 'approved'
       });
     }
 
@@ -497,7 +597,9 @@ export const updateFullSongPackage = async (
           translatedLyrics: lyrics,
           culturalContext: '',
           sourceLang: sourceLang || 'en',
-          targetLang: targetLang || 'en'
+          targetLang: targetLang || 'en',
+          source: 'api',
+          status: 'approved'
         });
       }
     }
@@ -919,5 +1021,96 @@ export const uploadTopicImage = async (file: File, topicId: string) => {
   const timestamp = Date.now();
   const fileName = `topic_${topicId}_${timestamp}_${file.name}`;
   return uploadImage(file, `topics/${topicId}/${fileName}`);
+};
+
+// Sync Job Operations
+export interface SyncJobData {
+  id: string;
+  type: 'manual' | 'scheduled' | 'auto';
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  progress: number;
+  startTime: any; // Timestamp
+  endTime?: any; // Timestamp
+  results: {
+    artists: number;
+    songs: number;
+    genres: number;
+    errors: number;
+  };
+  resultData: {
+    artists: any[];
+    songs: any[];
+    genres: any[];
+  };
+  logs?: string[];
+  userId?: string;
+  query?: string;
+}
+
+export const saveSyncJob = async (jobData: SyncJobData): Promise<string> => {
+  const docRef = await setDoc(doc(db, COLLECTIONS.SYNC_JOBS, jobData.id), {
+    ...jobData,
+    startTime: jobData.startTime instanceof Date ? Timestamp.fromDate(jobData.startTime) : jobData.startTime,
+    endTime: jobData.endTime instanceof Date ? Timestamp.fromDate(jobData.endTime) : (jobData.endTime || null),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  });
+  return jobData.id;
+};
+
+export const updateSyncJob = async (jobId: string, updates: Partial<SyncJobData>): Promise<void> => {
+  const updateData: any = {
+    ...updates,
+    updatedAt: serverTimestamp()
+  };
+  
+  // Convert Date objects to Timestamps
+  if (updates.startTime instanceof Date) {
+    updateData.startTime = Timestamp.fromDate(updates.startTime);
+  }
+  if (updates.endTime instanceof Date) {
+    updateData.endTime = Timestamp.fromDate(updates.endTime);
+  }
+  
+  await updateDoc(doc(db, COLLECTIONS.SYNC_JOBS, jobId), updateData);
+};
+
+export const getSyncJob = async (jobId: string): Promise<SyncJobData | null> => {
+  const docRef = doc(db, COLLECTIONS.SYNC_JOBS, jobId);
+  const docSnap = await getDoc(docRef);
+  
+  if (docSnap.exists()) {
+    const data = docSnap.data();
+    return {
+      ...data,
+      id: docSnap.id,
+      startTime: data.startTime?.toDate() || new Date(),
+      endTime: data.endTime?.toDate() || undefined
+    } as SyncJobData;
+  }
+  return null;
+};
+
+export const getAllSyncJobs = async (userId?: string): Promise<SyncJobData[]> => {
+  let q = query(collection(db, COLLECTIONS.SYNC_JOBS), orderBy('startTime', 'desc'), limit(100));
+  
+  if (userId) {
+    q = query(collection(db, COLLECTIONS.SYNC_JOBS), where('userId', '==', userId), orderBy('startTime', 'desc'), limit(100));
+  }
+  
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => {
+    const data = doc.data();
+    return {
+      ...data,
+      id: doc.id,
+      startTime: data.startTime?.toDate() || new Date(),
+      endTime: data.endTime?.toDate() || undefined
+    } as SyncJobData;
+  });
+};
+
+export const deleteSyncJob = async (jobId: string): Promise<void> => {
+  await deleteDoc(doc(db, COLLECTIONS.SYNC_JOBS, jobId));
 };
 

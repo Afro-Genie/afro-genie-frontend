@@ -84,6 +84,18 @@ export default defineConfig(({ mode }) => {
                 proxyReq.setHeader('User-Agent', 'AfroGenie/1.0');
               });
             }
+          },
+          // Proxy TheAudioDB API to avoid CORS issues
+          '/proxy/theaudiodb': {
+            target: 'https://theaudiodb.com',
+            changeOrigin: true,
+            secure: true,
+            rewrite: (path) => path.replace(/^\/proxy\/theaudiodb/, ''),
+            configure: (proxy) => {
+              proxy.on('proxyReq', (proxyReq: any) => {
+                proxyReq.setHeader('User-Agent', 'AfroGenie/1.0');
+              });
+            }
           }
         }
       },

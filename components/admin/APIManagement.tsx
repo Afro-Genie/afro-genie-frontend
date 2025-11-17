@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   SearchIcon, 
   PlusIcon, 
@@ -15,12 +15,17 @@ import {
 } from '../../components/icons/FlatIcons';
 import APIManager from '../../services/apiManager';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import { useAuth } from '../../context/AuthContext';
+import { addArtist, addSong, addGenre, saveFullSongPackage } from '../../services/firebaseService';
+import lyricAPIService from '../../services/lyricAPIService';
+import type { APISearchResult, FullSongData } from '../../types';
 
 interface APIManagementProps {
   onDataImported: () => void;
 }
 
 const APIManagement: React.FC<APIManagementProps> = ({ onDataImported }) => {
+  const { user } = useAuth();
   const [apiManager] = useState(() => new APIManager());
   const [configs, setConfigs] = useState(apiManager.getConfigs());
   const [dataSources, setDataSources] = useState(apiManager.getDataSourceStatus());
@@ -35,16 +40,52 @@ const APIManagement: React.FC<APIManagementProps> = ({ onDataImported }) => {
   const [editingConfig, setEditingConfig] = useState<string | null>(null);
   const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
 
+  // New state for enhanced features
+  const [dataSource, setDataSource] = useState<'manual' | 'sync'>('manual');
+  const [selectedSyncJob, setSelectedSyncJob] = useState<string | null>(null);
+  const [selectedResults, setSelectedResults] = useState<Set<string>>(new Set());
+  const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
+  const [previewItem, setPreviewItem] = useState<any | null>(null);
+  const [previewData, setPreviewData] = useState<FullSongData | null>(null);
+  const [fetchingLyrics, setFetchingLyrics] = useState(false);
+  const [importing, setImporting] = useState<Set<string>>(new Set());
+  const [importProgress, setImportProgress] = useState<string>('');
+
+  // Filter state
+  const [filters, setFilters] = useState({
+    sources: [] as string[],
+    minConfidence: 0,
+    maxConfidence: 100,
+    artistFilter: '',
+    genreFilter: '',
+    sortBy: 'confidence' as 'confidence' | 'title' | 'artist' | 'source',
+    sortOrder: 'desc' as 'asc' | 'desc'
+  });
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+
   useEffect(() => {
+    // Load sync jobs from Firebase on mount
+    const loadJobs = async () => {
+      if (user) {
+        await apiManager.loadSyncJobsFromFirebase(user.uid);
+        setSyncJobs(apiManager.getSyncJobs());
+      }
+    };
+    loadJobs();
+
     // Refresh data periodically
-    const interval = setInterval(() => {
+    const interval = setInterval(async () => {
       setDataSources(apiManager.getDataSourceStatus());
+      // Reload sync jobs from Firebase to get latest updates
+      if (user) {
+        await apiManager.loadSyncJobsFromFirebase(user.uid);
+      }
       setSyncJobs(apiManager.getSyncJobs());
       setCacheStats(apiManager.getCacheStats());
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [apiManager]);
+  }, [apiManager, user]);
 
   const handleConfigUpdate = (configId: string, updates: any) => {
     apiManager.updateConfig(configId, updates);
@@ -71,20 +112,242 @@ const APIManagement: React.FC<APIManagementProps> = ({ onDataImported }) => {
   };
 
   const handleSync = async (type: 'manual' | 'scheduled' | 'auto' = 'manual') => {
-    const jobId = await apiManager.startSyncJob(type, searchQuery);
+    const jobId = await apiManager.startSyncJob(type, searchQuery, user?.uid);
     setSyncJobs(apiManager.getSyncJobs());
     return jobId;
   };
 
-  const handleImportResult = async (result: any) => {
-    try {
-      // This would integrate with your Firebase service
-      // await addArtist({ name: result.artist, genre: 'Afrobeats', image: result.image });
-      console.log('Importing:', result);
-      onDataImported();
-    } catch (error) {
-      console.error('Import error:', error);
+  // Get current results (from manual search or sync job)
+  const currentResults = useMemo(() => {
+    if (dataSource === 'sync' && selectedSyncJob) {
+      return apiManager.getSyncJobResultsByType(selectedSyncJob, searchType);
     }
+    return searchResults;
+  }, [dataSource, selectedSyncJob, searchType, searchResults]);
+
+  // Apply filters to results
+  const filteredResults = useMemo(() => {
+    let filtered = [...currentResults];
+
+    // Filter by source
+    if (filters.sources.length > 0) {
+      filtered = filtered.filter(r => filters.sources.includes(r.source));
+    }
+
+    // Filter by confidence
+    const confidencePercent = (r: any) => Math.round((r.confidence || 0) * 100);
+    filtered = filtered.filter(r => {
+      const conf = confidencePercent(r);
+      return conf >= filters.minConfidence && conf <= filters.maxConfidence;
+    });
+
+    // Filter by artist name
+    if (filters.artistFilter) {
+      const artistLower = filters.artistFilter.toLowerCase();
+      filtered = filtered.filter(r => 
+        (r.artist || '').toLowerCase().includes(artistLower)
+      );
+    }
+
+    // Filter by genre
+    if (filters.genreFilter) {
+      const genreLower = filters.genreFilter.toLowerCase();
+      filtered = filtered.filter(r => 
+        (r.metadata?.genre || '').toLowerCase().includes(genreLower) ||
+        (r.genre || '').toLowerCase().includes(genreLower)
+      );
+    }
+
+    // Sort
+    filtered.sort((a, b) => {
+      let aVal: any, bVal: any;
+      switch (filters.sortBy) {
+        case 'confidence':
+          aVal = a.confidence || 0;
+          bVal = b.confidence || 0;
+          break;
+        case 'title':
+          aVal = (a.title || '').toLowerCase();
+          bVal = (b.title || '').toLowerCase();
+          break;
+        case 'artist':
+          aVal = (a.artist || '').toLowerCase();
+          bVal = (b.artist || '').toLowerCase();
+          break;
+        case 'source':
+          aVal = (a.source || '').toLowerCase();
+          bVal = (b.source || '').toLowerCase();
+          break;
+        default:
+          return 0;
+      }
+
+      if (filters.sortOrder === 'asc') {
+        return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+      } else {
+        return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
+      }
+    });
+
+    return filtered;
+  }, [currentResults, filters]);
+
+  // Preview handlers
+  const handlePreview = async (result: any) => {
+    setPreviewItem(result);
+    setPreviewData(null);
+    
+    if (searchType === 'song') {
+      // For songs, we'll fetch lyrics on demand when user clicks "Fetch Lyrics"
+    }
+  };
+
+  const handleFetchLyrics = async () => {
+    if (!previewItem || !user) return;
+    
+    setFetchingLyrics(true);
+    try {
+      const apiResult: APISearchResult = {
+        id: previewItem.id,
+        title: previewItem.title,
+        artist: previewItem.artist,
+        image: previewItem.image,
+        source: previewItem.source || 'genius',
+        confidence: previewItem.confidence || 0.85,
+        metadata: previewItem.metadata || {}
+      };
+
+      const fullData = await lyricAPIService.fetchFullSongData(apiResult);
+      setPreviewData(fullData);
+    } catch (error: any) {
+      alert(`Failed to fetch lyrics: ${error.message}`);
+    } finally {
+      setFetchingLyrics(false);
+    }
+  };
+
+  // Import handlers
+  const handleImportResult = async (result: any, withLyrics: boolean = false) => {
+    if (!user) {
+      alert('Please log in to import items');
+      return;
+    }
+
+    setImporting(prev => new Set(prev).add(result.id));
+    setImportProgress('Starting import...');
+
+    try {
+      if (searchType === 'artist') {
+        await addArtist({
+          name: result.artist || result.title,
+          genre: result.metadata?.genre || 'Afrobeats',
+          image: result.image || ''
+        });
+        setImportProgress('Artist imported successfully');
+      } else if (searchType === 'song') {
+        if (withLyrics && previewData) {
+          // Import with lyrics
+          const saveResult = await saveFullSongPackage(
+            previewData.song,
+            previewData.artist,
+            previewData.lyrics || '',
+            user.uid,
+            previewData.metadata?.language || 'en',
+            'en',
+            previewData.metadata
+          );
+
+          if (!saveResult.success) {
+            throw new Error(saveResult.error || 'Failed to save song package');
+          }
+          setImportProgress('Song with lyrics imported successfully');
+        } else {
+          // Import without lyrics
+          await addSong({
+            title: result.title,
+            artist: result.artist,
+            artistId: '',
+            image: result.image || '',
+            lyrics: '',
+            language: 'English'
+          });
+          setImportProgress('Song imported successfully');
+        }
+      } else if (searchType === 'genre') {
+        await addGenre({
+          name: result.title || result.name,
+          image: result.image || ''
+        });
+        setImportProgress('Genre imported successfully');
+      }
+
+      // Remove from results
+      setSearchResults(prev => prev.filter(r => r.id !== result.id));
+      setSelectedResults(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(result.id);
+        return newSet;
+      });
+      
+      // Show success message with location info
+      const itemType = searchType === 'artist' ? 'artist' : searchType === 'song' ? 'song' : 'genre';
+      alert(`Successfully imported ${itemType}!\n\nYou can find it in:\n- Lyrics Manager > All Lyrics tab (for songs with lyrics)\n- Artists/Songs/Genres sections in the admin panel`);
+      
+      onDataImported();
+    } catch (error: any) {
+      console.error('Import error:', error);
+      alert(`Import failed: ${error.message || 'Unknown error'}`);
+    } finally {
+      setImporting(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(result.id);
+        return newSet;
+      });
+      setImportProgress('');
+    }
+  };
+
+  const handleBulkImport = async () => {
+    if (!user || selectedResults.size === 0) return;
+
+    const itemsToImport = filteredResults.filter(r => selectedResults.has(r.id));
+    setImportProgress(`Importing ${itemsToImport.length} items...`);
+
+    for (const item of itemsToImport) {
+      try {
+        await handleImportResult(item, false);
+      } catch (error) {
+        console.error(`Failed to import ${item.title}:`, error);
+      }
+    }
+
+    setSelectedResults(new Set());
+    setImportProgress('');
+    alert(`Bulk import complete! ${itemsToImport.length} items processed.\n\nYou can find imported items in:\n- Lyrics Manager > All Lyrics tab (for songs with lyrics)\n- Artists/Songs/Genres sections in the admin panel`);
+  };
+
+  const toggleResultSelection = (resultId: string) => {
+    setSelectedResults(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(resultId)) {
+        newSet.delete(resultId);
+      } else {
+        newSet.add(resultId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleJobExpansion = (jobId: string) => {
+    setExpandedJobs(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(jobId)) {
+        newSet.delete(jobId);
+      } else {
+        newSet.add(jobId);
+      }
+      return newSet;
+    });
   };
 
   const clearCache = () => {
@@ -241,84 +504,305 @@ const APIManagement: React.FC<APIManagementProps> = ({ onDataImported }) => {
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <h3 className="text-xl font-semibold text-white">Search & Import</h3>
-            <button
-              onClick={() => handleSync('manual')}
-              className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
-            >
-              <PlayIcon className="w-5 h-5" />
-              <span>Start Sync</span>
-            </button>
+            <div className="flex items-center space-x-2">
+              <select
+                value={dataSource}
+                onChange={(e) => {
+                  setDataSource(e.target.value as 'manual' | 'sync');
+                  setSelectedSyncJob(null);
+                  setSearchResults([]);
+                }}
+                className="bg-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="manual">Manual Search</option>
+                <option value="sync">Sync Job Results</option>
+              </select>
+              {dataSource === 'manual' && (
+                <button
+                  onClick={() => handleSync('manual')}
+                  className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
+                >
+                  <PlayIcon className="w-5 h-5" />
+                  <span>Start Sync</span>
+                </button>
+              )}
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {dataSource === 'manual' ? (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Search Type</label>
+                  <select
+                    value={searchType}
+                    onChange={(e) => {
+                      setSearchType(e.target.value as any);
+                      setSearchResults([]);
+                    }}
+                    className="w-full bg-gray-700 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="artist">Artists</option>
+                    <option value="song">Songs</option>
+                    <option value="genre">Genres</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Search Query</label>
+                  <div className="relative">
+                    <SearchIcon className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder={`Search ${searchType}...`}
+                      className="w-full bg-gray-700 text-white placeholder-gray-400 rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex items-end">
+                  <button
+                    onClick={handleSearch}
+                    disabled={searchLoading || !searchQuery.trim()}
+                    className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition-colors"
+                  >
+                    {searchLoading ? <LoadingSpinner /> : 'Search'}
+                  </button>
+                </div>
+              </div>
+            </>
+          ) : (
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Search Type</label>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Select Sync Job</label>
               <select
-                value={searchType}
-                onChange={(e) => setSearchType(e.target.value as any)}
+                value={selectedSyncJob || ''}
+                onChange={(e) => {
+                  setSelectedSyncJob(e.target.value || null);
+                  setSearchType('artist'); // Reset to artist type
+                }}
                 className="w-full bg-gray-700 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="artist">Artists</option>
-                <option value="song">Songs</option>
-                <option value="genre">Genres</option>
+                <option value="">-- Select a sync job --</option>
+                {syncJobs
+                  .filter(job => job.status === 'completed')
+                  .map(job => (
+                    <option key={job.id} value={job.id}>
+                      {job.type.charAt(0).toUpperCase() + job.type.slice(1)} Sync - {job.startTime.toLocaleString()} ({job.results.artists + job.results.songs + job.results.genres} results)
+                    </option>
+                  ))}
               </select>
+              {selectedSyncJob && (
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Result Type</label>
+                  <select
+                    value={searchType}
+                    onChange={(e) => setSearchType(e.target.value as any)}
+                    className="w-full bg-gray-700 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="artist">Artists</option>
+                    <option value="song">Songs</option>
+                    <option value="genre">Genres</option>
+                  </select>
+                </div>
+              )}
             </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Search Query</label>
-              <div className="relative">
-                <SearchIcon className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={`Search ${searchType}...`}
-                  className="w-full bg-gray-700 text-white placeholder-gray-400 rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                />
-              </div>
-            </div>
-            
-            <div className="flex items-end">
-              <button
-                onClick={handleSearch}
-                disabled={searchLoading || !searchQuery.trim()}
-                className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition-colors"
-              >
-                {searchLoading ? <LoadingSpinner /> : 'Search'}
-              </button>
-            </div>
-          </div>
+          )}
 
-          {searchResults.length > 0 && (
+          {/* Filters */}
+          {(currentResults.length > 0 || filteredResults.length > 0) && (
+            <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-lg font-semibold text-white">Filters</h4>
+                <button
+                  onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                  className="text-sm text-blue-400 hover:text-blue-300"
+                >
+                  {showAdvancedFilters ? 'Hide' : 'Show'} Advanced
+                </button>
+              </div>
+
+              {/* Basic Filters */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Source APIs</label>
+                  <div className="flex flex-wrap gap-2">
+                    {['genius', 'musicbrainz', 'lastfm', 'theaudiodb'].map(source => (
+                      <label key={source} className="flex items-center space-x-1 text-sm text-gray-300">
+                        <input
+                          type="checkbox"
+                          checked={filters.sources.includes(source)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setFilters(prev => ({ ...prev, sources: [...prev.sources, source] }));
+                            } else {
+                              setFilters(prev => ({ ...prev, sources: prev.sources.filter(s => s !== source) }));
+                            }
+                          }}
+                          className="rounded"
+                        />
+                        <span className="capitalize">{source}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Confidence: {filters.minConfidence}% - {filters.maxConfidence}%
+                  </label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={filters.minConfidence}
+                      onChange={(e) => setFilters(prev => ({ ...prev, minConfidence: parseInt(e.target.value) }))}
+                      className="flex-1"
+                    />
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={filters.maxConfidence}
+                      onChange={(e) => setFilters(prev => ({ ...prev, maxConfidence: parseInt(e.target.value) }))}
+                      className="flex-1"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Sort By</label>
+                  <div className="flex items-center space-x-2">
+                    <select
+                      value={filters.sortBy}
+                      onChange={(e) => setFilters(prev => ({ ...prev, sortBy: e.target.value as any }))}
+                      className="flex-1 bg-gray-700 text-white rounded-lg px-3 py-2 text-sm"
+                    >
+                      <option value="confidence">Confidence</option>
+                      <option value="title">Title</option>
+                      <option value="artist">Artist</option>
+                      <option value="source">Source</option>
+                    </select>
+                    <button
+                      onClick={() => setFilters(prev => ({ ...prev, sortOrder: prev.sortOrder === 'asc' ? 'desc' : 'asc' }))}
+                      className="px-3 py-2 bg-gray-700 text-white rounded-lg text-sm"
+                    >
+                      {filters.sortOrder === 'asc' ? '↑' : '↓'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Advanced Filters */}
+              {showAdvancedFilters && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-gray-700">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Filter by Artist</label>
+                    <input
+                      type="text"
+                      value={filters.artistFilter}
+                      onChange={(e) => setFilters(prev => ({ ...prev, artistFilter: e.target.value }))}
+                      placeholder="Artist name..."
+                      className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Filter by Genre</label>
+                    <input
+                      type="text"
+                      value={filters.genreFilter}
+                      onChange={(e) => setFilters(prev => ({ ...prev, genreFilter: e.target.value }))}
+                      placeholder="Genre..."
+                      className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 text-sm"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Results */}
+          {filteredResults.length > 0 && (
             <div className="space-y-4">
-              <h4 className="text-lg font-semibold text-white">Search Results ({searchResults.length})</h4>
+              <div className="flex items-center justify-between">
+                <h4 className="text-lg font-semibold text-white">
+                  Results ({filteredResults.length} of {currentResults.length})
+                </h4>
+                {selectedResults.size > 0 && (
+                  <button
+                    onClick={handleBulkImport}
+                    className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
+                  >
+                    <PlusIcon className="w-5 h-5" />
+                    <span>Import Selected ({selectedResults.size})</span>
+                  </button>
+                )}
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {searchResults.map((result, index) => (
-                  <div key={index} className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-                    <div className="flex items-start justify-between">
+                {filteredResults.map((result, index) => (
+                  <div
+                    key={result.id || index}
+                    className={`bg-gray-800 rounded-lg p-4 border-2 ${
+                      selectedResults.has(result.id) ? 'border-green-500' : 'border-gray-700'
+                    }`}
+                  >
+                    <div className="flex items-start gap-2">
+                      <input
+                        type="checkbox"
+                        checked={selectedResults.has(result.id)}
+                        onChange={() => toggleResultSelection(result.id)}
+                        className="mt-1 w-4 h-4"
+                      />
                       <div className="flex-1 min-w-0">
                         <h5 className="font-semibold text-white truncate">{result.title}</h5>
                         <p className="text-sm text-gray-400 truncate">{result.artist}</p>
-                        <div className="flex items-center mt-2 space-x-2">
+                        <div className="flex items-center mt-2 space-x-2 flex-wrap gap-1">
                           <span className="text-xs bg-gray-600 text-gray-300 px-2 py-1 rounded">
                             {result.source}
                           </span>
                           <span className="text-xs bg-blue-600 text-white px-2 py-1 rounded">
-                            {Math.round(result.confidence * 100)}%
+                            {Math.round((result.confidence || 0) * 100)}%
                           </span>
                         </div>
+                        <div className="flex items-center gap-2 mt-3">
+                          {searchType === 'song' && (
+                            <button
+                              onClick={() => handlePreview(result)}
+                              className="text-sm text-blue-400 hover:text-blue-300"
+                            >
+                              Preview
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleImportResult(result, false)}
+                            disabled={importing.has(result.id)}
+                            className="text-sm text-green-400 hover:text-green-300 disabled:opacity-50"
+                          >
+                            {importing.has(result.id) ? 'Importing...' : 'Import'}
+                          </button>
+                        </div>
                       </div>
-                      <button
-                        onClick={() => handleImportResult(result)}
-                        className="ml-2 p-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
-                      >
-                        <PlusIcon className="w-4 h-4 text-white" />
-                      </button>
                     </div>
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {currentResults.length === 0 && dataSource === 'manual' && !searchLoading && (
+            <div className="text-center py-8 text-gray-400">
+              <SearchIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>No results yet. Perform a search to see results.</p>
+            </div>
+          )}
+
+          {dataSource === 'sync' && !selectedSyncJob && (
+            <div className="text-center py-8 text-gray-400">
+              <RefreshIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>Select a completed sync job to view its results.</p>
             </div>
           )}
         </div>
@@ -352,62 +836,129 @@ const APIManagement: React.FC<APIManagementProps> = ({ onDataImported }) => {
                 <p>No sync jobs yet</p>
               </div>
             ) : (
-              syncJobs.map(job => (
-                <div key={job.id} className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-3 h-3 rounded-full ${
-                        job.status === 'completed' ? 'bg-green-400' :
-                        job.status === 'running' ? 'bg-blue-400' :
-                        job.status === 'failed' ? 'bg-red-400' : 'bg-gray-400'
-                      }`} />
-                      <h4 className="text-lg font-semibold text-white">
-                        {job.type.charAt(0).toUpperCase() + job.type.slice(1)} Sync
-                      </h4>
-                      <span className="text-xs bg-gray-600 text-gray-300 px-2 py-1 rounded">
-                        {job.status}
-                      </span>
+              syncJobs.map(job => {
+                const isExpanded = expandedJobs.has(job.id);
+                const jobResults = apiManager.getSyncJobResults(job.id);
+                const hasResults = job.status === 'completed' && jobResults.length > 0;
+
+                return (
+                  <div key={job.id} className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center space-x-3">
+                        <div className={`w-3 h-3 rounded-full ${
+                          job.status === 'completed' ? 'bg-green-400' :
+                          job.status === 'running' ? 'bg-blue-400' :
+                          job.status === 'failed' ? 'bg-red-400' : 'bg-gray-400'
+                        }`} />
+                        <h4 className="text-lg font-semibold text-white">
+                          {job.type.charAt(0).toUpperCase() + job.type.slice(1)} Sync
+                        </h4>
+                        <span className="text-xs bg-gray-600 text-gray-300 px-2 py-1 rounded">
+                          {job.status}
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <div className="text-sm text-gray-400">
+                          {job.startTime.toLocaleString()}
+                        </div>
+                        {hasResults && (
+                          <button
+                            onClick={() => toggleJobExpansion(job.id)}
+                            className="ml-2 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm"
+                          >
+                            {isExpanded ? 'Hide Results' : 'View Results'}
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-sm text-gray-400">
-                      {job.startTime.toLocaleString()}
+
+                    <div className="space-y-3">
+                      <div>
+                        <div className="flex justify-between text-sm text-gray-300 mb-1">
+                          <span>Progress</span>
+                          <span>{Math.round(job.progress)}%</span>
+                        </div>
+                        <div className="w-full bg-gray-700 rounded-full h-2">
+                          <div 
+                            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${job.progress}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-4 gap-4 text-sm">
+                        <div className="text-center">
+                          <div className="text-lg font-semibold text-blue-400">{job.results.artists}</div>
+                          <div className="text-gray-400">Artists</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-lg font-semibold text-green-400">{job.results.songs}</div>
+                          <div className="text-gray-400">Songs</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-lg font-semibold text-purple-400">{job.results.genres}</div>
+                          <div className="text-gray-400">Genres</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-lg font-semibold text-red-400">{job.results.errors}</div>
+                          <div className="text-gray-400">Errors</div>
+                        </div>
+                      </div>
+
+                      {/* Expanded Results */}
+                      {isExpanded && hasResults && (
+                        <div className="mt-4 pt-4 border-t border-gray-700">
+                          <div className="flex items-center justify-between mb-4">
+                            <h5 className="text-md font-semibold text-white">
+                              Results ({jobResults.length} total)
+                            </h5>
+                            {selectedResults.size > 0 && (
+                              <button
+                                onClick={handleBulkImport}
+                                className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+                              >
+                                <PlusIcon className="w-4 h-4" />
+                                <span>Import Selected ({selectedResults.size})</span>
+                              </button>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-96 overflow-y-auto">
+                            {jobResults.map((result, index) => (
+                              <div
+                                key={result.id || index}
+                                className={`bg-gray-700 rounded-lg p-3 border-2 ${
+                                  selectedResults.has(result.id) ? 'border-green-500' : 'border-gray-600'
+                                }`}
+                              >
+                                <div className="flex items-start gap-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedResults.has(result.id)}
+                                    onChange={() => toggleResultSelection(result.id)}
+                                    className="mt-1 w-4 h-4"
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <h6 className="font-semibold text-white text-sm truncate">{result.title}</h6>
+                                    <p className="text-xs text-gray-400 truncate">{result.artist}</p>
+                                    <div className="flex items-center mt-1 space-x-1">
+                                      <span className="text-xs bg-gray-600 text-gray-300 px-1.5 py-0.5 rounded">
+                                        {result.source}
+                                      </span>
+                                      <span className="text-xs bg-blue-600 text-white px-1.5 py-0.5 rounded">
+                                        {Math.round((result.confidence || 0) * 100)}%
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
-
-                  <div className="space-y-3">
-                    <div>
-                      <div className="flex justify-between text-sm text-gray-300 mb-1">
-                        <span>Progress</span>
-                        <span>{Math.round(job.progress)}%</span>
-                      </div>
-                      <div className="w-full bg-gray-700 rounded-full h-2">
-                        <div 
-                          className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${job.progress}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-4 gap-4 text-sm">
-                      <div className="text-center">
-                        <div className="text-lg font-semibold text-blue-400">{job.results.artists}</div>
-                        <div className="text-gray-400">Artists</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-lg font-semibold text-green-400">{job.results.songs}</div>
-                        <div className="text-gray-400">Songs</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-lg font-semibold text-purple-400">{job.results.genres}</div>
-                        <div className="text-gray-400">Genres</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-lg font-semibold text-red-400">{job.results.errors}</div>
-                        <div className="text-gray-400">Errors</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
@@ -475,6 +1026,114 @@ const APIManagement: React.FC<APIManagementProps> = ({ onDataImported }) => {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Preview Modal */}
+      {previewItem && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-gray-700">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold text-white">Preview: {previewItem.title}</h3>
+              <button
+                onClick={() => {
+                  setPreviewItem(null);
+                  setPreviewData(null);
+                }}
+                className="text-gray-400 hover:text-white"
+              >
+                <XIcon className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Song Info */}
+              <div className="flex items-start gap-4">
+                {previewItem.image && (
+                  <img
+                    src={previewItem.image}
+                    alt={previewItem.title}
+                    className="w-24 h-24 object-cover rounded"
+                  />
+                )}
+                <div className="flex-1">
+                  <h4 className="text-lg font-semibold text-white">{previewItem.title}</h4>
+                  <p className="text-gray-400">{previewItem.artist}</p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="text-xs bg-gray-600 text-gray-300 px-2 py-1 rounded">
+                      {previewItem.source}
+                    </span>
+                    <span className="text-xs bg-blue-600 text-white px-2 py-1 rounded">
+                      {Math.round((previewItem.confidence || 0) * 100)}%
+                    </span>
+                  </div>
+                  {previewItem.metadata?.album && (
+                    <p className="text-sm text-gray-400 mt-1">Album: {previewItem.metadata.album}</p>
+                  )}
+                  {previewItem.metadata?.year && (
+                    <p className="text-sm text-gray-400">Year: {previewItem.metadata.year}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Lyrics Section */}
+              {!previewData && (
+                <div className="bg-gray-700 rounded-lg p-4">
+                  <p className="text-gray-300 mb-4">Lyrics not loaded yet. Click the button below to fetch lyrics.</p>
+                  <button
+                    onClick={handleFetchLyrics}
+                    disabled={fetchingLyrics}
+                    className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition-colors"
+                  >
+                    {fetchingLyrics ? (
+                      <>
+                        <LoadingSpinner />
+                        <span className="ml-2">Fetching Lyrics...</span>
+                      </>
+                    ) : (
+                      'Fetch Lyrics'
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {previewData && (
+                <div className="space-y-4">
+                  <div className="bg-gray-700 rounded-lg p-4">
+                    <h5 className="font-semibold text-white mb-2">Lyrics</h5>
+                    <div className="text-gray-300 whitespace-pre-wrap max-h-64 overflow-y-auto">
+                      {previewData.lyrics || 'No lyrics available'}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        handleImportResult(previewItem, true);
+                        setPreviewItem(null);
+                        setPreviewData(null);
+                      }}
+                      disabled={importing.has(previewItem.id)}
+                      className="flex-1 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition-colors"
+                    >
+                      {importing.has(previewItem.id) ? 'Importing...' : 'Import with Lyrics'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleImportResult(previewItem, false);
+                        setPreviewItem(null);
+                        setPreviewData(null);
+                      }}
+                      disabled={importing.has(previewItem.id)}
+                      className="flex-1 bg-gray-600 hover:bg-gray-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition-colors"
+                    >
+                      {importing.has(previewItem.id) ? 'Importing...' : 'Import without Lyrics'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -84,6 +84,8 @@ GENIUS_ACCESS_TOKEN=your_genius_token     # For Genius API
 LASTFM_API_KEY=your_lastfm_key           # For Last.fm API
 ```
 
+**Genius API Setup**: See `GENIUS_API_SETUP.md` for detailed instructions on configuring your Genius API credentials.
+
 ### 3. Upload More Images
 You have images in `/Images/` that can be uploaded via:
 - Firebase Storage Console

@@ -71,7 +71,9 @@ const RequestTranslationPage: React.FC = () => {
         translatedLyrics: result.translatedLyrics,
         culturalContext: result.culturalContext,
         sourceLang,
-        targetLang
+        targetLang,
+        status: 'pending',
+        source: 'user_request'
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);

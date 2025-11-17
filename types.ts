@@ -174,3 +174,21 @@ export interface UserProfileExtended {
   reputation?: number;
   badges?: UserBadge[];
 }
+
+export interface Translation {
+  id?: string;
+  songId: string;
+  userId: string;
+  originalLyrics: string;
+  translatedLyrics: string;
+  culturalContext: string;
+  sourceLang: string;
+  targetLang: string;
+  status?: 'pending' | 'approved' | 'rejected' | 'published';
+  source?: 'manual' | 'api' | 'user_request';
+  reviewedBy?: string; // Admin who reviewed
+  reviewedAt?: any;
+  rejectionReason?: string;
+  createdAt?: any;
+  updatedAt?: any;
+}

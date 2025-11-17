@@ -19,6 +19,7 @@ import UsersManager from './pages/admin/UsersManager';
 import UnifiedManager from './pages/admin/UnifiedManager';
 import GenieManager from './pages/admin/GenieManager';
 import LyricImporter from './pages/admin/LyricImporter';
+import LyricsManager from './pages/admin/LyricsManager';
 
 function App() {
   return (
@@ -51,6 +52,7 @@ function App() {
                   <Route path="users" element={<UsersManager />} />
                   <Route path="unified" element={<UnifiedManager />} />
                   <Route path="genie" element={<GenieManager />} />
+                  <Route path="lyrics" element={<LyricsManager />} />
                   <Route path="lyric-importer" element={<LyricImporter />} />
             </Route>
           </Routes>
