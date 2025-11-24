@@ -25,6 +25,7 @@ const AdminLayout: React.FC = () => {
     { name: 'Songs', href: '/admin/songs', icon: MusicNoteIcon },
     { name: 'Genres', href: '/admin/genres', icon: GenreIcon },
     { name: 'Lyrics Manager', href: '/admin/lyrics', icon: MusicNoteIcon },
+    { name: 'Spotify Integration', href: '/admin/spotify', icon: MusicNoteIcon },
     { name: 'Community', href: '/admin/community', icon: ChatIcon },
     { name: 'Users', href: '/admin/users', icon: UsersIcon },
     { name: 'Genie Settings', href: '/admin/genie', icon: RobotIcon },

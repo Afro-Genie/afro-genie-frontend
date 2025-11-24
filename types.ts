@@ -13,7 +13,7 @@ export interface LyricInput {
 
 export interface AiAnalysisResult {
   translatedLyrics: string;
-  culturalContext: string;
+  culturalContext?: string; // Optional - now only added by humans
 }
 
 export interface Artist {
@@ -43,7 +43,8 @@ export interface Genre {
 export type Suggestion = 
   | { type: 'artist'; data: Artist }
   | { type: 'song'; data: Song }
-  | { type: 'genre'; data: Genre };
+  | { type: 'genre'; data: Genre }
+  | { type: 'lyrics'; data: { id: string; songId: string; songTitle?: string; artistName?: string; preview: string } };
 
 export interface GenieSettings {
   id?: string;
@@ -194,6 +195,15 @@ export interface UserProfileExtended {
   };
 }
 
+export type TranslationViewMode = 
+  | 'tabs' 
+  | 'side-by-side' 
+  | 'top-bottom' 
+  | 'hover' 
+  | 'split-screen' 
+  | 'inline' 
+  | 'toggle';
+
 export interface Translation {
   id?: string;
   songId: string;
@@ -210,4 +220,18 @@ export interface Translation {
   rejectionReason?: string;
   createdAt?: any;
   updatedAt?: any;
+}
+
+export interface TranslationRequest {
+  id?: string;
+  songId: string;
+  songTitle: string;
+  artist: string;
+  userId: string;
+  userEmail: string;
+  status: 'pending' | 'in-progress' | 'completed' | 'rejected';
+  createdAt?: any;
+  updatedAt?: any;
+  completedAt?: any;
+  notes?: string;
 }

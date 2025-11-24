@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { saveTranslation } from '../services/firebaseService';
 import { getAiAnalysis } from '../services/geminiService';
@@ -8,6 +9,16 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import type { AiAnalysisResult } from '../types';
 
 const RequestTranslationPage: React.FC = () => {
+  const navigate = useNavigate();
+  
+  // Redirect to homepage if accessed directly
+  useEffect(() => {
+    // Show a message and redirect after a brief delay
+    const timer = setTimeout(() => {
+      navigate('/', { replace: true });
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [navigate]);
   const { user } = useAuth();
   const [artist, setArtist] = useState('');
   const [title, setTitle] = useState('');
@@ -90,6 +101,24 @@ const RequestTranslationPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#122118]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Redirect Message */}
+        <div className="mb-8 p-6 bg-amber-900/30 border border-amber-700 rounded-lg text-center">
+          <h2 className="text-2xl font-bold text-amber-200 mb-2">Translation Request Flow Updated</h2>
+          <p className="text-amber-100 mb-4">
+            To request a translation, please navigate to a song page that doesn't have lyrics or translation yet. 
+            You'll see a "Request Translation" button there.
+          </p>
+          <p className="text-amber-200 text-sm">
+            Redirecting to homepage in 3 seconds...
+          </p>
+          <button
+            onClick={() => navigate('/')}
+            className="mt-4 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors"
+          >
+            Go to Homepage Now
+          </button>
+        </div>
+
         {/* Hero Section */}
         <div className="text-center mb-12">
           <div className="flex items-center justify-center mb-4">
@@ -242,7 +271,7 @@ const RequestTranslationPage: React.FC = () => {
                         <span className="text-xs px-2 py-0.5 bg-purple-700 rounded-full">Beta</span>
                       </h3>
                       <p className="text-sm text-gray-300 mt-1">
-                        This translation is generated using <strong>Afro Genie Advanced AI Processing</strong>, powered by cultural context algorithms. While our AI provides insightful analysis, a human-reviewed version will be more accurate.
+                        This translation is generated using <strong>Afro Genie Advanced AI Processing</strong>. AI handles translation only - cultural context and explanations are added by human experts.
                       </p>
                       <div className="flex items-center gap-2 mt-2 text-xs text-purple-300">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -269,13 +298,15 @@ const RequestTranslationPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Cultural Context */}
+                  {/* Cultural Context - Only show if present (added by humans) */}
+                  {result.culturalContext && (
                   <div>
                     <h3 className="text-xl font-bold text-white mb-3 flex items-center gap-2">
                       <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                       </svg>
                       Cultural Context
+                        <span className="text-xs px-2 py-1 bg-green-700 rounded-full">Human-Added</span>
                     </h3>
                     <div className="bg-[#0d1612] rounded-lg p-4 text-gray-300 prose prose-invert max-w-none">
                       {result.culturalContext.split('\n').map((paragraph, i) => (
@@ -283,6 +314,7 @@ const RequestTranslationPage: React.FC = () => {
                       ))}
                     </div>
                   </div>
+                  )}
 
                   {/* Actions */}
                   <div className="flex gap-3 pt-4 border-t border-gray-700">
@@ -329,7 +361,7 @@ const RequestTranslationPage: React.FC = () => {
                 </li>
                 <li className="flex gap-2">
                   <span className="flex-shrink-0 w-6 h-6 bg-green-700 rounded-full flex items-center justify-center text-white font-bold text-xs">2</span>
-                  <span>Our AI analyzes cultural context and meaning</span>
+                  <span>Our AI generates translation (cultural context added by humans)</span>
                 </li>
                 <li className="flex gap-2">
                   <span className="flex-shrink-0 w-6 h-6 bg-green-700 rounded-full flex items-center justify-center text-white font-bold text-xs">3</span>

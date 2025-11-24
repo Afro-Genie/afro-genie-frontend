@@ -891,6 +891,9 @@ A: Use the community forum to ask questions, or contact administrators if you
 Website: https://afrogenie.web.app
 Admin Panel: https://afrogenie.web.app/#/admin
 Community Forum: https://afrogenie.web.app/#/community
+Acess:
+Admin Email: admin@afro-genie.com
+password: Admin@@87
 
 For technical issues or feature requests, please use the community forum or
 contact the development team.
@@ -904,4 +907,4 @@ platform. For the most up-to-date information, please visit the website.
 
 Last Updated: November 2024
 Version: 1.0
-
+Collab Tech Innovations 

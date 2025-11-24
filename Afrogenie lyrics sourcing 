@@ -1,0 +1,284 @@
+Afro Genie Lyric Licensing, Sourcing & Compliance Framework
+Legal, Product & Artist Verification Roadmap (2025)
+1. Introduction
+Afro Genie is building Africa’s first AI-powered lyric translation and cultural annotation platform, translating local languages and dialects into global ones while preserving meaning, context, and cultural ownership.
+
+To operate legally and sustainably, Afro Genie ensures that all lyrics hosted, translated, or displayed are properly licensed or self-verified by artists.
+
+
+This document outlines the legal, licensing, and compliance architecture that underpins this mission.
+2. Multi-Source Licensing & Sourcing Model
+Afro Genie sources lyrics through three compliant channels, blending global coverage with local authenticity:
+Channel
+Description
+Compliance Status
+Key Controls
+Option 1 – Licensed API
+Integrate with global lyric licensors (LyricFind, Musixmatch).
+Fully licensed
+Contractual API use, no caching of full lyrics.
+Option 2 – Direct Publisher/Artist Licensing
+Obtain display and translation rights directly from publishers, labels, and verified artists.
+Legally licensed
+“Lyric & Translation License Agreement.”
+Option 3 – Artist-Contributed Lyrics
+Enable emerging artists to self-upload and verify their own lyrics.
+Verified creator participation
+KYC verification, rights declaration, and internal moderation.
+
+This hybrid model balances legal compliance, scale, and regional inclusivity, making Afro Genie the first verified source for African lyric data.
+3. The Global & African Lyric Rights Landscape
+A. Decentralized Rights Ecosystem
+No single platform owns all Afrobeat lyric rights.
+Control remains fragmented between publishers, songwriters, and labels, each holding specific rights.
+Rights Type
+Controlled By
+Examples
+Composition (lyrics & melody)
+Songwriters/publishers
+Sony Music Publishing Africa, Universal Music Publishing, Kobalt, The Plug Publishing
+Sound Recording (master)
+Labels/distributors
+Empire, Dvpper Digital, The Orchard, Melior, Mavin Global
+Lyric Display Licenses
+Third-party licensors
+Musixmatch, LyricFind, Genius
+
+
+
+
+
+B. Key Licensing Platforms
+Platform
+Function
+Notes
+Musixmatch
+Global lyric and translation licensing
+Powers Spotify, Apple, Boomplay; licensed from publishers; no caching allowed.
+LyricFind
+Lyric display + translation API provider
+Licenses for Google, Amazon, UMG, and indie publishers; ideal enterprise partner.
+Genius
+Annotated lyric community
+Not redistributable — limited licensing.
+
+C. African & Regional Rights Structures
+Region
+Organization
+Role
+Nigeria
+COSON
+Public performance rights (not lyric display).
+South Africa
+SAMRO / CAPASSO
+Mechanical & reproduction rights; potential for local partnerships.
+Francophone Africa
+MASA / BURIDA
+Collective rights management; case-by-case lyric permissions.
+Emerging Publishers
+Dvpper Digital, The Plug, Made Men, Mavin
+Represent growing indie catalogues.
+
+
+4. Afro Genie’s Three-Tier Licensing Framework
+Tier 1 – Licensed API (Musixmatch Integration)
+Purpose:
+To provide Afro Genie with legally licensed lyric data, translations, and metadata through Musixmatch, the world’s largest authorized lyrics and music metadata platform.
+Actions:
+Subscribe to the Musixmatch Developer Plan at US$29.50 per month.
+Integrate the Musixmatch API to retrieve:
+Up to 500 API calls per day (standard limit).
+Static lyrics and basic lyric translations for display within Afro Genie.
+Comprehensive music metadata — artist names, album details, genres, ISRC/track IDs, and release dates.
+
+
+No caching or offline storage of full lyric text; all displays must be served dynamically via the API.
+
+
+Attribute every displayed lyric as required by Musixmatch:
+
+ “Lyrics provided by Musixmatch. © Respective owners.”
+
+
+Advantages:
+Immediate access to the largest global lyric and translation catalog (over 8 million tracks).
+Includes major Afrobeat and international catalogs already cleared through publishers and CMOs.
+Provides reliable metadata synchronization and verified lyric text.
+Ensures Afro Genie’s full legal compliance for public lyric display and translation.
+Limitations:
+Subscription fee: US $29.50 per month (developer tier).
+Daily cap: 500 API calls.
+No permanent lyric caching or redistribution permitted under Musixmatch API Terms of Use.
+Cheaper alternative: https://rapidapi.com/Glavier/api/genius-song-lyrics1/pricing
+Tier 2 – Direct Publisher / Label Licensing
+Purpose:
+Secure exclusive, region-specific lyric display and translation rights from African publishers, labels, or administrators.
+Implementation:
+Execute Afro Genie Lyric & Translation License Agreement.
+Rights granted:
+Non-exclusive license to display, store, and translate lyrics.
+Advantages:
+Full control over data storage and translations.
+Builds proprietary African lyric catalogue.
+Compliance Safeguards:
+All agreements are stored with metadata.
+Attribution and rights tags are displayed on lyric pages.
+
+
+Tier 3 – Artist-Contributed Lyrics (Emerging Artist Gateway)
+Purpose:
+Empower emerging and independent African artists to directly upload, verify, and control their own lyrics — reducing reliance on third-party licensors.
+System Workflow
+Step
+Action
+Description
+1. Artist Verification
+KYC check and ISRC/UPC match
+Artist verifies identity using government ID or DSP metadata (e.g., Dvpper, TuneCore, The Plug).
+2. Upload Portal
+Artist uploads lyrics and metadata
+Inputs: title, language, ISRC, release info, label (if applicable).
+3. Rights Declaration
+Legal consent
+“I am the songwriter or authorized representative of this composition.”
+4. Moderation & Approval
+Afro Genie Legal & Curator Team
+Verifies submission against DSP and public databases.
+5. Verified Status
+Platform confirmation
+Adds “Verified Artist Submission” badge to song entry.
+
+Legal Terms
+Ownership: The artist retains full copyright in the lyrics.
+License to Afro Genie:
+Afro Genie obtains a non-exclusive, royalty-free license to:
+Display and store the lyrics.
+Translate and annotate them.
+Use related metadata for research and cultural archiving.
+
+
+Derivative IP:
+Translations and contextual notes are owned by Afro Genie
+
+
+Attribution:
+ “Lyrics © [Artist Name, Year]. Submitted by the artist via Afro Genie.”
+ “Translations & Context © Afro Genie Community.”
+
+
+
+Benefits for Artists
+Benefit
+Description
+Proof of Authorship
+Timestamped lyric submission acts as a verifiable authorship record.
+Expanded Reach
+Afro Genie’s translation layer amplifies global visibility.
+Cultural Control
+Artists define the meaning and context of their lyrics.
+Revenue Participation
+Eligible artists may earn from future translation or API licensing.
+Metadata Sync
+Data can later sync to DSPs or licensing partners.
+
+Compliance Strengths
+Artists directly authorize display → eliminates fan-upload infringement risk.
+Afro Genie becomes a rights-first, creator-verified lyric host.
+Builds trust with publishers and DSPs.
+Establishes a self-sustaining ecosystem for verified African content.
+5. Ownership & IP Structure
+Content Type
+Owner
+Afro Genie Rights
+Original Lyrics
+Artist / Publisher
+Licensed or self-uploaded; Afro Genie displays under permission.
+Translations
+Afro Genie + Contributor
+Afro Genie may license or commercialise.
+Cultural Notes / Context
+Afro Genie (aggregated)
+Fully owned.
+Metadata (ISRC, Language, Region)
+Afro Genie
+Fully owned.
+
+6. Governance & Legal Infrastructure
+Document
+Purpose
+Lyric & Translation License Agreement
+Formal licensing with publishers, labels, or artists.
+Artist Participation Terms
+In-platform terms for self-uploading artists.
+Attribution & Display Guidelines
+Standard credit formatting.
+Notice & Takedown Policy
+DMCA-style safe harbor procedure.
+Rights Ledger (Internal)
+Tracks license basis, expiry, and verification status.
+
+
+
+Rights Ledger Example
+Song ID
+Source
+Rights Basis
+License Expiry
+Status
+Verified By
+AG-001
+LyricFind API
+Licensed (Display Only)
+Annual
+Active
+Legal Team
+AG-057
+The Plug Publishing
+Direct License
+2 Years
+Active
+Legal Team
+AG-089
+Artist Upload (SgaWD)
+Verified Artist Submission
+N/A
+Verified
+Afro Genie Bot
+
+7. Legal Compliance Summary
+Principle
+Implementation
+Respect for Copyright Ownership
+Original lyrics always attributed; no ownership claims.
+Fair Use / Educational Display
+Snippets used pre-license; full display under permission.
+Safe Harbor Compliance
+Takedown system active within 48 hours.
+Transparent Attribution
+Every lyric linked to rights holder and source type.
+Data Separation
+Lyrics, translations, and metadata stored as separate entities.
+
+
+
+
+8. Strategic Advantages
+Area
+Impact
+Legal Defensibility
+Afro Genie hosts lyrics only from verified or licensed creators.
+Cultural IP Ownership
+Afro Genie owns translation, context, and metadata layers.
+Creator Empowerment
+Artists retain control and visibility over their own work.
+API Monetization
+Platform can license translations and metadata globally.
+Investor Confidence
+Transparent legal architecture with layered compliance.
+
+9. Summary
+Afro Genie establishes a creator-verified, rights-compliant ecosystem for African lyrics — combining licensed APIs, direct publisher partnerships, and verified artist submissions.
+
+
+This structure builds a defensible, legally sound foundation for Afro Genie’s AI, translation, and metadata products — enabling fair participation, ownership, and monetization for African creators globally.
+

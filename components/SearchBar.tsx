@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { getAllArtists, getAllSongs, getAllGenres } from '../services/firebaseService';
+import { getAllArtists, getAllSongs, getAllGenres, searchLyrics } from '../services/firebaseService';
 import useClickOutside from '../hooks/useClickOutside';
 import SearchIcon from './icons/SearchIcon';
 import MusicNoteIcon from './icons/MusicNoteIcon';
 import MicIcon from './icons/MicIcon';
 import TagIcon from './icons/TagIcon';
+import TranslateIcon from './icons/TranslateIcon';
 import LoadingSpinner from './LoadingSpinner';
 import type { Suggestion, Artist, Song, Genre } from '../types';
 
@@ -51,23 +52,58 @@ const SearchBar: React.FC<SearchBarProps> = ({ variant = 'header' }) => {
       return;
     }
 
-    setLoading(true);
-    const lowerCaseQuery = query.toLowerCase();
-    
-    const filteredArtists = allData.artists
-      .filter(a => a.name.toLowerCase().includes(lowerCaseQuery))
-      .map(data => ({ type: 'artist' as const, data }));
+    const performSearch = async () => {
+      setLoading(true);
+      const lowerCaseQuery = query.toLowerCase();
+      
+      // Search artists, songs, and genres (synchronous - already loaded)
+      const filteredArtists = allData.artists
+        .filter(a => a.name.toLowerCase().includes(lowerCaseQuery))
+        .map(data => ({ type: 'artist' as const, data }));
 
-    const filteredSongs = allData.songs
-      .filter(s => s.title.toLowerCase().includes(lowerCaseQuery))
-      .map(data => ({ type: 'song' as const, data }));
+      const filteredSongs = allData.songs
+        .filter(s => s.title.toLowerCase().includes(lowerCaseQuery) || s.artist.toLowerCase().includes(lowerCaseQuery))
+        .map(data => ({ type: 'song' as const, data }));
 
-    const filteredGenres = allData.genres
-      .filter(g => g.name.toLowerCase().includes(lowerCaseQuery))
-      .map(data => ({ type: 'genre' as const, data }));
+      const filteredGenres = allData.genres
+        .filter(g => g.name.toLowerCase().includes(lowerCaseQuery))
+        .map(data => ({ type: 'genre' as const, data }));
 
-    setSuggestions([...filteredArtists, ...filteredSongs, ...filteredGenres].slice(0, 8));
-    setLoading(false);
+      // Search lyrics (async - from database)
+      let lyricsSuggestions: Suggestion[] = [];
+      try {
+        if (query.length >= 3) { // Only search lyrics for longer queries to avoid too many results
+          const matchingLyrics = await searchLyrics(query, 5);
+          lyricsSuggestions = matchingLyrics.map(lyric => ({
+            type: 'lyrics' as const,
+            data: {
+              id: lyric.id || '',
+              songId: lyric.songId,
+              songTitle: lyric.songTitle,
+              artistName: lyric.artistName,
+              preview: lyric.originalLyrics?.substring(0, 100) || lyric.translatedLyrics?.substring(0, 100) || ''
+            }
+          }));
+        }
+      } catch (error) {
+        console.error('Error searching lyrics:', error);
+      }
+
+      // Combine and prioritize: artists first, then songs, then genres, then lyrics
+      const allSuggestions = [
+        ...filteredArtists.slice(0, 3),
+        ...filteredSongs.slice(0, 3),
+        ...filteredGenres.slice(0, 2),
+        ...lyricsSuggestions.slice(0, 3)
+      ].slice(0, 10);
+
+      setSuggestions(allSuggestions);
+      setLoading(false);
+    };
+
+    // Debounce the search slightly for lyrics
+    const timeoutId = setTimeout(performSearch, query.length >= 3 ? 300 : 0);
+    return () => clearTimeout(timeoutId);
   }, [query, allData]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -111,7 +147,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ variant = 'header' }) => {
           </div>
           <input
             type="text"
-            placeholder={variant === 'header' ? 'Search' : 'Search for artist, language, or genre'}
+            placeholder={variant === 'header' ? 'Search artists, songs, lyrics...' : 'Search for artist, song, lyrics, or genre'}
             className={currentVariant.input}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -129,23 +165,51 @@ const SearchBar: React.FC<SearchBarProps> = ({ variant = 'header' }) => {
           ) : suggestions.length > 0 ? (
             <ul>
               {suggestions.map((item, index) => {
-                const linkTo = item.type === 'song' 
-                  ? `/song/${item.data.id}` 
-                  : `/search/${encodeURIComponent(item.data.name)}`;
+                let linkTo = '';
+                if (item.type === 'song') {
+                  linkTo = `/song/${item.data.id}`;
+                } else if (item.type === 'lyrics') {
+                  linkTo = `/song/${item.data.songId}`;
+                } else {
+                  linkTo = `/search/${encodeURIComponent(item.data.name)}`;
+                }
 
                 return (
                   <li key={index}>
-                    <Link to={linkTo} onClick={handleSuggestionClick} className="flex items-center gap-4 px-4 py-3 hover:bg-green-500/10 transition-colors">
-                      {item.type === 'artist' && <MicIcon className="h-5 w-5 text-gray-400" />}
-                      {item.type === 'song' && <MusicNoteIcon className="h-5 w-5 text-gray-400" />}
-                      {item.type === 'genre' && <TagIcon className="h-5 w-5 text-gray-400" />}
-                      <div className="flex-grow">
-                        <p className="font-semibold text-white">
-                          {item.type === 'song' ? item.data.title : item.data.name}
+                    <Link 
+                      to={linkTo} 
+                      onClick={handleSuggestionClick} 
+                      className="flex items-center gap-4 px-4 py-3 hover:bg-green-500/10 transition-colors border-b border-gray-700/50 last:border-b-0"
+                    >
+                      {item.type === 'artist' && <MicIcon className="h-5 w-5 text-gray-400 flex-shrink-0" />}
+                      {item.type === 'song' && <MusicNoteIcon className="h-5 w-5 text-gray-400 flex-shrink-0" />}
+                      {item.type === 'genre' && <TagIcon className="h-5 w-5 text-gray-400 flex-shrink-0" />}
+                      {item.type === 'lyrics' && <TranslateIcon className="h-5 w-5 text-amber-400 flex-shrink-0" />}
+                      <div className="flex-grow min-w-0">
+                        <p className="font-semibold text-white truncate">
+                          {item.type === 'song' 
+                            ? item.data.title 
+                            : item.type === 'lyrics'
+                            ? `${item.data.songTitle || 'Song'} - Lyrics`
+                            : item.data.name}
                         </p>
-                        {item.type === 'song' && <p className="text-sm text-gray-400">{item.data.artist}</p>}
+                        {item.type === 'song' && (
+                          <p className="text-sm text-gray-400 truncate">{item.data.artist}</p>
+                        )}
+                        {item.type === 'lyrics' && (
+                          <>
+                            {item.data.artistName && (
+                              <p className="text-sm text-gray-400 truncate">{item.data.artistName}</p>
+                            )}
+                            {item.data.preview && (
+                              <p className="text-xs text-gray-500 mt-1 line-clamp-1 italic">
+                                "{item.data.preview}..."
+                              </p>
+                            )}
+                          </>
+                        )}
                       </div>
-                      <span className="text-xs font-medium text-gray-500 bg-gray-700 px-2 py-1 rounded">
+                      <span className="text-xs font-medium text-gray-500 bg-gray-700 px-2 py-1 rounded flex-shrink-0">
                         {item.type}
                       </span>
                     </Link>

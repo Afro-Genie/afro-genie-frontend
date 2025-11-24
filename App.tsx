@@ -20,6 +20,7 @@ import UnifiedManager from './pages/admin/UnifiedManager';
 import GenieManager from './pages/admin/GenieManager';
 import LyricImporter from './pages/admin/LyricImporter';
 import LyricsManager from './pages/admin/LyricsManager';
+import SpotifyManager from './pages/admin/SpotifyManager';
 import ArtistSignupPage from './pages/ArtistSignupPage';
 import ArtistDashboard from './pages/ArtistDashboard';
 
@@ -65,6 +66,7 @@ function App() {
                   <Route path="genie" element={<GenieManager />} />
                   <Route path="lyrics" element={<LyricsManager />} />
                   <Route path="lyric-importer" element={<LyricImporter />} />
+                  <Route path="spotify" element={<SpotifyManager />} />
             </Route>
           </Routes>
           </main>

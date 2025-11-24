@@ -18,7 +18,7 @@ import {
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../config/firebase';
-import type { Artist, Song, Genre, GenieSettings, Topic, TopicComment, ForumCategory } from '../types';
+import type { Artist, Song, Genre, GenieSettings, Topic, TopicComment, ForumCategory, TranslationRequest } from '../types';
 
 // Collections
 const COLLECTIONS = {
@@ -37,7 +37,8 @@ const COLLECTIONS = {
   COMMENT_LIKES: 'commentLikes',
   TOPIC_SHARES: 'topicShares',
   FORUM_CATEGORIES: 'forumCategories',
-  SYNC_JOBS: 'syncJobs'
+  SYNC_JOBS: 'syncJobs',
+  TRANSLATION_REQUESTS: 'translationRequests'
 };
 
 // Artist Operations
@@ -292,6 +293,64 @@ export const rejectTranslation = async (
     rejectionReason: reason || '',
     updatedAt: serverTimestamp()
   });
+};
+
+// Translation Request Operations
+export const createTranslationRequest = async (request: Omit<TranslationRequest, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const docRef = await addDoc(collection(db, COLLECTIONS.TRANSLATION_REQUESTS), {
+    ...request,
+    status: 'pending',
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  });
+  return docRef.id;
+};
+
+export const getTranslationRequests = async (status?: TranslationRequest['status']) => {
+  let q = query(
+    collection(db, COLLECTIONS.TRANSLATION_REQUESTS),
+    orderBy('createdAt', 'desc')
+  );
+  
+  if (status) {
+    q = query(q, where('status', '==', status));
+  }
+  
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => ({ 
+    id: doc.id, 
+    ...doc.data() 
+  } as TranslationRequest));
+};
+
+export const getTranslationRequest = async (requestId: string): Promise<TranslationRequest | null> => {
+  const docRef = doc(db, COLLECTIONS.TRANSLATION_REQUESTS, requestId);
+  const docSnap = await getDoc(docRef);
+  
+  if (docSnap.exists()) {
+    return { id: docSnap.id, ...docSnap.data() } as TranslationRequest;
+  }
+  return null;
+};
+
+export const updateTranslationRequest = async (
+  requestId: string,
+  updates: Partial<Omit<TranslationRequest, 'id'>>
+) => {
+  const docRef = doc(db, COLLECTIONS.TRANSLATION_REQUESTS, requestId);
+  await updateDoc(docRef, {
+    ...updates,
+    updatedAt: serverTimestamp()
+  });
+};
+
+export const getPendingTranslationRequestCount = async (): Promise<number> => {
+  const q = query(
+    collection(db, COLLECTIONS.TRANSLATION_REQUESTS),
+    where('status', '==', 'pending')
+  );
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.size;
 };
 
 // Annotation Operations
@@ -1153,6 +1212,39 @@ export const searchTopics = async (searchTerm: string, limitCount: number = 20):
       topic.content.toLowerCase().includes(lowerSearchTerm)
     )
     .slice(0, limitCount);
+};
+
+// Search lyrics/translations by text content
+export const searchLyrics = async (searchTerm: string, limitCount: number = 10): Promise<Array<Translation & { songTitle?: string; artistName?: string }>> => {
+  // Note: Firestore doesn't support full-text search natively
+  // This searches through translations in memory - for production, consider Algolia or similar
+  const allTranslations = await getAllTranslations({ status: 'approved' }, 500); // Limit to avoid loading too much
+  const lowerSearchTerm = searchTerm.toLowerCase();
+  
+  // Get songs for matching translations to show song info
+  const songIds = [...new Set(allTranslations.map(t => t.songId))];
+  const songs = await Promise.all(
+    songIds.slice(0, 100).map(id => getSong(id).catch(() => null))
+  );
+  const songMap = new Map(songs.filter(s => s !== null).map(s => [s!.id, s!]));
+  
+  const matchingTranslations = allTranslations
+    .filter(translation => {
+      const originalMatch = translation.originalLyrics?.toLowerCase().includes(lowerSearchTerm);
+      const translatedMatch = translation.translatedLyrics?.toLowerCase().includes(lowerSearchTerm);
+      return originalMatch || translatedMatch;
+    })
+    .map(translation => {
+      const song = songMap.get(translation.songId);
+      return {
+        ...translation,
+        songTitle: song?.title,
+        artistName: song?.artist
+      };
+    })
+    .slice(0, limitCount);
+  
+  return matchingTranslations;
 };
 
 // Upload topic image

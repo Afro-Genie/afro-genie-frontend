@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getAllArtists, getAllSongs, getAllGenres, getAllUsers, getTopics, getCategories } from '../../services/firebaseService';
+import { getAllArtists, getAllSongs, getAllGenres, getAllUsers, getTopics, getCategories, getPendingTranslationRequestCount, getTranslationRequests } from '../../services/firebaseService';
 import { 
   MusicNoteIcon, 
   ArtistIcon, 
@@ -21,21 +21,25 @@ const AdminDashboard: React.FC = () => {
     users: 0,
     translations: 0,
     topics: 0,
-    categories: 0
+    categories: 0,
+    pendingRequests: 0
   });
   const [loading, setLoading] = useState(true);
   const [showAPIManagement, setShowAPIManagement] = useState(false);
+  const [recentRequests, setRecentRequests] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const [artists, songs, genres, users, topics, categories] = await Promise.all([
+        const [artists, songs, genres, users, topics, categories, pendingCount, requests] = await Promise.all([
           getAllArtists(),
           getAllSongs(),
           getAllGenres(),
           getAllUsers(),
           getTopics(undefined, 'latest', 1000).catch(() => []),
-          getCategories().catch(() => [])
+          getCategories().catch(() => []),
+          getPendingTranslationRequestCount().catch(() => 0),
+          getTranslationRequests('pending').catch(() => [])
         ]);
 
         setStats({
@@ -45,8 +49,10 @@ const AdminDashboard: React.FC = () => {
           users: users.length,
           translations: 0, // You can add this if you have a translations count
           topics: topics.length,
-          categories: categories.length
+          categories: categories.length,
+          pendingRequests: pendingCount
         });
+        setRecentRequests(requests.slice(0, 5));
       } catch (error) {
         console.error('Error fetching stats:', error);
       } finally {
@@ -70,6 +76,11 @@ const AdminDashboard: React.FC = () => {
           getCategories().catch(() => [])
         ]);
 
+        const [pendingCount, requests] = await Promise.all([
+          getPendingTranslationRequestCount().catch(() => 0),
+          getTranslationRequests('pending').catch(() => [])
+        ]);
+        
         setStats({
           artists: artists.length,
           songs: songs.length,
@@ -77,8 +88,10 @@ const AdminDashboard: React.FC = () => {
           users: users.length,
           translations: 0,
           topics: topics.length,
-          categories: categories.length
+          categories: categories.length,
+          pendingRequests: pendingCount
         });
+        setRecentRequests(requests.slice(0, 5));
       } catch (error) {
         console.error('Error fetching stats:', error);
       }
@@ -235,6 +248,46 @@ const AdminDashboard: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Translation Requests Section */}
+        {stats.pendingRequests > 0 && (
+          <div className="bg-gradient-to-r from-orange-600 to-orange-700 rounded-xl p-6 text-white shadow-lg">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <div className="bg-white/20 rounded-full p-3">
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold">Translation Requests</h3>
+                  <p className="text-orange-100">{stats.pendingRequests} pending request{stats.pendingRequests !== 1 ? 's' : ''}</p>
+                </div>
+              </div>
+              <Link
+                to="/admin/translation-requests"
+                className="bg-white/20 hover:bg-white/30 px-6 py-3 rounded-lg transition-colors font-semibold"
+              >
+                View All
+              </Link>
+            </div>
+            {recentRequests.length > 0 && (
+              <div className="space-y-2 mt-4">
+                {recentRequests.map((request) => (
+                  <div key={request.id} className="bg-white/10 rounded-lg p-3 flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold">{request.songTitle}</p>
+                      <p className="text-sm text-orange-100">by {request.artist}</p>
+                    </div>
+                    <span className="text-xs bg-white/20 px-2 py-1 rounded">
+                      {request.userEmail}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Quick Actions - Enhanced Design */}
         <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">

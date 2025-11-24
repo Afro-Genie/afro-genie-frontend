@@ -19,7 +19,7 @@ const TranslationDisplay: React.FC<TranslationDisplayProps> = ({ result, input }
         
         <ConfidenceScore />
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className={`grid gap-8 ${result.culturalContext ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
             <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
                 <h3 className="flex items-center gap-2 text-xl font-semibold text-amber-400 mb-4">
                     <TranslateIcon className="h-6 w-6" />
@@ -27,13 +27,16 @@ const TranslationDisplay: React.FC<TranslationDisplayProps> = ({ result, input }
                 </h3>
                 <pre className="whitespace-pre-wrap font-sans text-gray-300 leading-relaxed">{result.translatedLyrics}</pre>
             </div>
+            {result.culturalContext && (
             <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
                 <h3 className="flex items-center gap-2 text-xl font-semibold text-amber-400 mb-4">
                     <BookOpenIcon className="h-6 w-6" />
                     Cultural Context
+                        <span className="text-xs px-2 py-1 bg-green-700 rounded-full">Human-Added</span>
                 </h3>
                 <pre className="whitespace-pre-wrap font-sans text-gray-300 leading-relaxed">{result.culturalContext}</pre>
             </div>
+            )}
         </div>
     </div>
   );
