@@ -13,6 +13,7 @@ import { useAuth } from '../context/AuthContext';
 import HeartIcon from './icons/HeartIcon';
 import ShareIcon from './icons/ShareIcon';
 import FontSizeIcon from './icons/FontSizeIcon';
+import SpotifyPlayer from './SpotifyPlayer';
 import type { Song, TranslationViewMode } from '../types';
 
 const LyricContent: React.FC = () => {
@@ -35,6 +36,7 @@ const LyricContent: React.FC = () => {
     const [hoveredLine, setHoveredLine] = useState<number | null>(null);
     const [showTranslation, setShowTranslation] = useState<boolean>(false); // For toggle mode
     const [requestLoading, setRequestLoading] = useState(false);
+    const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
     // Load view mode preference from localStorage
     useEffect(() => {
@@ -104,7 +106,8 @@ const LyricContent: React.FC = () => {
 
     const handleFavoriteToggle = async () => {
         if (!currentUser) {
-            alert('Please sign in to add favorites');
+            setNotification({ message: 'Please sign in to add favorites', type: 'error' });
+            setTimeout(() => setNotification(null), 4000);
             return;
         }
         if (!songId) return;
@@ -115,13 +118,18 @@ const LyricContent: React.FC = () => {
                 await removeFromFavorites(favoriteId);
                 setIsFavorite(false);
                 setFavoriteId(null);
+                setNotification({ message: 'Removed from favorites', type: 'success' });
+                setTimeout(() => setNotification(null), 3000);
             } else {
                 const newFavId = await addToFavorites(currentUser.uid, songId);
                 setIsFavorite(true);
                 setFavoriteId(newFavId);
+                setNotification({ message: 'Added to favorites', type: 'success' });
+                setTimeout(() => setNotification(null), 3000);
             }
         } catch (err: any) {
-            alert(err.message || 'Failed to update favorite');
+            setNotification({ message: err.message || 'Failed to update favorite', type: 'error' });
+            setTimeout(() => setNotification(null), 4000);
         } finally {
             setFavoriteLoading(false);
         }
@@ -137,7 +145,8 @@ const LyricContent: React.FC = () => {
             });
         } else {
             navigator.clipboard.writeText(url);
-            alert('Link copied to clipboard!');
+            setNotification({ message: 'Link copied to clipboard!', type: 'success' });
+            setTimeout(() => setNotification(null), 3000);
         }
     };
 
@@ -153,9 +162,13 @@ const LyricContent: React.FC = () => {
                 userId: currentUser?.uid || 'anonymous',
                 userEmail: currentUser?.email || 'anonymous@example.com'
             });
-            alert('Translation request submitted! Admins will be notified.');
+            setNotification({ message: 'Translation request submitted! Admins will be notified.', type: 'success' });
+            // Auto-hide after 4 seconds
+            setTimeout(() => setNotification(null), 4000);
         } catch (err: any) {
-            alert('Failed to submit request: ' + err.message);
+            setNotification({ message: 'Failed to submit request: ' + err.message, type: 'error' });
+            // Auto-hide after 5 seconds for errors
+            setTimeout(() => setNotification(null), 5000);
         } finally {
             setRequestLoading(false);
         }
@@ -174,21 +187,29 @@ const LyricContent: React.FC = () => {
             case 'tabs':
                 return (
                     <>
-                        <div className="flex border-b border-white/10 mb-6">
+                        <div className="flex border-b-2 border-gray-700 mb-6 bg-gray-800/30 rounded-t-lg p-1">
                             <button 
                                 onClick={() => setShowTranslation(false)}
-                                className={`py-2 px-4 font-semibold transition-colors ${!showTranslation ? 'text-white border-b-2 border-white' : 'text-gray-400'}`}
+                                className={`flex-1 py-3 px-4 font-semibold transition-all rounded-lg ${
+                                    !showTranslation 
+                                        ? 'text-white bg-gray-700/50 shadow-lg' 
+                                        : 'text-gray-400 hover:text-gray-300'
+                                }`}
                             >
                                 Original
                             </button>
                             <button
                                 onClick={() => setShowTranslation(true)}
-                                className={`py-2 px-4 font-semibold transition-colors ${showTranslation ? 'text-white border-b-2 border-white' : 'text-gray-400'}`}
+                                className={`flex-1 py-3 px-4 font-semibold transition-all rounded-lg ${
+                                    showTranslation 
+                                        ? 'text-white bg-green-600/20 border border-green-500/30 shadow-lg' 
+                                        : 'text-gray-400 hover:text-gray-300'
+                                }`}
                             >
                                 Translation
                             </button>
                         </div>
-                        <div className="text-gray-200 text-lg leading-loose">
+                        <div className="text-gray-200 text-lg leading-loose min-h-[400px]">
                             {!showTranslation ? (
                                 <pre className="font-sans whitespace-pre-wrap" style={{ fontSize: `${fontSize}px` }}>{originalLyrics}</pre>
                             ) : (
@@ -330,51 +351,60 @@ const LyricContent: React.FC = () => {
     };
 
     return (
-        <div className="px-12 py-8 relative">
-            {/* Song Header with Image */}
+        <div className="px-8 md:px-12 py-4 relative">
+            {/* Compact Song Header */}
             {!loading && !error && song && (
-                <div className="mb-8 flex flex-col md:flex-row gap-6 items-start">
-                    {/* Song Image/Album Cover */}
+                <div className="mb-4 flex items-center gap-4">
+                    {/* Small Song Image */}
                     <div className="flex-shrink-0">
                         {song.image ? (
                             <img 
                                 src={song.image} 
                                 alt={`${title} by ${artist}`}
-                                className="w-48 h-48 md:w-64 md:h-64 rounded-xl object-cover shadow-2xl border-2 border-gray-700"
+                                className="w-20 h-20 md:w-24 md:h-24 rounded-lg object-cover border border-gray-700"
                             />
                         ) : (
-                            <div className="w-48 h-48 md:w-64 md:h-64 rounded-xl bg-gradient-to-br from-green-600/30 to-amber-600/30 flex items-center justify-center border-2 border-gray-700 shadow-2xl">
-                                <svg className="w-24 h-24 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                            <div className="w-20 h-20 md:w-24 md:h-24 rounded-lg bg-gradient-to-br from-green-600/30 to-amber-600/30 flex items-center justify-center border border-gray-700">
+                                <svg className="w-10 h-10 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
                                     <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
                                 </svg>
                             </div>
                         )}
                     </div>
                     
-                    {/* Song Info */}
+                    {/* Song Info - Compact */}
                     <div className="flex-1 min-w-0">
-                        <h1 className="text-4xl md:text-5xl font-extrabold text-white mb-2 break-words">
+                        <h1 className="text-xl md:text-2xl font-bold text-white mb-1 break-words">
                             {title || 'Loading...'}
                         </h1>
-                        <div className="flex items-center gap-3 mb-4">
-                            <p className="text-2xl md:text-3xl text-gray-300 font-semibold">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm md:text-base text-gray-300">
                                 {artist || 'Unknown Artist'}
                             </p>
                             {song.artistId && (
                                 <Link
-                                    to={`/search/${artist}`}
-                                    className="text-green-400 hover:text-green-300 text-sm underline"
+                                    to={`/artist/${song.artistId}`}
+                                    className="text-green-400 hover:text-green-300 text-xs underline"
                                 >
                                     View Artist
                                 </Link>
                             )}
                         </div>
-                        {song.createdAt && (
-                            <p className="text-gray-400 text-sm">
-                                Added {song.createdAt.toDate ? new Date(song.createdAt.toDate()).toLocaleDateString() : 'recently'}
-                            </p>
-                        )}
                     </div>
+
+                    {/* Compact Spotify Player */}
+                    {title && artist && (
+                        <div className="flex-shrink-0 hidden md:block">
+                            <SpotifyPlayer title={title} artist={artist} compact={true} />
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Mobile Spotify Player */}
+            {!loading && !error && song && title && artist && (
+                <div className="mb-4 md:hidden">
+                    <SpotifyPlayer title={title} artist={artist} compact={true} />
                 </div>
             )}
 
@@ -407,71 +437,85 @@ const LyricContent: React.FC = () => {
 
             {/* Request Translation Button - Show when no lyrics or translation */}
             {!loading && !error && (hasNoLyrics || hasNoTranslation) && (
-                <div className="mb-6 p-4 bg-amber-900/30 border border-amber-700 rounded-lg">
-                    <p className="text-amber-200 mb-3">
-                        {hasNoLyrics && hasNoTranslation 
-                            ? 'This song has no lyrics or translation yet.' 
-                            : hasNoLyrics 
-                                ? 'This song has no lyrics yet.' 
-                                : 'This song has no translation yet.'}
-                    </p>
-                    <button
-                        onClick={handleRequestTranslation}
-                        disabled={requestLoading}
-                        className="bg-green-600 hover:bg-green-700 disabled:bg-gray-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors flex items-center gap-2"
-                    >
-                        {requestLoading ? (
-                            <>
-                                <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                </svg>
-                                Submitting...
-                            </>
-                        ) : (
-                            <>
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
-                                </svg>
-                                Request Translation
-                            </>
-                        )}
-                    </button>
-                </div>
-            )}
+                <div className="mb-4 animate-fade-in-up">
+                    <div className="relative overflow-hidden bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-sm border border-gray-600/50 rounded-2xl shadow-2xl p-6 md:p-8">
+                        {/* Animated background gradient */}
+                        <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-purple-500/5 to-pink-500/5 animate-gradient-shift"></div>
+                        
+                        {/* Content */}
+                        <div className="relative z-10">
+                            {/* Icon with pulse animation */}
+                            <div className="flex items-start gap-4 mb-4">
+                                <div className="flex-shrink-0 relative">
+                                    <div className="absolute inset-0 bg-blue-500/20 rounded-full animate-ping"></div>
+                                    <div className="relative bg-gray-700/50 p-3 rounded-full border border-gray-600">
+                                        <svg className="w-6 h-6 md:w-8 md:h-8 text-gray-300 animate-bounce-slow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+                                        </svg>
+                                    </div>
+                                </div>
+                                
+                                <div className="flex-1 min-w-0">
+                                    <h3 className="text-lg md:text-xl font-bold text-white mb-2">
+                                        {hasNoLyrics && hasNoTranslation 
+                                            ? 'Lyrics & Translation Needed' 
+                                            : hasNoLyrics 
+                                                ? 'Lyrics Needed' 
+                                                : 'Translation Needed'}
+                                    </h3>
+                                    <p className="text-gray-300 text-sm md:text-base leading-relaxed">
+                                        {hasNoLyrics && hasNoTranslation 
+                                            ? 'This song doesn\'t have lyrics or translation yet. Request one and our team will add it soon!' 
+                                            : hasNoLyrics 
+                                                ? 'This song doesn\'t have lyrics yet. Request them and our team will add it soon!' 
+                                                : 'This song doesn\'t have a translation yet. Request one and our team will add it soon!'}
+                                    </p>
+                                </div>
+                            </div>
 
-            {/* Song Metadata Info */}
-            {!loading && !error && song && (originalLyrics !== 'No lyrics available yet for this song.' || translatedLyrics !== 'No translation available yet. Use "Reveal the Meaning" to generate one.') && (
-                <div className="mb-6 p-4 bg-gray-800/50 rounded-lg border border-gray-700">
-                    <div className="flex items-center gap-2 text-sm text-gray-300">
-                        <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        <span>Song data loaded from database</span>
-                        {originalLyrics !== 'No lyrics available yet for this song.' && (
-                            <>
-                                <span className="text-gray-600">•</span>
-                                <span className="text-green-400">Original lyrics available</span>
-                            </>
-                        )}
-                        {translatedLyrics !== 'No translation available yet. Use "Reveal the Meaning" to generate one.' && (
-                            <>
-                                <span className="text-gray-600">•</span>
-                                <span className="text-amber-400">Translation available</span>
-                            </>
-                        )}
+                            {/* Button with hover animation */}
+                            <button
+                                onClick={handleRequestTranslation}
+                                disabled={requestLoading}
+                                className="w-full md:w-auto group relative overflow-hidden bg-gradient-to-r from-gray-700 to-gray-600 hover:from-gray-600 hover:to-gray-500 disabled:from-gray-800 disabled:to-gray-800 text-white font-semibold py-3 px-6 md:px-8 rounded-xl transition-all duration-300 flex items-center justify-center gap-3 shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {/* Shine effect on hover */}
+                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+                                
+                                {requestLoading ? (
+                                    <>
+                                        <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                        </svg>
+                                        <span className="relative z-10">Submitting Request...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <svg className="w-5 h-5 relative z-10 group-hover:rotate-12 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+                                        </svg>
+                                        <span className="relative z-10">Request Translation</span>
+                                        <svg className="w-4 h-4 relative z-10 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </>
+                                )}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
 
-            {/* View Mode Selector */}
+            {/* View Mode Selector - Moved up to be with lyrics */}
             {!loading && !error && !hasNoLyrics && !hasNoTranslation && (
-                <div className="mb-6 flex flex-wrap items-center gap-4">
-                    <label className="text-gray-300 font-semibold">View Mode:</label>
+                <div className="mb-4 flex flex-wrap items-center gap-3 bg-gray-800/30 rounded-lg p-3 border border-gray-700/50">
+                    <div className="flex items-center gap-2">
+                        <label className="text-gray-300 text-sm font-medium">View:</label>
                     <select
                         value={viewMode}
                         onChange={(e) => setViewMode(e.target.value as TranslationViewMode)}
-                        className="bg-gray-800 border border-gray-600 text-white px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                            className="bg-gray-800 border border-gray-600 text-white text-sm px-3 py-1.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                     >
                         <option value="tabs">Tabs</option>
                         <option value="side-by-side">Side-by-Side</option>
@@ -481,22 +525,44 @@ const LyricContent: React.FC = () => {
                         <option value="inline">Inline</option>
                         <option value="toggle">Toggle</option>
                     </select>
+                    </div>
                     <div className="flex items-center gap-2">
-                        <label className="text-gray-300 text-sm">Font Size:</label>
+                        <label className="text-gray-300 text-sm">Font:</label>
                         <input
                             type="range"
                             min="12"
                             max="24"
                             value={fontSize}
                             onChange={(e) => setFontSize(Number(e.target.value))}
-                            className="w-32"
+                            className="w-24"
                         />
-                        <span className="text-gray-400 text-sm">{fontSize}px</span>
+                        <span className="text-gray-400 text-xs">{fontSize}px</span>
                     </div>
+                    {/* Compact Status Indicators */}
+                    {song && (originalLyrics !== 'No lyrics available yet for this song.' || translatedLyrics !== 'No translation available yet. Use "Reveal the Meaning" to generate one.') && (
+                        <div className="ml-auto flex items-center gap-2 text-xs">
+                            {originalLyrics !== 'No lyrics available yet for this song.' && (
+                                <span className="text-green-400 flex items-center gap-1">
+                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                    </svg>
+                                    Original
+                                </span>
+                            )}
+                            {translatedLyrics !== 'No translation available yet. Use "Reveal the Meaning" to generate one.' && (
+                                <span className="text-amber-400 flex items-center gap-1">
+                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                    </svg>
+                                    Translation
+                                </span>
+                            )}
+                        </div>
+                    )}
                 </div>
             )}
 
-            {/* Lyrics Display */}
+            {/* Lyrics Display - Main Focus */}
             {!loading && !error && renderLyrics()}
             
             {/* Action Bar */}
@@ -529,6 +595,84 @@ const LyricContent: React.FC = () => {
                     </Link>
                 )}
             </div>
+
+            {/* Custom Notification Toast */}
+            {notification && (
+                <div className="fixed top-4 right-4 left-4 md:left-auto md:right-4 z-50 max-w-md mx-auto md:mx-0 animate-slide-in-right">
+                    <div className={`relative overflow-hidden rounded-2xl shadow-2xl border ${
+                        notification.type === 'success' 
+                            ? 'bg-gradient-to-br from-gray-800 to-gray-900 border-gray-600/50' 
+                            : 'bg-gradient-to-br from-gray-900 to-gray-800 border-red-500/50'
+                    } backdrop-blur-sm`}>
+                        {/* Animated background gradient */}
+                        <div className={`absolute inset-0 ${
+                            notification.type === 'success'
+                                ? 'bg-gradient-to-r from-blue-500/10 via-green-500/10 to-blue-500/10'
+                                : 'bg-gradient-to-r from-red-500/10 via-orange-500/10 to-red-500/10'
+                        } animate-gradient-shift`}></div>
+                        
+                        {/* Content */}
+                        <div className="relative z-10 p-4 md:p-5">
+                            <div className="flex items-start gap-4">
+                                {/* Icon */}
+                                <div className={`flex-shrink-0 relative ${
+                                    notification.type === 'success' ? 'text-green-400' : 'text-red-400'
+                                }`}>
+                                    <div className={`absolute inset-0 ${
+                                        notification.type === 'success' ? 'bg-green-500/20' : 'bg-red-500/20'
+                                    } rounded-full animate-ping`}></div>
+                                    <div className={`relative bg-gray-700/50 p-2 rounded-full border ${
+                                        notification.type === 'success' ? 'border-green-500/30' : 'border-red-500/30'
+                                    }`}>
+                                        {notification.type === 'success' ? (
+                                            <svg className="w-5 h-5 md:w-6 md:h-6 animate-scale-in" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        ) : (
+                                            <svg className="w-5 h-5 md:w-6 md:h-6 animate-scale-in" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        )}
+                                    </div>
+                                </div>
+                                
+                                {/* Message */}
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-white font-semibold text-sm md:text-base mb-1">
+                                        {notification.type === 'success' ? 'Success!' : 'Error'}
+                                    </p>
+                                    <p className="text-gray-300 text-xs md:text-sm leading-relaxed">
+                                        {notification.message}
+                                    </p>
+                                </div>
+                                
+                                {/* Close button */}
+                                <button
+                                    onClick={() => setNotification(null)}
+                                    className="flex-shrink-0 text-gray-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-gray-700/50"
+                                    aria-label="Close notification"
+                                >
+                                    <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+                            
+                            {/* Progress bar */}
+                            <div className="mt-3 h-1 bg-gray-700/50 rounded-full overflow-hidden">
+                                <div 
+                                    className={`h-full ${
+                                        notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'
+                                    }`}
+                                    style={{
+                                        animation: `progress-bar ${notification.type === 'success' ? '4s' : '5s'} linear forwards`
+                                    }}
+                                ></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

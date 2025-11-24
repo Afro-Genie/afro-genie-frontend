@@ -38,9 +38,9 @@ const LeftSidebar: React.FC = () => {
     fetchData();
   }, [user]);
   return (
-    <aside className="bg-[#1A2B22]/50 border-r border-white/10 p-6 flex flex-col space-y-8 overflow-y-auto">
+    <div className="flex flex-col space-y-6 sm:space-y-8">
       <section>
-        <h2 className="text-xl font-bold mb-4">Trending Now</h2>
+        <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4">Trending Now</h2>
         {loading ? (
           <div className="flex justify-center py-4">
             <LoadingSpinner />
@@ -49,7 +49,16 @@ const LeftSidebar: React.FC = () => {
           <ul className="space-y-2">
             {trendingSongs.map((song, index) => (
               <li key={song.id} className={index === 0 ? "bg-green-500/20 rounded-lg" : ""}>
-                <Link to={`/song/${song.id}`} className="block py-2 px-4 text-gray-300 hover:text-white font-semibold">
+                <Link 
+                  to={`/song/${song.id}`} 
+                  className="block py-2 px-4 text-gray-300 hover:text-white font-semibold text-sm sm:text-base min-h-[44px] flex items-center"
+                  onClick={() => {
+                    // Close mobile sidebar when navigating
+                    if (window.innerWidth < 1024) {
+                      // This will be handled by the parent component
+                    }
+                  }}
+                >
                   {index + 1}. {song.title} - {song.artist}
                 </Link>
               </li>
@@ -62,7 +71,7 @@ const LeftSidebar: React.FC = () => {
       </section>
 
       <section>
-        <h2 className="text-xl font-bold mb-4">Explore by Genre</h2>
+        <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4">Explore by Genre</h2>
         <div className="bg-[#2a3c30] p-4 rounded-lg">
             <div className="flex justify-between items-center cursor-pointer">
                 <h3 className="font-semibold">Genres</h3>
@@ -77,15 +86,15 @@ const LeftSidebar: React.FC = () => {
       {user ? (
         <>
           <section>
-            <h2 className="text-xl font-bold mb-4">Personal Library</h2>
+            <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4">Personal Library</h2>
             <ul className="space-y-2 text-gray-300">
               <li>
-                <Link to="#" className="block py-1 px-4 hover:bg-white/10 rounded-lg">
+                <Link to="#" className="block py-2 px-4 hover:bg-white/10 rounded-lg min-h-[44px] flex items-center text-sm sm:text-base">
                   Favorites ({favorites.length})
                 </Link>
               </li>
               <li>
-                <Link to="#" className="block py-1 px-4 hover:bg-white/10 rounded-lg">
+                <Link to="#" className="block py-2 px-4 hover:bg-white/10 rounded-lg min-h-[44px] flex items-center text-sm sm:text-base">
                   History ({history.length})
                 </Link>
               </li>
@@ -93,23 +102,23 @@ const LeftSidebar: React.FC = () => {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-4">Community & Contribution</h2>
+            <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4">Community & Contribution</h2>
             <ul className="space-y-2 text-gray-300">
-              <li><Link to="/request-translation" className="block py-1 px-4 hover:bg-white/10 rounded-lg">Request Translation</Link></li>
-              <li><Link to="#" className="block py-1 px-4 hover:bg-white/10 rounded-lg">Review Translations</Link></li>
+              <li><Link to="/request-translation" className="block py-2 px-4 hover:bg-white/10 rounded-lg min-h-[44px] flex items-center text-sm sm:text-base">Request Translation</Link></li>
+              <li><Link to="#" className="block py-2 px-4 hover:bg-white/10 rounded-lg min-h-[44px] flex items-center text-sm sm:text-base">Review Translations</Link></li>
             </ul>
           </section>
         </>
       ) : (
         <section>
-          <h2 className="text-xl font-bold mb-4">Get Started</h2>
+          <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4">Get Started</h2>
           <ul className="space-y-2 text-gray-300">
-            <li><Link to="/request-translation" className="block py-1 px-4 hover:bg-white/10 rounded-lg">Request Translation</Link></li>
-            <li><Link to="#" className="block py-1 px-4 hover:bg-white/10 rounded-lg">Sign In to Save Favorites</Link></li>
+            <li><Link to="/request-translation" className="block py-2 px-4 hover:bg-white/10 rounded-lg min-h-[44px] flex items-center text-sm sm:text-base">Request Translation</Link></li>
+            <li><Link to="#" className="block py-2 px-4 hover:bg-white/10 rounded-lg min-h-[44px] flex items-center text-sm sm:text-base">Sign In to Save Favorites</Link></li>
           </ul>
         </section>
       )}
-    </aside>
+    </div>
   );
 };
 

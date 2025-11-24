@@ -19,10 +19,11 @@ This guide will help you set up Spotify API credentials for the Afro Genie platf
      - App name: "Afro Genie" (or your preferred name)
      - App description: "Music metadata integration for Afro Genie"
      - Website: Enter your website URL (e.g., `https://afrogenie.web.app` or `https://afro-genie.com`)
-     - Redirect URIs: **For Client Credentials flow, you can use a placeholder URI**
-       - Add: `http://localhost:3000/callback` (or any valid URL format)
-       - Note: This won't actually be used since we're using Client Credentials flow, but Spotify requires at least one valid redirect URI format
-       - Valid format examples: `http://localhost:3000/callback`, `https://yourdomain.com/callback`
+     - Redirect URIs: **IMPORTANT for OAuth login**
+       - For local development: `http://localhost:3000` (or your dev port)
+       - For production: `https://yourdomain.com` (your actual domain)
+       - Add both if needed: `http://localhost:3000`, `https://yourdomain.com`
+       - Note: The redirect URI must exactly match the URL where your app is hosted
    - Select which API/SDKs you plan to use:
      - Check "Web API" (required for our integration)
      - Other options are optional
@@ -31,8 +32,8 @@ This guide will help you set up Spotify API credentials for the Afro Genie platf
 
 3. **Get Your Credentials**
    - After creating the app, you'll see:
-     - **Client ID**: Copy this value
-     - **Client Secret**: Click "Show client secret" and copy this value
+     - **Client ID**: Copy this value (required for OAuth login)
+     - **Client Secret**: Click "Show client secret" and copy this value (optional - only needed for server-side operations)
 
 4. **Configure Environment Variables**
    - Create or edit `.env.local` in your project root
@@ -41,7 +42,9 @@ This guide will help you set up Spotify API credentials for the Afro Genie platf
      VITE_SPOTIFY_CLIENT_ID=your_client_id_here
      VITE_SPOTIFY_CLIENT_SECRET=your_client_secret_here
      ```
-   - Replace `your_client_id_here` and `your_client_secret_here` with your actual credentials
+   - Replace `your_client_id_here` with your actual Client ID
+   - `VITE_SPOTIFY_CLIENT_SECRET` is optional - only needed if you use server-side Spotify API calls
+   - **Note**: For OAuth login, only `VITE_SPOTIFY_CLIENT_ID` is required (we use PKCE flow which doesn't need client secret)
 
 5. **Restart Your Development Server**
    - Stop your current dev server (if running)
@@ -50,18 +53,31 @@ This guide will help you set up Spotify API credentials for the Afro Genie platf
 ## Usage
 
 Once configured, you can:
+- **User Authentication**: Users can sign in with their Spotify account using OAuth 2.0
 - Access the Spotify Integration page from the Admin Panel
 - Search for artists and tracks
 - Import metadata (artist names, album covers, release dates, etc.)
 - Batch import albums and tracks
+
+## Spotify OAuth Login
+
+The app now supports Spotify OAuth 2.0 authentication:
+- Users can sign in with their Spotify account
+- Uses PKCE (Proof Key for Code Exchange) for secure authentication
+- No client secret required in the browser (secure)
+- Automatically retrieves user profile (email, display name, profile image, country)
+- Stores Spotify access and refresh tokens for future API calls
 
 ## Important Notes
 
 - **Lyrics are NOT imported from Spotify** - Lyrics must still be uploaded manually
 - The Spotify integration is for metadata only (artist data, song titles, album info, images)
 - API credentials are stored in environment variables and should never be committed to version control
-- The service uses Client Credentials flow, which is suitable for server-side or app-only authentication
-- **Redirect URI Note**: Even though we use Client Credentials flow (which doesn't require user authorization), Spotify's dashboard requires you to enter at least one redirect URI. Use a placeholder like `http://localhost:3000/callback` - it won't be used but must be in a valid URL format
+- **OAuth Login**: Uses PKCE flow (no client secret needed in browser - secure)
+- **Redirect URI**: Must exactly match your app's URL (e.g., `http://localhost:3000` for dev, `https://yourdomain.com` for production)
+- The service uses both:
+  - **PKCE OAuth flow** for user authentication (browser-based, secure)
+  - **Client Credentials flow** for server-side metadata operations (if using server-side API calls)
 
 ## Troubleshooting
 

@@ -12,6 +12,7 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp, collection, query, where, getDocs, addDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
+import { spotifyAuthService, SpotifyUserProfile, SpotifyTokenResponse } from '../services/spotifyAuthService';
 
 interface UserProfile {
   uid: string;
@@ -21,6 +22,12 @@ interface UserProfile {
   role: 'user' | 'admin' | 'moderator' | 'artist';
   createdAt: any;
   lastLogin: any;
+  spotifyId?: string;
+  spotifyTokens?: {
+    accessToken: string;
+    refreshToken: string;
+    expiresAt: number;
+  };
   artistProfile?: {
     stageName: string;
     genre: string;
@@ -59,6 +66,7 @@ interface AuthContextType {
     photoURL?: string;
   }) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
+  signInWithSpotify: () => Promise<void>;
   signInAnonymously: () => Promise<void>;
   logout: () => Promise<void>;
   isAdmin: boolean;
@@ -95,19 +103,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Helper function to create/update user profile in Firestore
-  const updateUserProfile = async (user: User) => {
+  const updateUserProfile = async (user: User, spotifyData?: { profile: SpotifyUserProfile; tokens: SpotifyTokenResponse }) => {
     try {
       const userRef = doc(db, 'users', user.uid);
       
       // Check if user document already exists to preserve role
       const existingDoc = await getDoc(userRef);
       const existingRole = existingDoc.exists() ? existingDoc.data().role : null;
+      const existingSpotifyData = existingDoc.exists() ? existingDoc.data().spotifyTokens : null;
       
       // Set admin role for admin@afro-genie.com if not already set
       const shouldBeAdmin = user.email === 'admin@afro-genie.com';
       const role = shouldBeAdmin ? 'admin' : (existingRole || 'user');
       
-      const userProfile = {
+      const userProfile: any = {
         uid: user.uid,
         email: user.email,
         displayName: user.displayName || 'Afro Genie Admin',
@@ -117,6 +126,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         lastLogin: serverTimestamp(),
         updatedAt: serverTimestamp()
       };
+
+      // Add Spotify data if provided
+      if (spotifyData) {
+        userProfile.spotifyId = spotifyData.profile.id;
+        userProfile.spotifyTokens = {
+          accessToken: spotifyData.tokens.access_token,
+          refreshToken: spotifyData.tokens.refresh_token,
+          expiresAt: Date.now() + (spotifyData.tokens.expires_in * 1000)
+        };
+        // Update photo if Spotify has one and user doesn't
+        if (!userProfile.photoURL && spotifyData.profile.images?.[0]?.url) {
+          userProfile.photoURL = spotifyData.profile.images[0].url;
+        }
+        // Update display name if Spotify has one and user doesn't
+        if (!userProfile.displayName && spotifyData.profile.display_name) {
+          userProfile.displayName = spotifyData.profile.display_name;
+        }
+      } else if (existingSpotifyData) {
+        // Preserve existing Spotify data if not updating
+        userProfile.spotifyTokens = existingSpotifyData;
+        userProfile.spotifyId = existingDoc.data().spotifyId;
+      }
 
       await setDoc(userRef, userProfile, { merge: true });
       
@@ -269,6 +300,69 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const signInWithSpotify = async () => {
+    try {
+      // Redirect to Spotify authorization with PKCE
+      const { url } = await spotifyAuthService.getAuthorizationUrl();
+      // Store the current URL to redirect back after auth
+      sessionStorage.setItem('spotify_redirect_after_auth', window.location.href);
+      window.location.href = url;
+    } catch (error) {
+      console.error('Spotify sign in error:', error);
+      throw error;
+    }
+  };
+
+  // Function to handle Spotify OAuth callback
+  const handleSpotifyCallback = async (code: string) => {
+    try {
+      // Exchange code for tokens
+      const tokens = await spotifyAuthService.exchangeCodeForToken(code);
+      spotifyAuthService.storeTokens(tokens);
+
+      // Get user profile from Spotify
+      const spotifyProfile = await spotifyAuthService.getUserProfile(tokens.access_token);
+
+      if (!spotifyProfile.email) {
+        throw new Error('Spotify account does not have an email address. Please use a different sign-in method.');
+      }
+
+      // Generate a secure random password for Firebase
+      const randomPassword = `spotify_${Math.random().toString(36).slice(-12)}${Date.now().toString(36)}`;
+
+      let firebaseUser: User;
+
+      try {
+        // Try to create new account
+        const result = await createUserWithEmailAndPassword(auth, spotifyProfile.email, randomPassword);
+        firebaseUser = result.user;
+        
+        // Update profile with Spotify data
+        await firebaseUser.updateProfile({
+          displayName: spotifyProfile.display_name || spotifyProfile.email.split('@')[0],
+          photoURL: spotifyProfile.images?.[0]?.url || null
+        });
+
+        // Create user profile with Spotify data
+        await updateUserProfile(firebaseUser, {
+          profile: spotifyProfile,
+          tokens: tokens
+        });
+      } catch (error: any) {
+        if (error.code === 'auth/email-already-in-use') {
+          // User exists - we can't sign them in without password
+          // For now, throw an error asking them to use email/password
+          throw new Error('An account with this email already exists. Please sign in with email/password or use Google sign-in to link your accounts.');
+        } else {
+          throw error;
+        }
+      }
+    } catch (error) {
+      console.error('Spotify callback error:', error);
+      throw error;
+    }
+  };
+
   const signInAsAnonymous = async () => {
     try {
       await signInAnonymously(auth);
@@ -290,6 +384,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isAdmin = userProfile?.role === 'admin';
   const isArtist = userProfile?.role === 'artist';
 
+  // Check for Spotify callback on mount
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    const error = urlParams.get('error');
+
+    if (error) {
+      console.error('Spotify auth error:', error);
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+      return;
+    }
+
+    if (code) {
+      handleSpotifyCallback(code).then(() => {
+        // Check for artist signup redirect first, then general redirect
+        const artistRedirect = sessionStorage.getItem('artist_signup_redirect');
+        const redirectUrl = artistRedirect || sessionStorage.getItem('spotify_redirect_after_auth') || '/';
+        sessionStorage.removeItem('spotify_redirect_after_auth');
+        sessionStorage.removeItem('artist_signup_redirect');
+        window.history.replaceState({}, document.title, redirectUrl);
+        window.location.href = redirectUrl;
+      }).catch((err) => {
+        console.error('Spotify callback failed:', err);
+        // Clean up URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+      });
+    }
+  }, []);
+
   const value = {
     user,
     userProfile,
@@ -298,6 +422,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signUp,
     signUpAsArtist,
     signInWithGoogle,
+    signInWithSpotify,
     signInAnonymously: signInAsAnonymous,
     logout,
     isAdmin,

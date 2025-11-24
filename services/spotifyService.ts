@@ -16,6 +16,7 @@ interface SpotifyArtist {
   images?: Array<{ url: string; height?: number; width?: number }>;
   genres?: string[];
   popularity?: number;
+  followers?: { total: number };
   external_urls?: { spotify: string };
 }
 

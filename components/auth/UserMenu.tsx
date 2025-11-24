@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import UserIcon from '../icons/UserIcon';
+import { useNotification } from '../../hooks/useNotification';
+import Notification from '../Notification';
 
 interface UserMenuProps {
   onLoginClick: () => void;
@@ -11,6 +13,7 @@ const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
   const { user, isAdmin, isArtist, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const { notification, showNotification, hideNotification } = useNotification();
 
   const handleLogout = async () => {
     try {
@@ -19,7 +22,10 @@ const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
       setIsMenuOpen(false);
     } catch (error) {
       console.error('Logout error:', error);
-      alert('Failed to log out. Please try again.');
+      showNotification({
+        message: 'Failed to log out. Please try again.',
+        type: 'error'
+      });
     } finally {
       setLoggingOut(false);
     }

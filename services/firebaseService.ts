@@ -18,7 +18,7 @@ import {
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../config/firebase';
-import type { Artist, Song, Genre, GenieSettings, Topic, TopicComment, ForumCategory, TranslationRequest } from '../types';
+import type { Artist, Song, Genre, GenieSettings, Topic, TopicComment, ForumCategory, TranslationRequest, SongRequest } from '../types';
 
 // Collections
 const COLLECTIONS = {
@@ -38,7 +38,8 @@ const COLLECTIONS = {
   TOPIC_SHARES: 'topicShares',
   FORUM_CATEGORIES: 'forumCategories',
   SYNC_JOBS: 'syncJobs',
-  TRANSLATION_REQUESTS: 'translationRequests'
+  TRANSLATION_REQUESTS: 'translationRequests',
+  SONG_REQUESTS: 'songRequests'
 };
 
 // Artist Operations
@@ -63,6 +64,45 @@ export const getArtist = async (artistId: string) => {
 export const getAllArtists = async () => {
   const querySnapshot = await getDocs(collection(db, COLLECTIONS.ARTISTS));
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Artist));
+};
+
+export const getArtistByName = async (name: string): Promise<Artist | null> => {
+  const q = query(collection(db, COLLECTIONS.ARTISTS), where('name', '==', name), limit(1));
+  const querySnapshot = await getDocs(q);
+  
+  if (!querySnapshot.empty) {
+    const doc = querySnapshot.docs[0];
+    return { id: doc.id, ...doc.data() } as Artist;
+  }
+  return null;
+};
+
+export const syncArtistFromSpotify = async (artistId: string, spotifyArtistId: string): Promise<void> => {
+  const { spotifyService } = await import('./spotifyService');
+  
+  try {
+    // Get artist data from Spotify
+    const spotifyArtist = await spotifyService.getArtist(spotifyArtistId);
+    
+    // Prepare update data
+    const updates: Partial<Omit<Artist, 'id'>> = {
+      spotifyId: spotifyArtist.id,
+      name: spotifyArtist.name,
+      image: spotifyArtist.images?.[0]?.url || '',
+      genres: spotifyArtist.genres || [],
+      genre: spotifyArtist.genres?.[0] || '',
+      popularity: spotifyArtist.popularity,
+      externalUrl: spotifyArtist.external_urls?.spotify,
+      spotifySyncedAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+    
+    // Update artist in database
+    await updateArtist(artistId, updates);
+  } catch (error) {
+    console.error('Error syncing artist from Spotify:', error);
+    throw error;
+  }
 };
 
 export const updateArtist = async (artistId: string, updates: Partial<Omit<Artist, 'id'>>) => {
@@ -347,6 +387,64 @@ export const updateTranslationRequest = async (
 export const getPendingTranslationRequestCount = async (): Promise<number> => {
   const q = query(
     collection(db, COLLECTIONS.TRANSLATION_REQUESTS),
+    where('status', '==', 'pending')
+  );
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.size;
+};
+
+// Song Request Operations
+export const createSongRequest = async (request: Omit<SongRequest, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const docRef = await addDoc(collection(db, COLLECTIONS.SONG_REQUESTS), {
+    ...request,
+    status: 'pending',
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  });
+  return docRef.id;
+};
+
+export const getSongRequests = async (status?: SongRequest['status']) => {
+  let q = query(
+    collection(db, COLLECTIONS.SONG_REQUESTS),
+    orderBy('createdAt', 'desc')
+  );
+  
+  if (status) {
+    q = query(q, where('status', '==', status));
+  }
+  
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => ({ 
+    id: doc.id, 
+    ...doc.data() 
+  } as SongRequest));
+};
+
+export const getSongRequest = async (requestId: string): Promise<SongRequest | null> => {
+  const docRef = doc(db, COLLECTIONS.SONG_REQUESTS, requestId);
+  const docSnap = await getDoc(docRef);
+  
+  if (docSnap.exists()) {
+    return { id: docSnap.id, ...docSnap.data() } as SongRequest;
+  }
+  return null;
+};
+
+export const updateSongRequest = async (
+  requestId: string,
+  updates: Partial<Omit<SongRequest, 'id'>>
+) => {
+  const docRef = doc(db, COLLECTIONS.SONG_REQUESTS, requestId);
+  await updateDoc(docRef, {
+    ...updates,
+    updatedAt: serverTimestamp()
+  });
+};
+
+export const getPendingSongRequestCount = async (): Promise<number> => {
+  const q = query(
+    collection(db, COLLECTIONS.SONG_REQUESTS),
     where('status', '==', 'pending')
   );
   const querySnapshot = await getDocs(q);

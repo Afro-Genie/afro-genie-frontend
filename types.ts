@@ -21,6 +21,15 @@ export interface Artist {
   name: string;
   genre: string;
   image: string;
+  // Spotify integration fields
+  spotifyId?: string;
+  bio?: string;
+  popularity?: number;
+  followers?: number;
+  externalUrl?: string; // Spotify profile URL
+  genres?: string[]; // Multiple genres from Spotify
+  updatedAt?: any;
+  spotifySyncedAt?: any; // Last time synced with Spotify
 }
 
 export interface Song {
@@ -32,6 +41,17 @@ export interface Song {
   createdBy?: string; // User ID who created the song
   createdAt?: any;
   updatedAt?: any;
+  // Additional fields for categorization and sorting
+  views?: number; // Number of times song has been viewed
+  year?: number; // Release year
+  genre?: string; // Primary genre
+  genres?: string[]; // Multiple genres
+  language?: string; // Primary language
+  languages?: string[]; // Multiple languages
+  album?: string; // Album name
+  releaseDate?: string; // Release date
+  popularity?: number; // Popularity score
+  requestCount?: number; // Number of translation requests
 }
 
 export interface Genre {
@@ -229,6 +249,20 @@ export interface TranslationRequest {
   artist: string;
   userId: string;
   userEmail: string;
+  status: 'pending' | 'in-progress' | 'completed' | 'rejected';
+  createdAt?: any;
+  updatedAt?: any;
+  completedAt?: any;
+  notes?: string;
+}
+
+export interface SongRequest {
+  id?: string;
+  songTitle: string;
+  artist: string;
+  userId: string;
+  userEmail: string;
+  searchQuery?: string; // The original search query that triggered this request
   status: 'pending' | 'in-progress' | 'completed' | 'rejected';
   createdAt?: any;
   updatedAt?: any;

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getAllArtists, getAllSongs, getAllGenres, getAllUsers, getTopics, getCategories, getPendingTranslationRequestCount, getTranslationRequests } from '../../services/firebaseService';
+import { getAllArtists, getAllSongs, getAllGenres, getAllUsers, getTopics, getCategories, getPendingTranslationRequestCount, getTranslationRequests, getPendingSongRequestCount, getSongRequests } from '../../services/firebaseService';
 import { 
   MusicNoteIcon, 
   ArtistIcon, 
@@ -22,16 +22,18 @@ const AdminDashboard: React.FC = () => {
     translations: 0,
     topics: 0,
     categories: 0,
-    pendingRequests: 0
+    pendingTranslationRequests: 0,
+    pendingSongRequests: 0
   });
   const [loading, setLoading] = useState(true);
   const [showAPIManagement, setShowAPIManagement] = useState(false);
-  const [recentRequests, setRecentRequests] = useState<any[]>([]);
+  const [recentTranslationRequests, setRecentTranslationRequests] = useState<any[]>([]);
+  const [recentSongRequests, setRecentSongRequests] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const [artists, songs, genres, users, topics, categories, pendingCount, requests] = await Promise.all([
+        const [artists, songs, genres, users, topics, categories, pendingTranslationCount, translationRequests, pendingSongCount, songRequests] = await Promise.all([
           getAllArtists(),
           getAllSongs(),
           getAllGenres(),
@@ -39,7 +41,9 @@ const AdminDashboard: React.FC = () => {
           getTopics(undefined, 'latest', 1000).catch(() => []),
           getCategories().catch(() => []),
           getPendingTranslationRequestCount().catch(() => 0),
-          getTranslationRequests('pending').catch(() => [])
+          getTranslationRequests('pending').catch(() => []),
+          getPendingSongRequestCount().catch(() => 0),
+          getSongRequests('pending').catch(() => [])
         ]);
 
         setStats({
@@ -50,9 +54,11 @@ const AdminDashboard: React.FC = () => {
           translations: 0, // You can add this if you have a translations count
           topics: topics.length,
           categories: categories.length,
-          pendingRequests: pendingCount
+          pendingTranslationRequests: pendingTranslationCount,
+          pendingSongRequests: pendingSongCount
         });
-        setRecentRequests(requests.slice(0, 5));
+        setRecentTranslationRequests(translationRequests.slice(0, 5));
+        setRecentSongRequests(songRequests.slice(0, 5));
       } catch (error) {
         console.error('Error fetching stats:', error);
       } finally {
@@ -76,9 +82,11 @@ const AdminDashboard: React.FC = () => {
           getCategories().catch(() => [])
         ]);
 
-        const [pendingCount, requests] = await Promise.all([
+        const [pendingTranslationCount, translationRequests, pendingSongCount, songRequests] = await Promise.all([
           getPendingTranslationRequestCount().catch(() => 0),
-          getTranslationRequests('pending').catch(() => [])
+          getTranslationRequests('pending').catch(() => []),
+          getPendingSongRequestCount().catch(() => 0),
+          getSongRequests('pending').catch(() => [])
         ]);
         
         setStats({
@@ -89,9 +97,11 @@ const AdminDashboard: React.FC = () => {
           translations: 0,
           topics: topics.length,
           categories: categories.length,
-          pendingRequests: pendingCount
+          pendingTranslationRequests: pendingTranslationCount,
+          pendingSongRequests: pendingSongCount
         });
-        setRecentRequests(requests.slice(0, 5));
+        setRecentTranslationRequests(translationRequests.slice(0, 5));
+        setRecentSongRequests(songRequests.slice(0, 5));
       } catch (error) {
         console.error('Error fetching stats:', error);
       }
@@ -250,8 +260,8 @@ const AdminDashboard: React.FC = () => {
         </div>
 
         {/* Translation Requests Section */}
-        {stats.pendingRequests > 0 && (
-          <div className="bg-gradient-to-r from-orange-600 to-orange-700 rounded-xl p-6 text-white shadow-lg">
+        {stats.pendingTranslationRequests > 0 && (
+          <div className="bg-gradient-to-r from-orange-600 to-orange-700 rounded-xl p-6 text-white shadow-lg mb-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-3">
                 <div className="bg-white/20 rounded-full p-3">
@@ -261,7 +271,7 @@ const AdminDashboard: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="text-2xl font-bold">Translation Requests</h3>
-                  <p className="text-orange-100">{stats.pendingRequests} pending request{stats.pendingRequests !== 1 ? 's' : ''}</p>
+                  <p className="text-orange-100">{stats.pendingTranslationRequests} pending request{stats.pendingTranslationRequests !== 1 ? 's' : ''}</p>
                 </div>
               </div>
               <Link
@@ -271,13 +281,56 @@ const AdminDashboard: React.FC = () => {
                 View All
               </Link>
             </div>
-            {recentRequests.length > 0 && (
+            {recentTranslationRequests.length > 0 && (
               <div className="space-y-2 mt-4">
-                {recentRequests.map((request) => (
+                {recentTranslationRequests.map((request) => (
                   <div key={request.id} className="bg-white/10 rounded-lg p-3 flex items-center justify-between">
                     <div>
                       <p className="font-semibold">{request.songTitle}</p>
                       <p className="text-sm text-orange-100">by {request.artist}</p>
+                    </div>
+                    <span className="text-xs bg-white/20 px-2 py-1 rounded">
+                      {request.userEmail}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Song Requests Section */}
+        {stats.pendingSongRequests > 0 && (
+          <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-6 text-white shadow-lg">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <div className="bg-white/20 rounded-full p-3">
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold">Song Requests</h3>
+                  <p className="text-blue-100">{stats.pendingSongRequests} pending request{stats.pendingSongRequests !== 1 ? 's' : ''}</p>
+                </div>
+              </div>
+              <Link
+                to="/admin/song-requests"
+                className="bg-white/20 hover:bg-white/30 px-6 py-3 rounded-lg transition-colors font-semibold"
+              >
+                View All
+              </Link>
+            </div>
+            {recentSongRequests.length > 0 && (
+              <div className="space-y-2 mt-4">
+                {recentSongRequests.map((request) => (
+                  <div key={request.id} className="bg-white/10 rounded-lg p-3 flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold">{request.songTitle}</p>
+                      <p className="text-sm text-blue-100">by {request.artist}</p>
+                      {request.searchQuery && (
+                        <p className="text-xs text-blue-200 mt-1">Searched: "{request.searchQuery}"</p>
+                      )}
                     </div>
                     <span className="text-xs bg-white/20 px-2 py-1 rounded">
                       {request.userEmail}

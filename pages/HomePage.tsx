@@ -48,7 +48,14 @@ const HomePage: React.FC = () => {
                 ]);
                 setArtists(fetchedArtists.slice(0, 12)); // Show top 12 artists
                 setGenres(fetchedGenres.slice(0, 10)); // Show top 10 genres
-                setSongs(fetchedSongs.slice(0, 9)); // Show top 9 songs for charting
+                
+                // Sort songs by popularity (views + requestCount) and take up to 100
+                const sortedSongs = fetchedSongs.sort((a, b) => {
+                    const aScore = (a.views || 0) + (a.requestCount || 0) * 2; // Requests weighted more
+                    const bScore = (b.views || 0) + (b.requestCount || 0) * 2;
+                    return bScore - aScore;
+                });
+                setSongs(sortedSongs.slice(0, 100)); // Show top 100 songs
                 setTrendingTopics(topics);
                 if (fetchedGenieSettings) {
                     setGenieSettings(fetchedGenieSettings);
@@ -94,11 +101,11 @@ const HomePage: React.FC = () => {
                             />
                         </div>
                         
-                        <h1 className="text-5xl md:text-7xl font-extrabold text-white mb-6 leading-tight">
+                        <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-extrabold text-white mb-4 sm:mb-6 leading-tight px-2">
                             The Largest Library of{' '}
-                            <span className="text-green-400">African Lyrics</span>
+                            <span className="text-green-400">Translated African Lyrics</span>
                         </h1>
-                        <p className="text-xl md:text-2xl text-gray-300 mb-8">
+                        <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-gray-300 mb-6 sm:mb-8 px-2">
                             Discover, translate, and explore African music with cultural context
                         </p>
                         
@@ -108,10 +115,10 @@ const HomePage: React.FC = () => {
                         </div>
 
                         {/* Quick Action Buttons */}
-                        <div className="flex flex-wrap items-center justify-center gap-4">
+                        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 px-4">
                             <Link 
                                 to="/community" 
-                                className="bg-amber-500 hover:bg-amber-600 text-gray-900 font-semibold py-3 px-8 rounded-full transition-all duration-300 shadow-lg hover:shadow-amber-500/50 flex items-center gap-2"
+                                className="w-full sm:w-auto min-h-[44px] bg-amber-500 hover:bg-amber-600 text-gray-900 font-semibold py-3 px-6 sm:px-8 rounded-full transition-all duration-300 shadow-lg hover:shadow-amber-500/50 flex items-center justify-center gap-2 text-base sm:text-lg"
                             >
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" />
@@ -120,7 +127,7 @@ const HomePage: React.FC = () => {
                             </Link>
                             <Link 
                                 to="/artist/signup" 
-                                className="bg-transparent border-2 border-green-400 hover:bg-green-400/10 text-green-400 hover:text-green-300 font-semibold py-3 px-8 rounded-full transition-all duration-300"
+                                className="w-full sm:w-auto min-h-[44px] bg-transparent border-2 border-green-400 hover:bg-green-400/10 text-green-400 hover:text-green-300 font-semibold py-3 px-6 sm:px-8 rounded-full transition-all duration-300 flex items-center justify-center text-base sm:text-lg"
                             >
                                 For Artists
                             </Link>
@@ -209,19 +216,24 @@ const HomePage: React.FC = () => {
                 </div>
             </section>
 
-            {/* Top Charting Songs Section */}
+            {/* Popular Songs Section */}
             {songs.length > 0 && (
                 <section className="py-16 bg-[#122118]">
                     <div className="container mx-auto px-4 sm:px-6 lg:px-8">
                         <div className="flex items-center justify-between mb-8">
-                            <h2 className="text-3xl md:text-4xl font-bold text-white">
-                                Top Charting <span className="text-green-400">Songs</span>
-                            </h2>
+                            <div>
+                                <h2 className="text-3xl md:text-4xl font-bold text-white">
+                                    Popular <span className="text-green-400">Songs</span>
+                                </h2>
+                                <p className="text-gray-400 mt-2 text-sm">
+                                    Ranked by search requests, views, and translation requests
+                                </p>
+                            </div>
                             <Link 
-                                to="/search" 
-                                className="text-green-400 hover:text-green-300 font-semibold flex items-center gap-2"
+                                to="/songs" 
+                                className="text-green-400 hover:text-green-300 font-semibold flex items-center gap-2 bg-green-600/20 hover:bg-green-600/30 px-4 py-2 rounded-lg transition-colors"
                             >
-                                More <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                View All <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                                 </svg>
                             </Link>
@@ -231,34 +243,32 @@ const HomePage: React.FC = () => {
                                 <LoadingSpinner />
                             </div>
                         ) : (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
-                                {songs.map((song) => (
-                                    <Link 
-                                        to={`/song/${song.id}`} 
-                                        key={song.id} 
-                                        className="group bg-gray-800/50 hover:bg-gray-700/50 rounded-xl overflow-hidden border border-gray-700 hover:border-green-400/50 transition-all duration-300"
-                                    >
-                                        <div className="flex gap-4 p-4">
-                                            <div className="flex-shrink-0 w-16 h-16 bg-gradient-to-br from-green-500/20 to-amber-500/20 rounded-lg flex items-center justify-center">
-                                                {song.image ? (
-                                                    <img src={song.image} alt={song.title} className="w-full h-full object-cover rounded-lg" />
-                                                ) : (
-                                                    <svg className="w-8 h-8 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                                                        <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
-                                                    </svg>
-                                                )}
+                            <div className="bg-gray-800/50 rounded-xl border border-gray-700 p-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-1 max-h-[600px] overflow-y-auto pr-2">
+                                    {songs.slice(0, 100).map((song, index) => (
+                                        <Link 
+                                            to={`/song/${song.id}`} 
+                                            key={song.id} 
+                                            className="group flex items-center gap-2 py-1.5 px-2 hover:bg-gray-700/50 rounded transition-colors"
+                                        >
+                                            <div className="flex-shrink-0 w-6 text-right">
+                                                <span className="text-sm font-semibold text-gray-500 group-hover:text-green-400 transition-colors">
+                                                    {index + 1}.
+                                                </span>
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <h3 className="font-bold text-white group-hover:text-green-400 transition-colors line-clamp-1">
+                                                <h3 className="text-sm font-medium text-white group-hover:text-green-400 transition-colors line-clamp-1">
                                                     {song.title}
                                                 </h3>
-                                                <p className="text-sm text-gray-400 mt-1 line-clamp-1">
-                                                    {song.artist}
-                                                </p>
+                                                {song.artist && (
+                                                    <p className="text-xs text-gray-400 line-clamp-1">
+                                                        {song.artist}
+                                                    </p>
+                                                )}
                                             </div>
-                                        </div>
-                                    </Link>
-                                ))}
+                                        </Link>
+                                    ))}
+                                </div>
                             </div>
                         )}
                     </div>
@@ -328,7 +338,7 @@ const HomePage: React.FC = () => {
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 md:gap-6">
                             {artists.map((artist) => (
                                 <Link 
-                                    to={`/search/${artist.name}`} 
+                                    to={`/artist/${artist.id}`} 
                                     key={artist.id} 
                                     className="group cursor-pointer"
                                 >

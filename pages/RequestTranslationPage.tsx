@@ -6,10 +6,13 @@ import { getAiAnalysis } from '../services/geminiService';
 import UserProfileCard from '../components/community/UserProfileCard';
 import RegistrationForm from '../components/community/RegistrationForm';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { useNotification } from '../hooks/useNotification';
+import Notification from '../components/Notification';
 import type { AiAnalysisResult } from '../types';
 
 const RequestTranslationPage: React.FC = () => {
   const navigate = useNavigate();
+  const { notification, showNotification, hideNotification } = useNotification();
   
   // Redirect to homepage if accessed directly
   useEffect(() => {
@@ -88,8 +91,15 @@ const RequestTranslationPage: React.FC = () => {
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
+      showNotification({
+        message: 'Translation saved successfully!',
+        type: 'success'
+      });
     } catch (err: any) {
-      alert('Failed to save translation: ' + err.message);
+      showNotification({
+        message: 'Failed to save translation: ' + err.message,
+        type: 'error'
+      });
     }
   };
 
@@ -421,6 +431,9 @@ const RequestTranslationPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Notification */}
+      <Notification notification={notification} onClose={hideNotification} />
     </div>
   );
 };

@@ -21,8 +21,13 @@ import GenieManager from './pages/admin/GenieManager';
 import LyricImporter from './pages/admin/LyricImporter';
 import LyricsManager from './pages/admin/LyricsManager';
 import SpotifyManager from './pages/admin/SpotifyManager';
+import TranslationRequestsPage from './pages/admin/TranslationRequestsPage';
+import EditSongPage from './pages/admin/EditSongPage';
+import AddSongPage from './pages/admin/AddSongPage';
 import ArtistSignupPage from './pages/ArtistSignupPage';
 import ArtistDashboard from './pages/ArtistDashboard';
+import ArtistDetailPage from './pages/ArtistDetailPage';
+import SongsCatalogPage from './pages/SongsCatalogPage';
 
 function App() {
   return (
@@ -34,6 +39,8 @@ function App() {
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/song/:id" element={<TranslationPage />} />
+            <Route path="/artist/:id" element={<ArtistDetailPage />} />
+            <Route path="/songs" element={<SongsCatalogPage />} />
             <Route path="/search/:query" element={<SearchResultsPage />} />
             <Route path="/request-translation" element={<RequestTranslationPage />} />
             <Route path="/community" element={<CommunityPage />} />
@@ -59,6 +66,8 @@ function App() {
                   <Route index element={<AdminDashboard />} />
                   <Route path="artists" element={<ArtistsManager />} />
                   <Route path="songs" element={<SongsManager />} />
+                  <Route path="songs/add" element={<AddSongPage />} />
+                  <Route path="songs/edit/:id" element={<EditSongPage />} />
                   <Route path="genres" element={<GenresManager />} />
                   <Route path="community" element={<CommunityManager />} />
                   <Route path="users" element={<UsersManager />} />
@@ -67,6 +76,7 @@ function App() {
                   <Route path="lyrics" element={<LyricsManager />} />
                   <Route path="lyric-importer" element={<LyricImporter />} />
                   <Route path="spotify" element={<SpotifyManager />} />
+                  <Route path="translation-requests" element={<TranslationRequestsPage />} />
             </Route>
           </Routes>
           </main>

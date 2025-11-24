@@ -322,7 +322,7 @@ const TopicDetail: React.FC = () => {
             )}
             {linkedArtist && (
               <Link
-                to={`/search/${encodeURIComponent(linkedArtist.name)}`}
+                to={`/artist/${linkedArtist.id}`}
                 className="flex items-center gap-3 hover:opacity-80 transition-opacity"
               >
                 {linkedArtist.image && (

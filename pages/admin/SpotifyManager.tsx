@@ -17,6 +17,7 @@ const SpotifyManager: React.FC = () => {
   const [albumTracks, setAlbumTracks] = useState<SpotifyTrack[]>([]);
   const [importing, setImporting] = useState<string | null>(null);
   const [imported, setImported] = useState<Set<string>>(new Set());
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
@@ -87,9 +88,11 @@ const SpotifyManager: React.FC = () => {
 
       await addArtist(artistData);
       setImported(prev => new Set([...prev, spotifyArtist.id]));
-      alert(`Artist "${spotifyArtist.name}" imported successfully!`);
+      setNotification({ message: `Artist "${spotifyArtist.name}" imported successfully!`, type: 'success' });
+      setTimeout(() => setNotification(null), 4000);
     } catch (err: any) {
-      alert(`Failed to import artist: ${err.message}`);
+      setNotification({ message: `Failed to import artist: ${err.message}`, type: 'error' });
+      setTimeout(() => setNotification(null), 5000);
     } finally {
       setImporting(null);
     }
@@ -125,9 +128,11 @@ const SpotifyManager: React.FC = () => {
 
       await addSong(songData);
       setImported(prev => new Set([...prev, track.id]));
-      alert(`Song "${track.name}" by ${artistName} imported successfully!`);
+      setNotification({ message: `Song "${track.name}" by ${artistName} imported successfully!`, type: 'success' });
+      setTimeout(() => setNotification(null), 4000);
     } catch (err: any) {
-      alert(`Failed to import track: ${err.message}`);
+      setNotification({ message: `Failed to import track: ${err.message}`, type: 'error' });
+      setTimeout(() => setNotification(null), 5000);
     } finally {
       setImporting(null);
     }
@@ -135,7 +140,8 @@ const SpotifyManager: React.FC = () => {
 
   const handleBatchImportTracks = async () => {
     if (!selectedAlbum || albumTracks.length === 0) {
-      alert('Please select an album with tracks first');
+      setNotification({ message: 'Please select an album with tracks first', type: 'error' });
+      setTimeout(() => setNotification(null), 4000);
       return;
     }
 
@@ -157,7 +163,11 @@ const SpotifyManager: React.FC = () => {
     }
 
     setImporting(null);
-    alert(`Batch import complete: ${successCount} succeeded, ${failCount} failed`);
+    setNotification({ 
+      message: `Batch import complete: ${successCount} succeeded, ${failCount} failed`, 
+      type: successCount > 0 ? 'success' : 'error' 
+    });
+    setTimeout(() => setNotification(null), 5000);
   };
 
   return (
@@ -419,6 +429,84 @@ const SpotifyManager: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Custom Notification Toast */}
+      {notification && (
+        <div className="fixed top-4 right-4 left-4 md:left-auto md:right-4 z-50 max-w-md mx-auto md:mx-0 animate-slide-in-right">
+          <div className={`relative overflow-hidden rounded-2xl shadow-2xl border ${
+            notification.type === 'success' 
+              ? 'bg-gradient-to-br from-gray-800 to-gray-900 border-gray-600/50' 
+              : 'bg-gradient-to-br from-gray-900 to-gray-800 border-red-500/50'
+          } backdrop-blur-sm`}>
+            {/* Animated background gradient */}
+            <div className={`absolute inset-0 ${
+              notification.type === 'success'
+                ? 'bg-gradient-to-r from-blue-500/10 via-green-500/10 to-blue-500/10'
+                : 'bg-gradient-to-r from-red-500/10 via-orange-500/10 to-red-500/10'
+            } animate-gradient-shift`}></div>
+            
+            {/* Content */}
+            <div className="relative z-10 p-4 md:p-5">
+              <div className="flex items-start gap-4">
+                {/* Icon */}
+                <div className={`flex-shrink-0 relative ${
+                  notification.type === 'success' ? 'text-green-400' : 'text-red-400'
+                }`}>
+                  <div className={`absolute inset-0 ${
+                    notification.type === 'success' ? 'bg-green-500/20' : 'bg-red-500/20'
+                  } rounded-full animate-ping`}></div>
+                  <div className={`relative bg-gray-700/50 p-2 rounded-full border ${
+                    notification.type === 'success' ? 'border-green-500/30' : 'border-red-500/30'
+                  }`}>
+                    {notification.type === 'success' ? (
+                      <svg className="w-5 h-5 md:w-6 md:h-6 animate-scale-in" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5 md:w-6 md:h-6 animate-scale-in" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Message */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-white font-semibold text-sm md:text-base mb-1">
+                    {notification.type === 'success' ? 'Success!' : 'Error'}
+                  </p>
+                  <p className="text-gray-300 text-xs md:text-sm leading-relaxed">
+                    {notification.message}
+                  </p>
+                </div>
+                
+                {/* Close button */}
+                <button
+                  onClick={() => setNotification(null)}
+                  className="flex-shrink-0 text-gray-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-gray-700/50"
+                  aria-label="Close notification"
+                >
+                  <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              {/* Progress bar */}
+              <div className="mt-3 h-1 bg-gray-700/50 rounded-full overflow-hidden">
+                <div 
+                  className={`h-full ${
+                    notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'
+                  }`}
+                  style={{
+                    animation: `progress-bar ${notification.type === 'success' ? '4s' : '5s'} linear forwards`
+                  }}
+                ></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

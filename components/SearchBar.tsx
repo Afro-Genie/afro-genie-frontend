@@ -123,8 +123,8 @@ const SearchBar: React.FC<SearchBarProps> = ({ variant = 'header' }) => {
   const baseClasses = "relative";
   const variants = {
     header: {
-      container: "w-56",
-      input: "bg-[#2a3c30] text-white placeholder-gray-400 rounded-md py-2 pl-10 pr-4 w-full focus:outline-none focus:ring-2 focus:ring-green-400",
+      container: "w-full sm:w-56",
+      input: "bg-[#2a3c30] text-white placeholder-gray-400 rounded-md py-2.5 sm:py-2 pl-10 pr-4 w-full text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-green-400",
       icon: "h-5 w-5 text-gray-400",
       iconContainer: "absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
     },
@@ -179,7 +179,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ variant = 'header' }) => {
                     <Link 
                       to={linkTo} 
                       onClick={handleSuggestionClick} 
-                      className="flex items-center gap-4 px-4 py-3 hover:bg-green-500/10 transition-colors border-b border-gray-700/50 last:border-b-0"
+                      className="flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3 min-h-[60px] sm:min-h-[auto] hover:bg-green-500/10 active:bg-green-500/20 transition-colors border-b border-gray-700/50 last:border-b-0"
                     >
                       {item.type === 'artist' && <MicIcon className="h-5 w-5 text-gray-400 flex-shrink-0" />}
                       {item.type === 'song' && <MusicNoteIcon className="h-5 w-5 text-gray-400 flex-shrink-0" />}
