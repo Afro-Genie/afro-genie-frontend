@@ -291,7 +291,7 @@ const APIManagement: React.FC<APIManagementProps> = ({ onDataImported }) => {
       
       // Show success message with location info
       const itemType = searchType === 'artist' ? 'artist' : searchType === 'song' ? 'song' : 'genre';
-      alert(`Successfully imported ${itemType}!\n\nYou can find it in:\n- Lyrics Manager > All Lyrics tab (for songs with lyrics)\n- Artists/Songs/Genres sections in the admin panel`);
+      alert(`Successfully imported ${itemType}!\n\nYou can find it in:\n- Songs section (for songs with lyrics)\n- Artists/Songs/Genres sections in the admin panel`);
       
       onDataImported();
     } catch (error: any) {
@@ -323,7 +323,7 @@ const APIManagement: React.FC<APIManagementProps> = ({ onDataImported }) => {
 
     setSelectedResults(new Set());
     setImportProgress('');
-    alert(`Bulk import complete! ${itemsToImport.length} items processed.\n\nYou can find imported items in:\n- Lyrics Manager > All Lyrics tab (for songs with lyrics)\n- Artists/Songs/Genres sections in the admin panel`);
+    alert(`Bulk import complete! ${itemsToImport.length} items processed.\n\nYou can find imported items in:\n- Songs section (for songs with lyrics)\n- Artists/Songs/Genres sections in the admin panel`);
   };
 
   const toggleResultSelection = (resultId: string) => {

@@ -14,12 +14,11 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import ArtistsManager from './pages/admin/ArtistsManager';
 import SongsManager from './pages/admin/SongsManager';
 import GenresManager from './pages/admin/GenresManager';
+import LanguagesManager from './pages/admin/LanguagesManager';
 import CommunityManager from './pages/admin/CommunityManager';
 import UsersManager from './pages/admin/UsersManager';
 import UnifiedManager from './pages/admin/UnifiedManager';
 import GenieManager from './pages/admin/GenieManager';
-import LyricImporter from './pages/admin/LyricImporter';
-import LyricsManager from './pages/admin/LyricsManager';
 import SpotifyManager from './pages/admin/SpotifyManager';
 import TranslationRequestsPage from './pages/admin/TranslationRequestsPage';
 import EditSongPage from './pages/admin/EditSongPage';
@@ -69,12 +68,11 @@ function App() {
                   <Route path="songs/add" element={<AddSongPage />} />
                   <Route path="songs/edit/:id" element={<EditSongPage />} />
                   <Route path="genres" element={<GenresManager />} />
+                  <Route path="languages" element={<LanguagesManager />} />
                   <Route path="community" element={<CommunityManager />} />
                   <Route path="users" element={<UsersManager />} />
                   <Route path="unified" element={<UnifiedManager />} />
                   <Route path="genie" element={<GenieManager />} />
-                  <Route path="lyrics" element={<LyricsManager />} />
-                  <Route path="lyric-importer" element={<LyricImporter />} />
                   <Route path="spotify" element={<SpotifyManager />} />
                   <Route path="translation-requests" element={<TranslationRequestsPage />} />
             </Route>

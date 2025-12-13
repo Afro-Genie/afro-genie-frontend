@@ -1,6 +1,10 @@
 export interface Language {
+  id?: string;
   code: string;
   name: string;
+  isActive: boolean;
+  createdAt?: any;
+  updatedAt?: any;
 }
 
 export interface LyricInput {
@@ -60,7 +64,7 @@ export interface Genre {
   image: string;
 }
 
-export type Suggestion = 
+export type Suggestion =
   | { type: 'artist'; data: Artist }
   | { type: 'song'; data: Song }
   | { type: 'genre'; data: Genre }
@@ -215,13 +219,13 @@ export interface UserProfileExtended {
   };
 }
 
-export type TranslationViewMode = 
-  | 'tabs' 
-  | 'side-by-side' 
-  | 'top-bottom' 
-  | 'hover' 
-  | 'split-screen' 
-  | 'inline' 
+export type TranslationViewMode =
+  | 'tabs'
+  | 'side-by-side'
+  | 'top-bottom'
+  | 'hover'
+  | 'split-screen'
+  | 'inline'
   | 'toggle';
 
 export interface Translation {

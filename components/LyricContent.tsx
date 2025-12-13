@@ -7,8 +7,12 @@ import {
     removeFromFavorites, 
     getUserFavorites,
     addToHistory,
-    createTranslationRequest
+    createTranslationRequest,
+    updateTranslation,
+    saveTranslation
 } from '../services/firebaseService';
+import { getAiAnalysis } from '../services/geminiService';
+import { getAllLanguages, detectLanguageWithAI, getLanguageByCode } from '../services/languageService';
 import { useAuth } from '../context/AuthContext';
 import HeartIcon from './icons/HeartIcon';
 import ShareIcon from './icons/ShareIcon';
@@ -20,7 +24,7 @@ const LyricContent: React.FC = () => {
     const { currentUser } = useAuth();
     const { id: songIdParam } = useParams<{ id: string }>();
     const songId = useMemo(() => songIdParam ?? '', [songIdParam]);
-    const [viewMode, setViewMode] = useState<TranslationViewMode>('tabs');
+    const [viewMode, setViewMode] = useState<TranslationViewMode>('side-by-side');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string>('');
     const [title, setTitle] = useState<string>('');
@@ -37,12 +41,48 @@ const LyricContent: React.FC = () => {
     const [showTranslation, setShowTranslation] = useState<boolean>(false); // For toggle mode
     const [requestLoading, setRequestLoading] = useState(false);
     const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+    const [translationLoading, setTranslationLoading] = useState(false);
+    const [showLanguageSelector, setShowLanguageSelector] = useState(false);
+    const [sourceLang, setSourceLang] = useState<string>('en');
+    const [targetLang, setTargetLang] = useState<string>('en');
+    const [existingTranslationId, setExistingTranslationId] = useState<string | null>(null);
+    const [languages, setLanguages] = useState<Array<{ code: string; name: string }>>([]);
+    const [detectingLanguage, setDetectingLanguage] = useState(false);
+
+    // Load languages from database
+    useEffect(() => {
+        const loadLanguages = async () => {
+            try {
+                const fetchedLanguages = await getAllLanguages();
+                setLanguages(fetchedLanguages.map(lang => ({ code: lang.code, name: lang.name })));
+            } catch (error) {
+                console.error('Error loading languages:', error);
+                // Fallback to default languages
+                setLanguages([
+                    { code: 'en', name: 'English' },
+                    { code: 'fr', name: 'French' },
+                    { code: 'es', name: 'Spanish' },
+                    { code: 'pt', name: 'Portuguese' },
+                    { code: 'ar', name: 'Arabic' },
+                    { code: 'sw', name: 'Swahili' },
+                    { code: 'yo', name: 'Yoruba' },
+                    { code: 'ig', name: 'Igbo' },
+                    { code: 'ha', name: 'Hausa' },
+                    { code: 'pidgin', name: 'Pidgin' }
+                ]);
+            }
+        };
+        loadLanguages();
+    }, []);
 
     // Load view mode preference from localStorage
     useEffect(() => {
         const savedMode = localStorage.getItem('translationViewMode') as TranslationViewMode;
         if (savedMode && ['tabs', 'side-by-side', 'top-bottom', 'hover', 'split-screen', 'inline', 'toggle'].includes(savedMode)) {
             setViewMode(savedMode);
+        } else {
+            // Set default to side-by-side if no saved preference
+            setViewMode('side-by-side');
         }
     }, []);
 
@@ -74,10 +114,25 @@ const LyricContent: React.FC = () => {
                 const latest = await getLatestTranslationForSong(songId);
                 if (latest && !cancelled) {
                     setOriginalLyrics(latest.originalLyrics);
-                    setTranslatedLyrics(latest.translatedLyrics);
+                    setTranslatedLyrics(latest.translatedLyrics || '');
+                    setExistingTranslationId(latest.id || null);
+                    // Set source language from translation or song metadata
+                    if (latest.sourceLang) {
+                        setSourceLang(latest.sourceLang);
+                    } else if (song?.language) {
+                        setSourceLang(song.language.toLowerCase().split(',')[0].trim() || 'en');
+                    }
+                    if (latest.targetLang) {
+                        setTargetLang(latest.targetLang);
+                    }
                 } else if (!cancelled) {
                     setOriginalLyrics('No lyrics available yet for this song.');
                     setTranslatedLyrics('No translation available yet. Use "Reveal the Meaning" to generate one.');
+                    setExistingTranslationId(null);
+                    // Set source language from song metadata if available
+                    if (song?.language) {
+                        setSourceLang(song.language.toLowerCase().split(',')[0].trim() || 'en');
+                    }
                 }
 
                 // Add to history if user is logged in
@@ -174,8 +229,176 @@ const LyricContent: React.FC = () => {
         }
     };
 
+    const handleGenerateTranslation = async () => {
+        if (!songId || !title || !artist || !originalLyrics || originalLyrics === 'No lyrics available yet for this song.') {
+            setNotification({ message: 'Original lyrics are required for translation', type: 'error' });
+            setTimeout(() => setNotification(null), 4000);
+            return;
+        }
+
+        // Check if translation already exists and is not empty
+        const hasValidTranslation = translatedLyrics && 
+            translatedLyrics.trim() && 
+            translatedLyrics !== 'No translation available yet. Use "Reveal the Meaning" to generate one.';
+        
+        if (hasValidTranslation) {
+            setNotification({ message: 'Translation already exists. Please reset it first to generate a new translation.', type: 'error' });
+            setTimeout(() => setNotification(null), 4000);
+            return;
+        }
+
+        // Validate source and target languages are different
+        if (sourceLang === targetLang) {
+            setNotification({ message: 'Source and target languages cannot be the same. Please select different languages.', type: 'error' });
+            setTimeout(() => setNotification(null), 4000);
+            return;
+        }
+
+        setTranslationLoading(true);
+        let detectedSourceLang = 'en';
+
+        try {
+            // ALWAYS auto-detect source language - user doesn't need to select it
+            setDetectingLanguage(true);
+            try {
+                detectedSourceLang = await detectLanguageWithAI(originalLyrics);
+                setSourceLang(detectedSourceLang);
+                
+                // Get language name for notification
+                const detectedLang = await getLanguageByCode(detectedSourceLang);
+                const langName = detectedLang?.name || detectedSourceLang;
+                
+                setNotification({ 
+                    message: `Detected source language: ${langName}`, 
+                    type: 'success' 
+                });
+                setTimeout(() => setNotification(null), 3000);
+            } catch (detectError) {
+                console.error('Language detection failed:', detectError);
+                // Fallback to song's language or 'en'
+                if (song?.language) {
+                    const songLangCode = song.language.toLowerCase().split(',')[0].trim();
+                    detectedSourceLang = songLangCode || 'en';
+                    setSourceLang(detectedSourceLang);
+                } else {
+                    detectedSourceLang = 'en';
+                    setSourceLang('en');
+                }
+                
+                // Show warning if detection failed
+                setNotification({ 
+                    message: 'Could not auto-detect language. Using default. Translation may not be accurate.', 
+                    type: 'error' 
+                });
+                setTimeout(() => setNotification(null), 4000);
+            } finally {
+                setDetectingLanguage(false);
+            }
+
+            // Validate again after detection
+            if (detectedSourceLang === targetLang) {
+                setNotification({ 
+                    message: `Detected source language (${detectedSourceLang}) matches target language. Please select a different target language.`, 
+                    type: 'error' 
+                });
+                setTimeout(() => setNotification(null), 5000);
+                return;
+            }
+
+            // Call AI translation
+            const result = await getAiAnalysis(artist, title, originalLyrics, detectedSourceLang, targetLang);
+            
+            if (!result.translatedLyrics) {
+                throw new Error('AI did not return a translation');
+            }
+
+            // Save or update translation
+            if (existingTranslationId) {
+                // Update existing translation
+                await updateTranslation(existingTranslationId, {
+                    translatedLyrics: result.translatedLyrics,
+                    sourceLang: detectedSourceLang,
+                    targetLang
+                });
+            } else {
+                // Create new translation
+                if (!currentUser) {
+                    throw new Error('Please sign in to generate translations');
+                }
+                const translationId = await saveTranslation({
+                    songId,
+                    userId: currentUser.uid,
+                    originalLyrics,
+                    translatedLyrics: result.translatedLyrics,
+                    culturalContext: '',
+                    sourceLang: detectedSourceLang,
+                    targetLang,
+                    source: 'ai',
+                    status: 'approved'
+                });
+                setExistingTranslationId(translationId);
+            }
+
+            // Update local state
+            setTranslatedLyrics(result.translatedLyrics);
+            setSourceLang(detectedSourceLang);
+            setShowLanguageSelector(false);
+            
+            setNotification({ 
+                message: 'Translation generated successfully!', 
+                type: 'success' 
+            });
+            setTimeout(() => setNotification(null), 4000);
+        } catch (err: any) {
+            setNotification({ 
+                message: 'Failed to generate translation: ' + (err.message || 'Unknown error'), 
+                type: 'error' 
+            });
+            setTimeout(() => setNotification(null), 5000);
+        } finally {
+            setTranslationLoading(false);
+            setDetectingLanguage(false);
+        }
+    };
+
+    const handleResetTranslation = async () => {
+        if (!existingTranslationId) {
+            setNotification({ message: 'No translation to reset', type: 'error' });
+            setTimeout(() => setNotification(null), 4000);
+            return;
+        }
+
+        if (!window.confirm('Are you sure you want to reset the translation? This will clear the translated lyrics and allow you to generate a new translation.')) {
+            return;
+        }
+
+        try {
+            await updateTranslation(existingTranslationId, {
+                translatedLyrics: ''
+            });
+
+            setTranslatedLyrics('No translation available yet. Use "Reveal the Meaning" to generate one.');
+            setNotification({ 
+                message: 'Translation reset. You can now generate a new translation.', 
+                type: 'success' 
+            });
+            setTimeout(() => setNotification(null), 4000);
+        } catch (err: any) {
+            setNotification({ 
+                message: 'Failed to reset translation: ' + (err.message || 'Unknown error'), 
+                type: 'error' 
+            });
+            setTimeout(() => setNotification(null), 5000);
+        }
+    };
+
     const hasNoLyrics = originalLyrics === 'No lyrics available yet for this song.' || !originalLyrics.trim();
     const hasNoTranslation = translatedLyrics === 'No translation available yet. Use "Reveal the Meaning" to generate one.' || !translatedLyrics.trim();
+    const hasOriginalLyrics = !hasNoLyrics;
+    const canGenerateTranslation = hasOriginalLyrics && hasNoTranslation;
+    const hasValidTranslation = translatedLyrics && 
+        translatedLyrics.trim() && 
+        translatedLyrics !== 'No translation available yet. Use "Reveal the Meaning" to generate one.';
 
     // Split lyrics into lines for hover and inline modes
     const originalLines = originalLyrics.split('\n');
@@ -435,8 +658,149 @@ const LyricContent: React.FC = () => {
                 </div>
             )}
 
+            {/* Generate Translation Button - Show when original lyrics exist but translation is empty */}
+            {!loading && !error && canGenerateTranslation && (
+                <div className="mb-4 animate-fade-in-up">
+                    <div className="relative overflow-hidden bg-gradient-to-br from-green-800/20 to-emerald-800/20 backdrop-blur-sm border border-green-500/30 rounded-2xl shadow-2xl p-4 md:p-6">
+                        {/* Animated background gradient */}
+                        <div className="absolute inset-0 bg-gradient-to-r from-green-500/5 via-emerald-500/5 to-green-500/5 animate-gradient-shift"></div>
+                        
+                        {/* Content */}
+                        <div className="relative z-10">
+                            <div className="flex items-start gap-4 mb-4">
+                                <div className="flex-shrink-0 relative">
+                                    <div className="absolute inset-0 bg-green-500/20 rounded-full animate-ping"></div>
+                                    <div className="relative bg-gray-700/50 p-3 rounded-full border border-green-500/30">
+                                        <svg className="w-6 h-6 md:w-8 md:h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+                                        </svg>
+                                    </div>
+                                </div>
+                                
+                                <div className="flex-1 min-w-0">
+                                    <h3 className="text-lg md:text-xl font-bold text-white mb-2">
+                                        Generate Translation with AI
+                                    </h3>
+                                    <p className="text-gray-300 text-sm md:text-base leading-relaxed mb-4">
+                                        Use AI to automatically translate the original lyrics. The source language will be detected automatically. Select the target language below.
+                                    </p>
+                                    
+                                    {/* Language Selector - Only Target Language */}
+                                    {showLanguageSelector && (
+                                        <div className="mb-4 p-4 bg-gray-800/50 rounded-lg border border-gray-700">
+                                            <div className="mb-3">
+                                                <label className="block text-sm font-medium text-gray-300 mb-2">
+                                                    Target Language (Translate to)
+                                                </label>
+                                                <select
+                                                    value={targetLang}
+                                                    onChange={(e) => setTargetLang(e.target.value)}
+                                                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                                                    disabled={translationLoading || detectingLanguage}
+                                                >
+                                                    {languages.map(lang => (
+                                                        <option key={lang.code} value={lang.code}>{lang.name}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            {sourceLang && sourceLang !== 'en' && (
+                                                <div className="mt-3 p-3 bg-blue-900/20 border border-blue-500/30 rounded-lg">
+                                                    <p className="text-xs text-blue-300">
+                                                        <span className="font-semibold">Source language will be detected automatically</span>
+                                                        {song?.language && (
+                                                            <span className="block mt-1 text-blue-400">
+                                                                (Song metadata suggests: {song.language})
+                                                            </span>
+                                                        )}
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                    
+                                    {/* Generate Button */}
+                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                                        <button
+                                            onClick={() => {
+                                                if (!showLanguageSelector) {
+                                                    setShowLanguageSelector(true);
+                                                } else {
+                                                    handleGenerateTranslation();
+                                                }
+                                            }}
+                                            disabled={translationLoading || detectingLanguage}
+                                            className="w-full sm:w-auto group relative overflow-hidden bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 disabled:from-gray-800 disabled:to-gray-800 text-white font-semibold py-3 px-6 md:px-8 rounded-xl transition-all duration-300 flex items-center justify-center gap-3 shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            {/* Shine effect on hover */}
+                                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+                                            
+                                            {translationLoading || detectingLanguage ? (
+                                                <>
+                                                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                                    </svg>
+                                                    <span className="relative z-10">
+                                                        {detectingLanguage ? 'Detecting Language...' : 'Generating Translation...'}
+                                                    </span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <svg className="w-5 h-5 relative z-10 group-hover:rotate-12 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                                    </svg>
+                                                    <span className="relative z-10">
+                                                        {showLanguageSelector ? 'Generate Translation' : 'Translate with AI'}
+                                                    </span>
+                                                    <svg className="w-4 h-4 relative z-10 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                                    </svg>
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Reset Translation Button - Show when translation exists */}
+            {!loading && !error && hasValidTranslation && (
+                <div className="mb-4 animate-fade-in-up">
+                    <div className="relative overflow-hidden bg-gradient-to-br from-amber-800/20 to-orange-800/20 backdrop-blur-sm border border-amber-500/30 rounded-2xl shadow-2xl p-4 md:p-6">
+                        <div className="relative z-10">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-gray-700/50 p-2 rounded-full border border-amber-500/30">
+                                        <svg className="w-5 h-5 md:w-6 md:h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <h3 className="text-base md:text-lg font-semibold text-white">Translation Available</h3>
+                                        <p className="text-xs md:text-sm text-gray-300">Reset to generate a new translation in a different language</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={handleResetTranslation}
+                                    className="min-h-[44px] bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2.5 px-4 md:px-6 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm md:text-base"
+                                >
+                                    <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                    </svg>
+                                    <span className="hidden sm:inline">Reset Translation</span>
+                                    <span className="sm:hidden">Reset</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Request Translation Button - Show when no lyrics or translation */}
-            {!loading && !error && (hasNoLyrics || hasNoTranslation) && (
+            {!loading && !error && (hasNoLyrics || (hasNoTranslation && !canGenerateTranslation)) && (
                 <div className="mb-4 animate-fade-in-up">
                     <div className="relative overflow-hidden bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-sm border border-gray-600/50 rounded-2xl shadow-2xl p-6 md:p-8">
                         {/* Animated background gradient */}

@@ -39,7 +39,8 @@ const COLLECTIONS = {
   FORUM_CATEGORIES: 'forumCategories',
   SYNC_JOBS: 'syncJobs',
   TRANSLATION_REQUESTS: 'translationRequests',
-  SONG_REQUESTS: 'songRequests'
+  SONG_REQUESTS: 'songRequests',
+  LANGUAGES: 'languages'
 };
 
 // Artist Operations
@@ -149,7 +150,11 @@ export const getAllSongs = async () => {
 
 export const updateSong = async (songId: string, updates: Partial<Omit<Song, 'id'>>) => {
   const docRef = doc(db, COLLECTIONS.SONGS, songId);
-  await updateDoc(docRef, { ...updates, updatedAt: serverTimestamp() });
+  // Filter out undefined values as Firestore doesn't accept them
+  const cleanUpdates = Object.fromEntries(
+    Object.entries(updates).filter(([_, value]) => value !== undefined)
+  );
+  await updateDoc(docRef, { ...cleanUpdates, updatedAt: serverTimestamp() });
 };
 
 export const deleteSong = async (songId: string) => {

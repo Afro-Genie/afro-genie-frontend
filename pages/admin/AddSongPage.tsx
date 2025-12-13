@@ -1,16 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { addSong, uploadSongImage, getAllArtists } from '../../services/firebaseService';
+import { addSong, uploadSongImage, getAllArtists, saveTranslation } from '../../services/firebaseService';
+import { getAllLanguages, addLanguage } from '../../services/languageService';
 import { useNotification } from '../../hooks/useNotification';
+import { useAuth } from '../../context/AuthContext';
 import Notification from '../../components/Notification';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import type { Artist } from '../../types';
+import type { Artist, Language } from '../../types';
 
 const AddSongPage: React.FC = () => {
   const navigate = useNavigate();
   const { notification, showNotification, hideNotification } = useNotification();
+  const { user } = useAuth();
   
   const [artists, setArtists] = useState<Artist[]>([]);
+  const [languages, setLanguages] = useState<Language[]>([]);
+  const [showAddLanguage, setShowAddLanguage] = useState(false);
+  const [newLanguageCode, setNewLanguageCode] = useState('');
+  const [newLanguageName, setNewLanguageName] = useState('');
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
@@ -21,25 +28,30 @@ const AddSongPage: React.FC = () => {
     year: '',
     language: '',
     album: '',
-    releaseDate: ''
+    releaseDate: '',
+    lyrics: ''
   });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState('');
 
   useEffect(() => {
-    const fetchArtists = async () => {
+    const fetchData = async () => {
       try {
-        const fetchedArtists = await getAllArtists();
+        const [fetchedArtists, fetchedLanguages] = await Promise.all([
+          getAllArtists(),
+          getAllLanguages()
+        ]);
         setArtists(fetchedArtists);
+        setLanguages(fetchedLanguages);
       } catch (error: any) {
         showNotification({
-          message: `Error loading artists: ${error.message}`,
+          message: `Error loading data: ${error.message}`,
           type: 'error'
         });
       }
     };
 
-    fetchArtists();
+    fetchData();
   }, [showNotification]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -78,6 +90,21 @@ const AddSongPage: React.FC = () => {
         // Update song with uploaded image URL
         const { updateSong } = await import('../../services/firebaseService');
         await updateSong(songId, { image: uploadedImageUrl });
+      }
+
+      // Save lyrics if provided
+      if (formData.lyrics && formData.lyrics.trim().length > 0 && user) {
+        await saveTranslation({
+          songId,
+          userId: user.uid,
+          originalLyrics: formData.lyrics.trim(),
+          translatedLyrics: '', // Will be translated later using AI
+          culturalContext: '',
+          sourceLang: formData.language || 'en',
+          targetLang: 'en',
+          source: 'manual',
+          status: 'approved'
+        });
       }
 
       showNotification({
@@ -198,13 +225,92 @@ const AddSongPage: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Language
                 </label>
-                <input
-                  type="text"
-                  value={formData.language}
-                  onChange={(e) => setFormData({ ...formData, language: e.target.value })}
-                  className="w-full px-4 py-2.5 text-base bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
-                  placeholder="e.g., English, Yoruba, Pidgin"
-                />
+                {!showAddLanguage ? (
+                  <div className="space-y-2">
+                    <select
+                      value={formData.language}
+                      onChange={(e) => {
+                        if (e.target.value === '__add_new__') {
+                          setShowAddLanguage(true);
+                        } else {
+                          setFormData({ ...formData, language: e.target.value });
+                        }
+                      }}
+                      className="w-full px-4 py-2.5 text-base bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                    >
+                      <option value="">Select Language</option>
+                      {languages.map(lang => (
+                        <option key={lang.id} value={lang.code}>{lang.name}</option>
+                      ))}
+                      <option value="__add_new__">+ Add New Language</option>
+                    </select>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        value={newLanguageCode}
+                        onChange={(e) => setNewLanguageCode(e.target.value)}
+                        className="px-4 py-2.5 text-base bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                        placeholder="Code (e.g., yo)"
+                      />
+                      <input
+                        type="text"
+                        value={newLanguageName}
+                        onChange={(e) => setNewLanguageName(e.target.value)}
+                        className="px-4 py-2.5 text-base bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                        placeholder="Name (e.g., Yoruba)"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (newLanguageCode.trim() && newLanguageName.trim()) {
+                            try {
+                              await addLanguage({
+                                code: newLanguageCode.trim().toLowerCase(),
+                                name: newLanguageName.trim(),
+                                isActive: true
+                              });
+                              const { getAllLanguages } = await import('../../services/languageService');
+                              const updatedLanguages = await getAllLanguages();
+                              setLanguages(updatedLanguages);
+                              setFormData({ ...formData, language: newLanguageCode.trim().toLowerCase() });
+                              setNewLanguageCode('');
+                              setNewLanguageName('');
+                              setShowAddLanguage(false);
+                              showNotification({
+                                message: 'Language added successfully!',
+                                type: 'success'
+                              });
+                            } catch (error: any) {
+                              showNotification({
+                                message: `Error adding language: ${error.message}`,
+                                type: 'error'
+                              });
+                            }
+                          }
+                        }}
+                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm"
+                      >
+                        Add
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAddLanguage(false);
+                          setNewLanguageCode('');
+                          setNewLanguageName('');
+                        }}
+                        className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -233,9 +339,29 @@ const AddSongPage: React.FC = () => {
             </div>
           </div>
 
+          {/* Lyrics */}
+          <div className="border-t border-gray-700 pt-6 mt-6">
+            <h2 className="text-lg sm:text-xl font-semibold text-white mb-3 sm:mb-4">Original Lyrics</h2>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Lyrics (Original Language)
+              </label>
+              <textarea
+                value={formData.lyrics}
+                onChange={(e) => setFormData({ ...formData, lyrics: e.target.value })}
+                rows={15}
+                className="w-full px-4 py-3 text-base bg-gray-700 border-2 border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 font-mono resize-y min-h-[300px]"
+                placeholder="Enter the original lyrics here. Translation can be generated later using AI."
+              />
+              <p className="text-xs text-gray-400 mt-2">
+                Add the original lyrics. AI translation can be generated later from the song page.
+              </p>
+            </div>
+          </div>
+
           {/* Image */}
           <div>
-            <h2 className="text-xl font-semibold text-white mb-4">Image</h2>
+            <h2 className="text-lg sm:text-xl font-semibold text-white mb-3 sm:mb-4">Image</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">

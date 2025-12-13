@@ -9,10 +9,10 @@ import {
   UsersIcon, 
   GridIcon,
   StatsIcon,
-  UploadIcon,
   ChatIcon
 } from '../icons/FlatIcons';
 import RobotIcon from '../icons/RobotIcon';
+import GlobeIcon from '../icons/GlobeIcon';
 
 const AdminLayout: React.FC = () => {
   const { user, logout } = useAuth();
@@ -24,12 +24,11 @@ const AdminLayout: React.FC = () => {
     { name: 'Artists', href: '/admin/artists', icon: ArtistIcon },
     { name: 'Songs', href: '/admin/songs', icon: MusicNoteIcon },
     { name: 'Genres', href: '/admin/genres', icon: GenreIcon },
-    { name: 'Lyrics Manager', href: '/admin/lyrics', icon: MusicNoteIcon },
+    { name: 'Languages', href: '/admin/languages', icon: GlobeIcon },
     { name: 'Spotify Integration', href: '/admin/spotify', icon: MusicNoteIcon },
     { name: 'Community', href: '/admin/community', icon: ChatIcon },
     { name: 'Users', href: '/admin/users', icon: UsersIcon },
     { name: 'Genie Settings', href: '/admin/genie', icon: RobotIcon },
-    { name: 'Lyric Importer', href: '/admin/lyric-importer', icon: UploadIcon },
   ];
 
   const handleLogout = async () => {
