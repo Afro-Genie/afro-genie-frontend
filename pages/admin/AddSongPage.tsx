@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { addSong, uploadSongImage, getAllArtists, saveTranslation } from '../../services/firebaseService';
 import { getAllLanguages, addLanguage } from '../../services/languageService';
 import { useNotification } from '../../hooks/useNotification';
@@ -19,6 +19,7 @@ const AddSongPage: React.FC = () => {
   const [newLanguageCode, setNewLanguageCode] = useState('');
   const [newLanguageName, setNewLanguageName] = useState('');
   const [saving, setSaving] = useState(false);
+  const [copyrightAcknowledged, setCopyrightAcknowledged] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     artist: '',
@@ -406,12 +407,38 @@ const AddSongPage: React.FC = () => {
             )}
           </div>
 
+          {/* Copyright Acknowledgment */}
+          <div className="border-t border-gray-700 pt-6 mt-6">
+            <div className="bg-amber-900/20 border border-amber-700/50 rounded-lg p-4">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={copyrightAcknowledged}
+                  onChange={(e) => setCopyrightAcknowledged(e.target.checked)}
+                  className="mt-1 w-5 h-5 text-green-600 bg-gray-700 border-gray-600 rounded focus:ring-green-500 focus:ring-2"
+                  required
+                />
+                <div className="flex-1">
+                  <span className="text-white font-medium">Copyright Acknowledgment *</span>
+                  <p className="text-gray-300 text-sm mt-1">
+                    I confirm that I have the right to upload these lyrics. The lyrics are either:
+                    (1) my original work, (2) licensed from the copyright owner, or (3) provided through a licensed API.
+                    I understand that original lyrics remain the property of their copyright owners.
+                  </p>
+                  <p className="text-gray-400 text-xs mt-2">
+                    By checking this box, you agree to our <Link to="/terms" className="text-green-400 hover:underline">Terms of Use</Link>.
+                  </p>
+                </div>
+              </label>
+            </div>
+          </div>
+
           {/* Actions */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 pt-4 border-t border-gray-700">
             <button
               type="submit"
-              disabled={saving}
-              className="w-full sm:w-auto min-h-[44px] bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-semibold py-2.5 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 text-base"
+              disabled={saving || !copyrightAcknowledged}
+              className="w-full sm:w-auto min-h-[44px] bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2.5 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 text-base"
             >
               {saving ? (
                 <>

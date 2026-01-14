@@ -31,7 +31,23 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
       }
       onClose();
     } catch (err: any) {
-      setError(err.message || 'An error occurred');
+      // Provide user-friendly error messages
+      const errorCode = err.code || '';
+      let errorMessage = 'An error occurred';
+      
+      if (errorCode.includes('invalid-credential') || errorCode.includes('user-not-found') || errorCode.includes('wrong-password')) {
+        errorMessage = 'Invalid email or password. Please try again.';
+      } else if (errorCode.includes('email-already-in-use')) {
+        errorMessage = 'This email is already registered. Please sign in instead.';
+      } else if (errorCode.includes('weak-password')) {
+        errorMessage = 'Password should be at least 6 characters.';
+      } else if (errorCode.includes('invalid-email')) {
+        errorMessage = 'Please enter a valid email address.';
+      } else {
+        errorMessage = err.message || 'An error occurred';
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -45,7 +61,10 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
       await signInWithGoogle();
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Google sign in failed');
+      const errorMessage = err.code === 'auth/popup-closed-by-user' 
+        ? 'Sign in was cancelled. Please try again.' 
+        : (err.message || 'Google sign in failed');
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -59,7 +78,8 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
       await signInWithSpotify();
       // Note: onClose won't be called here as user will be redirected
     } catch (err: any) {
-      setError(err.message || 'Spotify sign in failed');
+      const errorMessage = err.message || 'Spotify sign in failed. Please try again.';
+      setError(errorMessage);
       setLoading(false);
     }
   };

@@ -2,6 +2,7 @@ import React from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import Header from './components/Header';
+import Footer from './components/Footer';
 import HomePage from './pages/HomePage';
 import TranslationPage from './pages/TranslationPage';
 import SearchResultsPage from './pages/SearchResultsPage';
@@ -27,6 +28,8 @@ import ArtistSignupPage from './pages/ArtistSignupPage';
 import ArtistDashboard from './pages/ArtistDashboard';
 import ArtistDetailPage from './pages/ArtistDetailPage';
 import SongsCatalogPage from './pages/SongsCatalogPage';
+import TermsOfUsePage from './pages/TermsOfUsePage';
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 
 function App() {
   return (
@@ -36,6 +39,8 @@ function App() {
           <Header />
           <main className="flex-grow">
           <Routes>
+            <Route path="/terms" element={<TermsOfUsePage />} />
+            <Route path="/privacy" element={<PrivacyPolicyPage />} />
             <Route path="/" element={<HomePage />} />
             <Route path="/song/:id" element={<TranslationPage />} />
             <Route path="/artist/:id" element={<ArtistDetailPage />} />
@@ -78,6 +83,7 @@ function App() {
             </Route>
           </Routes>
           </main>
+          <Footer />
         </div>
       </HashRouter>
     </AuthProvider>

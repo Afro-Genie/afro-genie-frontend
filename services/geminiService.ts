@@ -75,7 +75,20 @@ export async function detectLanguage(lyrics: string): Promise<string> {
       }
     });
 
-    const detectedCode = response.text.trim().toLowerCase();
+    // Handle different response structures - check multiple possible paths
+    let responseText = '';
+    if (typeof response === 'string') {
+      responseText = response;
+    } else if (response && typeof response === 'object') {
+      responseText = response.text || response.response?.text || response.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    }
+
+    if (!responseText || typeof responseText !== 'string' || responseText.trim().length === 0) {
+      console.warn('Language detection returned invalid response format:', { response, type: typeof response });
+      return 'en'; // Fallback to English
+    }
+
+    const detectedCode = responseText.trim().toLowerCase();
     
     // Validate and normalize the code
     const validCodes = ['en', 'fr', 'es', 'pt', 'ar', 'sw', 'yo', 'ig', 'ha', 'pidgin', 'zu', 'xh', 'am', 'tw', 'ff'];
@@ -166,7 +179,20 @@ export async function getAiAnalysis(
       },
     });
 
-    const jsonString = response.text.trim();
+    // Handle different response structures - check multiple possible paths
+    let responseText = '';
+    if (typeof response === 'string') {
+      responseText = response;
+    } else if (response && typeof response === 'object') {
+      responseText = response.text || response.response?.text || response.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    }
+
+    if (!responseText || typeof responseText !== 'string' || responseText.trim().length === 0) {
+      console.error('Translation response missing text content:', { response, type: typeof response });
+      throw new Error("AI response is missing text content.");
+    }
+
+    const jsonString = responseText.trim();
     const parsedResult = JSON.parse(jsonString) as AiAnalysisResult;
 
     if (!parsedResult.translatedLyrics) {

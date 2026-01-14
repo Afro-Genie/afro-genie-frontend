@@ -242,8 +242,31 @@ export interface Translation {
   reviewedBy?: string; // Admin who reviewed
   reviewedAt?: any;
   rejectionReason?: string;
+  upvotes?: number; // Count of upvotes
+  downvotes?: number; // Count of downvotes
   createdAt?: any;
   updatedAt?: any;
+}
+
+export interface TranslationVote {
+  id?: string;
+  translationId: string;
+  userId: string;
+  voteType: 'upvote' | 'downvote';
+  createdAt?: any;
+}
+
+export interface TranslationCorrection {
+  id?: string;
+  translationId: string;
+  userId: string;
+  originalText: string; // The text being corrected
+  suggestedText: string; // The suggested correction
+  reason?: string; // Optional explanation
+  status?: 'pending' | 'approved' | 'rejected';
+  reviewedBy?: string;
+  reviewedAt?: any;
+  createdAt?: any;
 }
 
 export interface TranslationRequest {

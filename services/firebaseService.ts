@@ -18,7 +18,7 @@ import {
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../config/firebase';
-import type { Artist, Song, Genre, GenieSettings, Topic, TopicComment, ForumCategory, TranslationRequest, SongRequest } from '../types';
+import type { Artist, Song, Genre, GenieSettings, Topic, TopicComment, ForumCategory, TranslationRequest, SongRequest, TranslationVote, TranslationCorrection } from '../types';
 
 // Collections
 const COLLECTIONS = {
@@ -40,7 +40,9 @@ const COLLECTIONS = {
   SYNC_JOBS: 'syncJobs',
   TRANSLATION_REQUESTS: 'translationRequests',
   SONG_REQUESTS: 'songRequests',
-  LANGUAGES: 'languages'
+  LANGUAGES: 'languages',
+  TRANSLATION_VOTES: 'translationVotes',
+  TRANSLATION_CORRECTIONS: 'translationCorrections'
 };
 
 // Artist Operations
@@ -185,24 +187,6 @@ export const deleteGenre = async (genreId: string) => {
 };
 
 // Translation Operations
-export interface Translation {
-  id?: string;
-  songId: string;
-  userId: string;
-  originalLyrics: string;
-  translatedLyrics: string;
-  culturalContext: string;
-  sourceLang: string;
-  targetLang: string;
-  status?: 'pending' | 'approved' | 'rejected' | 'published';
-  source?: 'manual' | 'api' | 'user_request';
-  reviewedBy?: string; // Admin who reviewed
-  reviewedAt?: Timestamp;
-  rejectionReason?: string;
-  createdAt?: Timestamp;
-  updatedAt?: Timestamp;
-}
-
 export const saveTranslation = async (translation: Omit<Translation, 'id' | 'createdAt' | 'updatedAt'>) => {
   const docRef = await addDoc(collection(db, COLLECTIONS.TRANSLATIONS), {
     ...translation,
@@ -337,6 +321,125 @@ export const rejectTranslation = async (
     reviewedAt: serverTimestamp(),
     rejectionReason: reason || '',
     updatedAt: serverTimestamp()
+  });
+};
+
+// Translation Voting Operations
+export const voteTranslation = async (
+  translationId: string,
+  userId: string,
+  voteType: 'upvote' | 'downvote'
+): Promise<void> => {
+  // Check if user already voted
+  const voteQuery = query(
+    collection(db, COLLECTIONS.TRANSLATION_VOTES),
+    where('translationId', '==', translationId),
+    where('userId', '==', userId),
+    limit(1)
+  );
+  const existingVotes = await getDocs(voteQuery);
+
+  const translationRef = doc(db, COLLECTIONS.TRANSLATIONS, translationId);
+  const translationDoc = await getDoc(translationRef);
+  const currentUpvotes = translationDoc.data()?.upvotes || 0;
+  const currentDownvotes = translationDoc.data()?.downvotes || 0;
+
+  if (!existingVotes.empty) {
+    // User already voted - update or remove vote
+    const existingVote = existingVotes.docs[0];
+    const existingVoteData = existingVote.data();
+    
+    if (existingVoteData.voteType === voteType) {
+      // Same vote - remove it
+      await deleteDoc(doc(db, COLLECTIONS.TRANSLATION_VOTES, existingVote.id));
+      await updateDoc(translationRef, {
+        upvotes: voteType === 'upvote' ? Math.max(0, currentUpvotes - 1) : currentUpvotes,
+        downvotes: voteType === 'downvote' ? Math.max(0, currentDownvotes - 1) : currentDownvotes,
+        updatedAt: serverTimestamp()
+      });
+    } else {
+      // Different vote - change it
+      await updateDoc(doc(db, COLLECTIONS.TRANSLATION_VOTES, existingVote.id), {
+        voteType,
+        createdAt: serverTimestamp()
+      });
+      await updateDoc(translationRef, {
+        upvotes: voteType === 'upvote' ? currentUpvotes + 1 : Math.max(0, currentUpvotes - 1),
+        downvotes: voteType === 'downvote' ? currentDownvotes + 1 : Math.max(0, currentDownvotes - 1),
+        updatedAt: serverTimestamp()
+      });
+    }
+  } else {
+    // New vote
+    await addDoc(collection(db, COLLECTIONS.TRANSLATION_VOTES), {
+      translationId,
+      userId,
+      voteType,
+      createdAt: serverTimestamp()
+    });
+    await updateDoc(translationRef, {
+      upvotes: voteType === 'upvote' ? currentUpvotes + 1 : currentUpvotes,
+      downvotes: voteType === 'downvote' ? currentDownvotes + 1 : currentDownvotes,
+      updatedAt: serverTimestamp()
+    });
+  }
+};
+
+export const getUserVote = async (translationId: string, userId: string): Promise<'upvote' | 'downvote' | null> => {
+  if (!userId) {
+    return null;
+  }
+  try {
+    const voteQuery = query(
+      collection(db, COLLECTIONS.TRANSLATION_VOTES),
+      where('translationId', '==', translationId),
+      where('userId', '==', userId),
+      limit(1)
+    );
+    const votes = await getDocs(voteQuery);
+    if (!votes.empty) {
+      return votes.docs[0].data().voteType as 'upvote' | 'downvote';
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting user vote:', error);
+    // Return null on error instead of throwing
+    return null;
+  }
+};
+
+// Translation Correction Operations
+export const submitTranslationCorrection = async (
+  correction: Omit<TranslationCorrection, 'id' | 'createdAt' | 'status'>
+): Promise<string> => {
+  const docRef = await addDoc(collection(db, COLLECTIONS.TRANSLATION_CORRECTIONS), {
+    ...correction,
+    status: 'pending',
+    createdAt: serverTimestamp()
+  });
+  return docRef.id;
+};
+
+export const getTranslationCorrections = async (translationId: string): Promise<TranslationCorrection[]> => {
+  const q = query(
+    collection(db, COLLECTIONS.TRANSLATION_CORRECTIONS),
+    where('translationId', '==', translationId),
+    orderBy('createdAt', 'desc')
+  );
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TranslationCorrection));
+};
+
+export const updateCorrectionStatus = async (
+  correctionId: string,
+  status: 'approved' | 'rejected',
+  reviewedBy: string
+): Promise<void> => {
+  const docRef = doc(db, COLLECTIONS.TRANSLATION_CORRECTIONS, correctionId);
+  await updateDoc(docRef, {
+    status,
+    reviewedBy,
+    reviewedAt: serverTimestamp()
   });
 };
 

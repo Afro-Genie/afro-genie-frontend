@@ -9,7 +9,10 @@ import {
     addToHistory,
     createTranslationRequest,
     updateTranslation,
-    saveTranslation
+    saveTranslation,
+    voteTranslation,
+    getUserVote,
+    submitTranslationCorrection
 } from '../services/firebaseService';
 import { getAiAnalysis } from '../services/geminiService';
 import { getAllLanguages, detectLanguageWithAI, getLanguageByCode } from '../services/languageService';
@@ -21,7 +24,8 @@ import SpotifyPlayer from './SpotifyPlayer';
 import type { Song, TranslationViewMode } from '../types';
 
 const LyricContent: React.FC = () => {
-    const { currentUser } = useAuth();
+    const { user: currentUser } = useAuth();
+    const [showLoginPrompt, setShowLoginPrompt] = useState(false);
     const { id: songIdParam } = useParams<{ id: string }>();
     const songId = useMemo(() => songIdParam ?? '', [songIdParam]);
     const [viewMode, setViewMode] = useState<TranslationViewMode>('side-by-side');
@@ -31,6 +35,7 @@ const LyricContent: React.FC = () => {
     const [artist, setArtist] = useState<string>('');
     const [originalLyrics, setOriginalLyrics] = useState<string>('');
     const [translatedLyrics, setTranslatedLyrics] = useState<string>('');
+    const [culturalContext, setCulturalContext] = useState<string>('');
     const [isFavorite, setIsFavorite] = useState(false);
     const [favoriteId, setFavoriteId] = useState<string | null>(null);
     const [favoriteLoading, setFavoriteLoading] = useState(false);
@@ -48,6 +53,13 @@ const LyricContent: React.FC = () => {
     const [existingTranslationId, setExistingTranslationId] = useState<string | null>(null);
     const [languages, setLanguages] = useState<Array<{ code: string; name: string }>>([]);
     const [detectingLanguage, setDetectingLanguage] = useState(false);
+    const [userVote, setUserVote] = useState<'upvote' | 'downvote' | null>(null);
+    const [upvotes, setUpvotes] = useState<number>(0);
+    const [downvotes, setDownvotes] = useState<number>(0);
+    const [votingLoading, setVotingLoading] = useState(false);
+    const [showCorrectionForm, setShowCorrectionForm] = useState(false);
+    const [correctionText, setCorrectionText] = useState('');
+    const [correctionReason, setCorrectionReason] = useState('');
 
     // Load languages from database
     useEffect(() => {
@@ -115,7 +127,10 @@ const LyricContent: React.FC = () => {
                 if (latest && !cancelled) {
                     setOriginalLyrics(latest.originalLyrics);
                     setTranslatedLyrics(latest.translatedLyrics || '');
+                    setCulturalContext(latest.culturalContext || '');
                     setExistingTranslationId(latest.id || null);
+                    setUpvotes(latest.upvotes || 0);
+                    setDownvotes(latest.downvotes || 0);
                     // Set source language from translation or song metadata
                     if (latest.sourceLang) {
                         setSourceLang(latest.sourceLang);
@@ -124,6 +139,18 @@ const LyricContent: React.FC = () => {
                     }
                     if (latest.targetLang) {
                         setTargetLang(latest.targetLang);
+                    }
+                    // Load user's vote if logged in
+                    if (currentUser && latest.id && currentUser.uid) {
+                        try {
+                            const vote = await getUserVote(latest.id, currentUser.uid);
+                            if (!cancelled) {
+                                setUserVote(vote);
+                            }
+                        } catch (error) {
+                            console.error('Error loading user vote:', error);
+                            // Silently fail - user can still vote
+                        }
                     }
                 } else if (!cancelled) {
                     setOriginalLyrics('No lyrics available yet for this song.');
@@ -358,6 +385,76 @@ const LyricContent: React.FC = () => {
         } finally {
             setTranslationLoading(false);
             setDetectingLanguage(false);
+        }
+    };
+
+    const handleVote = async (voteType: 'upvote' | 'downvote') => {
+        if (!currentUser || !currentUser.uid) {
+            setNotification({ message: 'Please sign in to vote', type: 'error' });
+            setTimeout(() => setNotification(null), 4000);
+            return;
+        }
+        if (!existingTranslationId) return;
+
+        setVotingLoading(true);
+        try {
+            await voteTranslation(existingTranslationId, currentUser.uid, voteType);
+            // Reload vote counts and user vote
+            const latest = await getLatestTranslationForSong(songId);
+            if (latest) {
+                setUpvotes(latest.upvotes || 0);
+                setDownvotes(latest.downvotes || 0);
+            }
+            try {
+                const vote = await getUserVote(existingTranslationId, currentUser.uid);
+                setUserVote(vote);
+            } catch (voteError) {
+                console.error('Error loading vote after voting:', voteError);
+                // Continue even if we can't load the vote
+            }
+            setNotification({ 
+                message: `Your ${voteType} has been recorded`, 
+                type: 'success' 
+            });
+            setTimeout(() => setNotification(null), 3000);
+        } catch (err: any) {
+            console.error('Voting error:', err);
+            const errorMessage = err.message || 'Failed to vote. Please try again.';
+            setNotification({ message: errorMessage, type: 'error' });
+            setTimeout(() => setNotification(null), 4000);
+        } finally {
+            setVotingLoading(false);
+        }
+    };
+
+    const handleSubmitCorrection = async () => {
+        if (!currentUser) {
+            setNotification({ message: 'Please sign in to suggest corrections', type: 'error' });
+            setTimeout(() => setNotification(null), 4000);
+            return;
+        }
+        if (!existingTranslationId || !correctionText.trim()) {
+            setNotification({ message: 'Please provide a correction', type: 'error' });
+            setTimeout(() => setNotification(null), 4000);
+            return;
+        }
+
+        try {
+            await submitTranslationCorrection({
+                translationId: existingTranslationId,
+                userId: currentUser.uid,
+                originalText: translatedLyrics,
+                suggestedText: correctionText,
+                reason: correctionReason || undefined
+            });
+            setNotification({ message: 'Correction submitted! Thank you for your contribution.', type: 'success' });
+            setTimeout(() => setNotification(null), 4000);
+            setCorrectionText('');
+            setCorrectionReason('');
+            setShowCorrectionForm(false);
+        } catch (err: any) {
+            setNotification({ message: err.message || 'Failed to submit correction', type: 'error' });
+            setTimeout(() => setNotification(null), 4000);
         }
     };
 
@@ -871,6 +968,132 @@ const LyricContent: React.FC = () => {
                 </div>
             )}
 
+            {/* Voting and Community Actions */}
+            {!loading && !error && hasValidTranslation && existingTranslationId && (
+                <div className="mb-4 bg-gray-800/30 rounded-lg p-4 border border-gray-700/50">
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                        {/* Voting Section */}
+                        <div className="flex items-center gap-4">
+                            <span className="text-gray-300 text-sm font-medium">Rate this translation:</span>
+                            {currentUser ? (
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => handleVote('upvote')}
+                                        disabled={votingLoading}
+                                        className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                                            userVote === 'upvote'
+                                                ? 'bg-green-600 text-white'
+                                                : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                                        } disabled:opacity-50`}
+                                    >
+                                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fillRule="evenodd" d="M3.293 9.707a1 1 0 010-1.414l6-6a1 1 0 011.414 0l6 6a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L4.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                                        </svg>
+                                        <span className="text-sm font-medium">{upvotes}</span>
+                                    </button>
+                                    <button
+                                        onClick={() => handleVote('downvote')}
+                                        disabled={votingLoading}
+                                        className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                                            userVote === 'downvote'
+                                                ? 'bg-red-600 text-white'
+                                                : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                                        } disabled:opacity-50`}
+                                    >
+                                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fillRule="evenodd" d="M16.707 10.293a1 1 0 010 1.414l-6 6a1 1 0 01-1.414 0l-6-6a1 1 0 111.414-1.414L9 14.586V3a1 1 0 012 0v11.586l4.293-4.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                        </svg>
+                                        <span className="text-sm font-medium">{downvotes}</span>
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-2 text-gray-400 text-sm">
+                                    <span>{upvotes} upvotes • {downvotes} downvotes</span>
+                                    <Link 
+                                        to="/" 
+                                        className="text-green-400 hover:text-green-300 underline"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            // Trigger login modal - you may need to adjust this based on your login flow
+                                            window.location.hash = '#/';
+                                            setTimeout(() => {
+                                                const loginButton = document.querySelector('[data-login-button]') as HTMLElement;
+                                                if (loginButton) loginButton.click();
+                                            }, 100);
+                                        }}
+                                    >
+                                        Sign in to vote
+                                    </Link>
+                                </div>
+                            )}
+                        </div>
+                        {/* Correction Button */}
+                        {currentUser ? (
+                            <button
+                                onClick={() => setShowCorrectionForm(!showCorrectionForm)}
+                                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                                Suggest Correction
+                            </button>
+                        ) : (
+                            <button
+                                onClick={() => {
+                                    setShowLoginPrompt(true);
+                                    setTimeout(() => setShowLoginPrompt(false), 5000);
+                                }}
+                                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                                Sign in to suggest
+                            </button>
+                        )}
+                    </div>
+                    {/* Correction Form */}
+                    {showCorrectionForm && (
+                        <div className="mt-4 p-4 bg-gray-700/50 rounded-lg border border-gray-600">
+                            <h4 className="text-white font-medium mb-3">Suggest a Correction</h4>
+                            <textarea
+                                value={correctionText}
+                                onChange={(e) => setCorrectionText(e.target.value)}
+                                placeholder="Enter your suggested correction for the translation..."
+                                rows={4}
+                                className="w-full px-4 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
+                            />
+                            <input
+                                type="text"
+                                value={correctionReason}
+                                onChange={(e) => setCorrectionReason(e.target.value)}
+                                placeholder="Reason (optional)"
+                                className="w-full px-4 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
+                            />
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={handleSubmitCorrection}
+                                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm font-medium"
+                                >
+                                    Submit Correction
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setShowCorrectionForm(false);
+                                        setCorrectionText('');
+                                        setCorrectionReason('');
+                                    }}
+                                    className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors text-sm font-medium"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* View Mode Selector - Moved up to be with lyrics */}
             {!loading && !error && !hasNoLyrics && !hasNoTranslation && (
                 <div className="mb-4 flex flex-wrap items-center gap-3 bg-gray-800/30 rounded-lg p-3 border border-gray-700/50">
@@ -923,6 +1146,37 @@ const LyricContent: React.FC = () => {
                             )}
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* Cultural Context Display - Prominent */}
+            {!loading && !error && culturalContext && culturalContext.trim() && (
+                <div className="mb-6 animate-fade-in-up">
+                    <div className="bg-gradient-to-br from-amber-900/30 to-orange-900/30 backdrop-blur-sm border-2 border-amber-500/40 rounded-2xl shadow-2xl p-6 md:p-8">
+                        <div className="flex items-start gap-4 mb-4">
+                            <div className="flex-shrink-0 bg-amber-500/20 p-3 rounded-full border border-amber-500/30">
+                                <svg className="w-6 h-6 md:w-8 md:h-8 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                </svg>
+                            </div>
+                            <div className="flex-1">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <h3 className="text-xl md:text-2xl font-bold text-white">Cultural Context</h3>
+                                    <span className="text-xs px-3 py-1 bg-green-600/30 border border-green-500/50 rounded-full text-green-300 font-medium">
+                                        Human-Added
+                                    </span>
+                                </div>
+                                <p className="text-gray-300 text-sm mb-4">
+                                    Learn about the cultural meanings, slang, and context behind these lyrics
+                                </p>
+                                <div className="bg-gray-900/50 rounded-lg p-4 md:p-6 border border-gray-700/50">
+                                    <pre className="whitespace-pre-wrap font-sans text-gray-200 leading-relaxed text-sm md:text-base">
+                                        {culturalContext}
+                                    </pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
 

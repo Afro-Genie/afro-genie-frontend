@@ -245,6 +245,20 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "translationVotes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "translationId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []
