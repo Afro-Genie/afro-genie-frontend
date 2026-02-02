@@ -127,17 +127,30 @@ export const detectLanguageWithAI = async (lyrics: string): Promise<string> => {
   try {
     // Primary method: Use Gemini AI for detection
     const detectedCode = await detectLanguage(lyrics);
+
+    // Heuristic override: If AI detects 'en' (English), but strong Pidgin markers are present,
+    // override to 'pidgin'. AI often classifies Pidgin as English.
+    if (detectedCode === 'en') {
+      const lowerLyrics = lyrics.toLowerCase();
+      // Strong markers that almost certainly indicate Pidgin in a Nigerian context
+      if (
+        /\b(dey|na|una|wey|abeg|wetin|pikin|sabi|don|komot)\b/.test(lowerLyrics)
+      ) {
+        return 'pidgin';
+      }
+    }
+
     return detectedCode;
   } catch (error) {
     console.error('Error detecting language with AI:', error);
-    
+
     // TODO: Add Google Translate API as fallback
     // For now, we can use a simple heuristic based on common patterns
     // Google Translate API would require: @google-cloud/translate package and API key
-    
+
     // Fallback: Simple pattern matching for common languages
     const lowerLyrics = lyrics.toLowerCase();
-    
+
     // Check for common African language patterns
     if (lowerLyrics.includes('ọ') || lowerLyrics.includes('ṣ') || lowerLyrics.includes('ẹ')) {
       return 'yo'; // Yoruba
@@ -151,7 +164,7 @@ export const detectLanguageWithAI = async (lyrics: string): Promise<string> => {
     if (lowerLyrics.includes('dey') || lowerLyrics.includes('na so')) {
       return 'pidgin'; // Nigerian Pidgin
     }
-    
+
     // If all else fails, throw the original error
     throw error;
   }

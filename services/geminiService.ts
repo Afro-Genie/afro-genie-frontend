@@ -54,6 +54,10 @@ export async function detectLanguage(lyrics: string): Promise<string> {
     - Fula: 'ff'
     
     If the language is a dialect or variant (like Nigerian Pidgin), use 'pidgin' for Nigerian Pidgin.
+    
+    CRITICAL: Distinguish carefully between Standard English ('en') and Nigerian Pidgin ('pidgin').
+    If the text contains Pidgin markers such as "dey", "na", "wey", "una", "abeg", "wetin", "don", "fit", "sabi", or "pikin", classify it as 'pidgin', NOT 'en'.
+    
     If you cannot determine the language with confidence, return 'en' as default.
     
     Lyrics to analyze:
@@ -80,7 +84,15 @@ export async function detectLanguage(lyrics: string): Promise<string> {
     if (typeof response === 'string') {
       responseText = response;
     } else if (response && typeof response === 'object') {
-      responseText = response.text || response.response?.text || response.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      // Check if text is a function (common in Google GenAI SDKs)
+      if (typeof (response as any).text === 'function') {
+        responseText = (response as any).text();
+      } else {
+        responseText = (response as any).text ||
+          (response as any).response?.text ||
+          (response as any).candidates?.[0]?.content?.parts?.[0]?.text ||
+          '';
+      }
     }
 
     if (!responseText || typeof responseText !== 'string' || responseText.trim().length === 0) {
@@ -89,25 +101,26 @@ export async function detectLanguage(lyrics: string): Promise<string> {
     }
 
     const detectedCode = responseText.trim().toLowerCase();
-    
+
     // Validate and normalize the code
     const validCodes = ['en', 'fr', 'es', 'pt', 'ar', 'sw', 'yo', 'ig', 'ha', 'pidgin', 'zu', 'xh', 'am', 'tw', 'ff'];
     if (validCodes.includes(detectedCode)) {
       return detectedCode;
     }
-    
+
     // Try to extract code from response if it contains extra text
     const codeMatch = detectedCode.match(/\b(en|fr|es|pt|ar|sw|yo|ig|ha|pidgin|zu|xh|am|tw|ff)\b/);
     if (codeMatch) {
       return codeMatch[1];
     }
-    
+
     // Fallback to English if detection fails
     console.warn('Language detection returned invalid code, defaulting to English:', detectedCode);
     return 'en';
   } catch (error) {
     console.error("Error detecting language with Gemini API:", error);
-    throw new Error("Failed to detect language. Please select the language manually.");
+    // Don't throw, just return default 'en' to allow flow to continue
+    return 'en';
   }
 }
 
@@ -121,20 +134,27 @@ export async function getAiAnalysis(
   const hasLyrics = lyrics.trim().length > 0 && !lyrics.includes('Provide cultural context');
 
   const prompt = hasLyrics ? `
-    You are an expert translator specializing in African music lyrics.
-    Your task is to translate the provided song lyrics accurately while preserving the poetic and emotional essence.
+    You are an expert translator specializing in African music lyrics and linguistics.
+    Your task is to translate the provided song lyrics accurately into ${targetLang}, preserving the poetic and emotional essence.
 
+    IMPORTANT: African songs often feature "code-switching" - mixing different languages (e.g., English, Pidgin, Yoruba, Igbo, Hausa) within the same song or even the same line.
+    
+    1. Do NOT assume the entire song is in a single language, even if a primary language is detected as '${sourceLang}'.
+    2. Analyze each line and distinct phrase to identify its specific language or dialect based on context.
+    3. Translate ALL parts into ${targetLang}.
+    4. If a phrase is already in ${targetLang} (e.g. English lines when translating to English), leave them as is or refine them for clarity if requested.
+    
     Here is the song information:
     - Artist: ${artist}
     - Song Title: ${title}
-    - Original Language: ${sourceLang}
-    - Target Language for Translation: ${targetLang}
+    - Primary Language (Detected): ${sourceLang}
+    - Target Language: ${targetLang}
     - Lyrics:
     ---
     ${lyrics}
     ---
 
-    Translate the provided lyrics from ${sourceLang} to ${targetLang}. The translation should be accurate and capture the poetic and emotional essence of the original lyrics. The result should be a single string with line breaks preserved.
+    Translate the provided lyrics to ${targetLang}. Handle any code-switching or mixed languages contextually. The translation should be accurate and capture the poetic and emotional essence of the original lyrics. The result should be a single string with line breaks preserved.
 
     Provide the output in a single, valid JSON object, adhering strictly to the provided schema. Do not include any text, markdown formatting like \`\`\`json, or any other characters outside of the JSON object itself.
 
@@ -184,7 +204,15 @@ export async function getAiAnalysis(
     if (typeof response === 'string') {
       responseText = response;
     } else if (response && typeof response === 'object') {
-      responseText = response.text || response.response?.text || response.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      // Check if text is a function (common in Google GenAI SDKs)
+      if (typeof (response as any).text === 'function') {
+        responseText = (response as any).text();
+      } else {
+        responseText = (response as any).text ||
+          (response as any).response?.text ||
+          (response as any).candidates?.[0]?.content?.parts?.[0]?.text ||
+          '';
+      }
     }
 
     if (!responseText || typeof responseText !== 'string' || responseText.trim().length === 0) {
@@ -192,7 +220,12 @@ export async function getAiAnalysis(
       throw new Error("AI response is missing text content.");
     }
 
-    const jsonString = responseText.trim();
+    // Strip markdown code blocks if present (e.g. ```json ... ```)
+    let jsonString = responseText.trim();
+    if (jsonString.startsWith('```')) {
+      jsonString = jsonString.replace(/^```(json)?\n?/, '').replace(/\n?```$/, '');
+    }
+
     const parsedResult = JSON.parse(jsonString) as AiAnalysisResult;
 
     if (!parsedResult.translatedLyrics) {
@@ -205,6 +238,9 @@ export async function getAiAnalysis(
     };
   } catch (error) {
     console.error("Error calling Gemini API:", error);
-    throw new Error("Failed to get translation from AI. The model may have returned an invalid response.");
+    if (error instanceof SyntaxError) {
+      throw new Error("Failed to parse AI response. The model returned invalid JSON.");
+    }
+    throw new Error("Failed to get translation from AI. The model may have returned an invalid response or the service is unavailable.");
   }
 }

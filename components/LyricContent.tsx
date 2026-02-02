@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { 
-    getSong, 
-    getLatestTranslationForSong, 
-    addToFavorites, 
-    removeFromFavorites, 
+import {
+    getSong,
+    getLatestTranslationForSong,
+    addToFavorites,
+    removeFromFavorites,
     getUserFavorites,
     addToHistory,
     createTranslationRequest,
@@ -66,7 +66,11 @@ const LyricContent: React.FC = () => {
         const loadLanguages = async () => {
             try {
                 const fetchedLanguages = await getAllLanguages();
-                setLanguages(fetchedLanguages.map(lang => ({ code: lang.code, name: lang.name })));
+                // Deduplicate by code
+                const uniqueLanguages = Array.from(
+                    new Map(fetchedLanguages.map(lang => [lang.code, lang])).values()
+                );
+                setLanguages(uniqueLanguages.map(lang => ({ code: lang.code, name: lang.name })));
             } catch (error) {
                 console.error('Error loading languages:', error);
                 // Fallback to default languages
@@ -234,7 +238,7 @@ const LyricContent: React.FC = () => {
 
     const handleRequestTranslation = async () => {
         if (!songId || !title || !artist) return;
-        
+
         setRequestLoading(true);
         try {
             await createTranslationRequest({
@@ -264,10 +268,10 @@ const LyricContent: React.FC = () => {
         }
 
         // Check if translation already exists and is not empty
-        const hasValidTranslation = translatedLyrics && 
-            translatedLyrics.trim() && 
+        const hasValidTranslation = translatedLyrics &&
+            translatedLyrics.trim() &&
             translatedLyrics !== 'No translation available yet. Use "Reveal the Meaning" to generate one.';
-        
+
         if (hasValidTranslation) {
             setNotification({ message: 'Translation already exists. Please reset it first to generate a new translation.', type: 'error' });
             setTimeout(() => setNotification(null), 4000);
@@ -275,11 +279,7 @@ const LyricContent: React.FC = () => {
         }
 
         // Validate source and target languages are different
-        if (sourceLang === targetLang) {
-            setNotification({ message: 'Source and target languages cannot be the same. Please select different languages.', type: 'error' });
-            setTimeout(() => setNotification(null), 4000);
-            return;
-        }
+
 
         setTranslationLoading(true);
         let detectedSourceLang = 'en';
@@ -290,14 +290,14 @@ const LyricContent: React.FC = () => {
             try {
                 detectedSourceLang = await detectLanguageWithAI(originalLyrics);
                 setSourceLang(detectedSourceLang);
-                
+
                 // Get language name for notification
                 const detectedLang = await getLanguageByCode(detectedSourceLang);
                 const langName = detectedLang?.name || detectedSourceLang;
-                
-                setNotification({ 
-                    message: `Detected source language: ${langName}`, 
-                    type: 'success' 
+
+                setNotification({
+                    message: `Detected source language: ${langName}`,
+                    type: 'success'
                 });
                 setTimeout(() => setNotification(null), 3000);
             } catch (detectError) {
@@ -311,11 +311,11 @@ const LyricContent: React.FC = () => {
                     detectedSourceLang = 'en';
                     setSourceLang('en');
                 }
-                
+
                 // Show warning if detection failed
-                setNotification({ 
-                    message: 'Could not auto-detect language. Using default. Translation may not be accurate.', 
-                    type: 'error' 
+                setNotification({
+                    message: 'Could not auto-detect language. Using default. Translation may not be accurate.',
+                    type: 'error'
                 });
                 setTimeout(() => setNotification(null), 4000);
             } finally {
@@ -323,18 +323,24 @@ const LyricContent: React.FC = () => {
             }
 
             // Validate again after detection
+            // Validate again after detection
+            /* Removed blocking check for source === target to allow AI to handle dialects/context
             if (detectedSourceLang === targetLang) {
-                setNotification({ 
-                    message: `Detected source language (${detectedSourceLang}) matches target language. Please select a different target language.`, 
-                    type: 'error' 
+                setNotification({
+                    message: `Detected source language (${detectedSourceLang}) is same as target. Proceeding with AI context analysis.`,
+                    type: 'success'
                 });
-                setTimeout(() => setNotification(null), 5000);
-                return;
+                // Continue execution instead of returning
+            }
+            */
+            if (detectedSourceLang === targetLang) {
+                // Optional: notifying user but allowing to proceed
+                console.log('Source matches target, proceeding anyway for context-aware translation');
             }
 
             // Call AI translation
             const result = await getAiAnalysis(artist, title, originalLyrics, detectedSourceLang, targetLang);
-            
+
             if (!result.translatedLyrics) {
                 throw new Error('AI did not return a translation');
             }
@@ -370,16 +376,17 @@ const LyricContent: React.FC = () => {
             setTranslatedLyrics(result.translatedLyrics);
             setSourceLang(detectedSourceLang);
             setShowLanguageSelector(false);
-            
-            setNotification({ 
-                message: 'Translation generated successfully!', 
-                type: 'success' 
+
+            setNotification({
+                message: 'Translation generated successfully!',
+                type: 'success'
             });
             setTimeout(() => setNotification(null), 4000);
         } catch (err: any) {
-            setNotification({ 
-                message: 'Failed to generate translation: ' + (err.message || 'Unknown error'), 
-                type: 'error' 
+            console.error('Translation generation error:', err);
+            setNotification({
+                message: 'Failed to generate translation: ' + (err.message || 'Unknown error'),
+                type: 'error'
             });
             setTimeout(() => setNotification(null), 5000);
         } finally {
@@ -412,9 +419,9 @@ const LyricContent: React.FC = () => {
                 console.error('Error loading vote after voting:', voteError);
                 // Continue even if we can't load the vote
             }
-            setNotification({ 
-                message: `Your ${voteType} has been recorded`, 
-                type: 'success' 
+            setNotification({
+                message: `Your ${voteType} has been recorded`,
+                type: 'success'
             });
             setTimeout(() => setNotification(null), 3000);
         } catch (err: any) {
@@ -475,15 +482,15 @@ const LyricContent: React.FC = () => {
             });
 
             setTranslatedLyrics('No translation available yet. Use "Reveal the Meaning" to generate one.');
-            setNotification({ 
-                message: 'Translation reset. You can now generate a new translation.', 
-                type: 'success' 
+            setNotification({
+                message: 'Translation reset. You can now generate a new translation.',
+                type: 'success'
             });
             setTimeout(() => setNotification(null), 4000);
         } catch (err: any) {
-            setNotification({ 
-                message: 'Failed to reset translation: ' + (err.message || 'Unknown error'), 
-                type: 'error' 
+            setNotification({
+                message: 'Failed to reset translation: ' + (err.message || 'Unknown error'),
+                type: 'error'
             });
             setTimeout(() => setNotification(null), 5000);
         }
@@ -493,8 +500,8 @@ const LyricContent: React.FC = () => {
     const hasNoTranslation = translatedLyrics === 'No translation available yet. Use "Reveal the Meaning" to generate one.' || !translatedLyrics.trim();
     const hasOriginalLyrics = !hasNoLyrics;
     const canGenerateTranslation = hasOriginalLyrics && hasNoTranslation;
-    const hasValidTranslation = translatedLyrics && 
-        translatedLyrics.trim() && 
+    const hasValidTranslation = translatedLyrics &&
+        translatedLyrics.trim() &&
         translatedLyrics !== 'No translation available yet. Use "Reveal the Meaning" to generate one.';
 
     // Split lyrics into lines for hover and inline modes
@@ -508,23 +515,21 @@ const LyricContent: React.FC = () => {
                 return (
                     <>
                         <div className="flex border-b-2 border-gray-700 mb-6 bg-gray-800/30 rounded-t-lg p-1">
-                            <button 
+                            <button
                                 onClick={() => setShowTranslation(false)}
-                                className={`flex-1 py-3 px-4 font-semibold transition-all rounded-lg ${
-                                    !showTranslation 
-                                        ? 'text-white bg-gray-700/50 shadow-lg' 
-                                        : 'text-gray-400 hover:text-gray-300'
-                                }`}
+                                className={`flex-1 py-3 px-4 font-semibold transition-all rounded-lg ${!showTranslation
+                                    ? 'text-white bg-gray-700/50 shadow-lg'
+                                    : 'text-gray-400 hover:text-gray-300'
+                                    }`}
                             >
                                 Original
                             </button>
                             <button
                                 onClick={() => setShowTranslation(true)}
-                                className={`flex-1 py-3 px-4 font-semibold transition-all rounded-lg ${
-                                    showTranslation 
-                                        ? 'text-white bg-green-600/20 border border-green-500/30 shadow-lg' 
-                                        : 'text-gray-400 hover:text-gray-300'
-                                }`}
+                                className={`flex-1 py-3 px-4 font-semibold transition-all rounded-lg ${showTranslation
+                                    ? 'text-white bg-green-600/20 border border-green-500/30 shadow-lg'
+                                    : 'text-gray-400 hover:text-gray-300'
+                                    }`}
                             >
                                 Translation
                             </button>
@@ -595,14 +600,14 @@ const LyricContent: React.FC = () => {
                 return (
                     <div className="relative" style={{ height: '600px' }}>
                         <div className="absolute inset-0 flex">
-                            <div 
+                            <div
                                 className="overflow-y-auto pr-4"
                                 style={{ width: `${splitPosition}%` }}
                             >
                                 <h3 className="font-bold text-white mb-3 sticky top-0 bg-[#122118] py-2">Original</h3>
                                 <pre className="font-sans whitespace-pre-wrap text-gray-200 leading-loose" style={{ fontSize: `${fontSize}px` }}>{originalLyrics}</pre>
                             </div>
-                            <div 
+                            <div
                                 className="w-1 bg-gray-600 cursor-col-resize hover:bg-green-400 transition-colors"
                                 onMouseDown={(e) => {
                                     const startX = e.clientX;
@@ -621,7 +626,7 @@ const LyricContent: React.FC = () => {
                                     document.addEventListener('mouseup', handleMouseUp);
                                 }}
                             />
-                            <div 
+                            <div
                                 className="overflow-y-auto pl-4"
                                 style={{ width: `${100 - splitPosition}%` }}
                             >
@@ -678,8 +683,8 @@ const LyricContent: React.FC = () => {
                     {/* Small Song Image */}
                     <div className="flex-shrink-0">
                         {song.image ? (
-                            <img 
-                                src={song.image} 
+                            <img
+                                src={song.image}
                                 alt={`${title} by ${artist}`}
                                 className="w-20 h-20 md:w-24 md:h-24 rounded-lg object-cover border border-gray-700"
                             />
@@ -691,7 +696,7 @@ const LyricContent: React.FC = () => {
                             </div>
                         )}
                     </div>
-                    
+
                     {/* Song Info - Compact */}
                     <div className="flex-1 min-w-0">
                         <h1 className="text-xl md:text-2xl font-bold text-white mb-1 break-words">
@@ -761,7 +766,7 @@ const LyricContent: React.FC = () => {
                     <div className="relative overflow-hidden bg-gradient-to-br from-green-800/20 to-emerald-800/20 backdrop-blur-sm border border-green-500/30 rounded-2xl shadow-2xl p-4 md:p-6">
                         {/* Animated background gradient */}
                         <div className="absolute inset-0 bg-gradient-to-r from-green-500/5 via-emerald-500/5 to-green-500/5 animate-gradient-shift"></div>
-                        
+
                         {/* Content */}
                         <div className="relative z-10">
                             <div className="flex items-start gap-4 mb-4">
@@ -773,7 +778,7 @@ const LyricContent: React.FC = () => {
                                         </svg>
                                     </div>
                                 </div>
-                                
+
                                 <div className="flex-1 min-w-0">
                                     <h3 className="text-lg md:text-xl font-bold text-white mb-2">
                                         Generate Translation with AI
@@ -781,7 +786,7 @@ const LyricContent: React.FC = () => {
                                     <p className="text-gray-300 text-sm md:text-base leading-relaxed mb-4">
                                         Use AI to automatically translate the original lyrics. The source language will be detected automatically. Select the target language below.
                                     </p>
-                                    
+
                                     {/* Language Selector - Only Target Language */}
                                     {showLanguageSelector && (
                                         <div className="mb-4 p-4 bg-gray-800/50 rounded-lg border border-gray-700">
@@ -814,7 +819,7 @@ const LyricContent: React.FC = () => {
                                             )}
                                         </div>
                                     )}
-                                    
+
                                     {/* Generate Button */}
                                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                                         <button
@@ -830,7 +835,7 @@ const LyricContent: React.FC = () => {
                                         >
                                             {/* Shine effect on hover */}
                                             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
-                                            
+
                                             {translationLoading || detectingLanguage ? (
                                                 <>
                                                     <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
@@ -902,7 +907,7 @@ const LyricContent: React.FC = () => {
                     <div className="relative overflow-hidden bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-sm border border-gray-600/50 rounded-2xl shadow-2xl p-6 md:p-8">
                         {/* Animated background gradient */}
                         <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-purple-500/5 to-pink-500/5 animate-gradient-shift"></div>
-                        
+
                         {/* Content */}
                         <div className="relative z-10">
                             {/* Icon with pulse animation */}
@@ -915,20 +920,20 @@ const LyricContent: React.FC = () => {
                                         </svg>
                                     </div>
                                 </div>
-                                
+
                                 <div className="flex-1 min-w-0">
                                     <h3 className="text-lg md:text-xl font-bold text-white mb-2">
-                                        {hasNoLyrics && hasNoTranslation 
-                                            ? 'Lyrics & Translation Needed' 
-                                            : hasNoLyrics 
-                                                ? 'Lyrics Needed' 
+                                        {hasNoLyrics && hasNoTranslation
+                                            ? 'Lyrics & Translation Needed'
+                                            : hasNoLyrics
+                                                ? 'Lyrics Needed'
                                                 : 'Translation Needed'}
                                     </h3>
                                     <p className="text-gray-300 text-sm md:text-base leading-relaxed">
-                                        {hasNoLyrics && hasNoTranslation 
-                                            ? 'This song doesn\'t have lyrics or translation yet. Request one and our team will add it soon!' 
-                                            : hasNoLyrics 
-                                                ? 'This song doesn\'t have lyrics yet. Request them and our team will add it soon!' 
+                                        {hasNoLyrics && hasNoTranslation
+                                            ? 'This song doesn\'t have lyrics or translation yet. Request one and our team will add it soon!'
+                                            : hasNoLyrics
+                                                ? 'This song doesn\'t have lyrics yet. Request them and our team will add it soon!'
                                                 : 'This song doesn\'t have a translation yet. Request one and our team will add it soon!'}
                                     </p>
                                 </div>
@@ -942,7 +947,7 @@ const LyricContent: React.FC = () => {
                             >
                                 {/* Shine effect on hover */}
                                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
-                                
+
                                 {requestLoading ? (
                                     <>
                                         <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
@@ -980,11 +985,10 @@ const LyricContent: React.FC = () => {
                                     <button
                                         onClick={() => handleVote('upvote')}
                                         disabled={votingLoading}
-                                        className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
-                                            userVote === 'upvote'
-                                                ? 'bg-green-600 text-white'
-                                                : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                                        } disabled:opacity-50`}
+                                        className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${userVote === 'upvote'
+                                            ? 'bg-green-600 text-white'
+                                            : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                                            } disabled:opacity-50`}
                                     >
                                         <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                                             <path fillRule="evenodd" d="M3.293 9.707a1 1 0 010-1.414l6-6a1 1 0 011.414 0l6 6a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L4.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
@@ -994,11 +998,10 @@ const LyricContent: React.FC = () => {
                                     <button
                                         onClick={() => handleVote('downvote')}
                                         disabled={votingLoading}
-                                        className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
-                                            userVote === 'downvote'
-                                                ? 'bg-red-600 text-white'
-                                                : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                                        } disabled:opacity-50`}
+                                        className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${userVote === 'downvote'
+                                            ? 'bg-red-600 text-white'
+                                            : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                                            } disabled:opacity-50`}
                                     >
                                         <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                                             <path fillRule="evenodd" d="M16.707 10.293a1 1 0 010 1.414l-6 6a1 1 0 01-1.414 0l-6-6a1 1 0 111.414-1.414L9 14.586V3a1 1 0 012 0v11.586l4.293-4.293a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -1009,8 +1012,8 @@ const LyricContent: React.FC = () => {
                             ) : (
                                 <div className="flex items-center gap-2 text-gray-400 text-sm">
                                     <span>{upvotes} upvotes • {downvotes} downvotes</span>
-                                    <Link 
-                                        to="/" 
+                                    <Link
+                                        to="/"
                                         className="text-green-400 hover:text-green-300 underline"
                                         onClick={(e) => {
                                             e.preventDefault();
@@ -1099,19 +1102,19 @@ const LyricContent: React.FC = () => {
                 <div className="mb-4 flex flex-wrap items-center gap-3 bg-gray-800/30 rounded-lg p-3 border border-gray-700/50">
                     <div className="flex items-center gap-2">
                         <label className="text-gray-300 text-sm font-medium">View:</label>
-                    <select
-                        value={viewMode}
-                        onChange={(e) => setViewMode(e.target.value as TranslationViewMode)}
+                        <select
+                            value={viewMode}
+                            onChange={(e) => setViewMode(e.target.value as TranslationViewMode)}
                             className="bg-gray-800 border border-gray-600 text-white text-sm px-3 py-1.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                    >
-                        <option value="tabs">Tabs</option>
-                        <option value="side-by-side">Side-by-Side</option>
-                        <option value="top-bottom">Top & Bottom</option>
-                        <option value="hover">Mouse-over</option>
-                        <option value="split-screen">Split-Screen</option>
-                        <option value="inline">Inline</option>
-                        <option value="toggle">Toggle</option>
-                    </select>
+                        >
+                            <option value="tabs">Tabs</option>
+                            <option value="side-by-side">Side-by-Side</option>
+                            <option value="top-bottom">Top & Bottom</option>
+                            <option value="hover">Mouse-over</option>
+                            <option value="split-screen">Split-Screen</option>
+                            <option value="inline">Inline</option>
+                            <option value="toggle">Toggle</option>
+                        </select>
                     </div>
                     <div className="flex items-center gap-2">
                         <label className="text-gray-300 text-sm">Font:</label>
@@ -1182,22 +1185,22 @@ const LyricContent: React.FC = () => {
 
             {/* Lyrics Display - Main Focus */}
             {!loading && !error && renderLyrics()}
-            
+
             {/* Action Bar */}
             <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-[#2a3c30]/80 backdrop-blur-md p-3 rounded-full border border-white/10">
-                <button 
+                <button
                     onClick={handleFavoriteToggle}
                     disabled={favoriteLoading}
                     className={`flex flex-col items-center justify-center w-20 h-14 rounded-full hover:bg-white/10 transition-colors ${isFavorite ? 'text-red-400' : ''}`}
                 >
-                    <HeartIcon className={`h-6 w-6 ${isFavorite ? 'fill-current' : ''}`}/>
+                    <HeartIcon className={`h-6 w-6 ${isFavorite ? 'fill-current' : ''}`} />
                     <span className="text-xs mt-1">{isFavorite ? 'Liked' : 'Like'}</span>
                 </button>
-                <button 
+                <button
                     onClick={handleShare}
                     className="flex flex-col items-center justify-center w-20 h-14 rounded-full hover:bg-white/10 transition-colors"
                 >
-                    <ShareIcon className="h-6 w-6"/>
+                    <ShareIcon className="h-6 w-6" />
                     <span className="text-xs mt-1">Share</span>
                 </button>
                 {song && (
@@ -1217,31 +1220,26 @@ const LyricContent: React.FC = () => {
             {/* Custom Notification Toast */}
             {notification && (
                 <div className="fixed top-4 right-4 left-4 md:left-auto md:right-4 z-50 max-w-md mx-auto md:mx-0 animate-slide-in-right">
-                    <div className={`relative overflow-hidden rounded-2xl shadow-2xl border ${
-                        notification.type === 'success' 
-                            ? 'bg-gradient-to-br from-gray-800 to-gray-900 border-gray-600/50' 
-                            : 'bg-gradient-to-br from-gray-900 to-gray-800 border-red-500/50'
-                    } backdrop-blur-sm`}>
+                    <div className={`relative overflow-hidden rounded-2xl shadow-2xl border ${notification.type === 'success'
+                        ? 'bg-gradient-to-br from-gray-800 to-gray-900 border-gray-600/50'
+                        : 'bg-gradient-to-br from-gray-900 to-gray-800 border-red-500/50'
+                        } backdrop-blur-sm`}>
                         {/* Animated background gradient */}
-                        <div className={`absolute inset-0 ${
-                            notification.type === 'success'
-                                ? 'bg-gradient-to-r from-blue-500/10 via-green-500/10 to-blue-500/10'
-                                : 'bg-gradient-to-r from-red-500/10 via-orange-500/10 to-red-500/10'
-                        } animate-gradient-shift`}></div>
-                        
+                        <div className={`absolute inset-0 ${notification.type === 'success'
+                            ? 'bg-gradient-to-r from-blue-500/10 via-green-500/10 to-blue-500/10'
+                            : 'bg-gradient-to-r from-red-500/10 via-orange-500/10 to-red-500/10'
+                            } animate-gradient-shift`}></div>
+
                         {/* Content */}
                         <div className="relative z-10 p-4 md:p-5">
                             <div className="flex items-start gap-4">
                                 {/* Icon */}
-                                <div className={`flex-shrink-0 relative ${
-                                    notification.type === 'success' ? 'text-green-400' : 'text-red-400'
-                                }`}>
-                                    <div className={`absolute inset-0 ${
-                                        notification.type === 'success' ? 'bg-green-500/20' : 'bg-red-500/20'
-                                    } rounded-full animate-ping`}></div>
-                                    <div className={`relative bg-gray-700/50 p-2 rounded-full border ${
-                                        notification.type === 'success' ? 'border-green-500/30' : 'border-red-500/30'
+                                <div className={`flex-shrink-0 relative ${notification.type === 'success' ? 'text-green-400' : 'text-red-400'
                                     }`}>
+                                    <div className={`absolute inset-0 ${notification.type === 'success' ? 'bg-green-500/20' : 'bg-red-500/20'
+                                        } rounded-full animate-ping`}></div>
+                                    <div className={`relative bg-gray-700/50 p-2 rounded-full border ${notification.type === 'success' ? 'border-green-500/30' : 'border-red-500/30'
+                                        }`}>
                                         {notification.type === 'success' ? (
                                             <svg className="w-5 h-5 md:w-6 md:h-6 animate-scale-in" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -1253,7 +1251,7 @@ const LyricContent: React.FC = () => {
                                         )}
                                     </div>
                                 </div>
-                                
+
                                 {/* Message */}
                                 <div className="flex-1 min-w-0">
                                     <p className="text-white font-semibold text-sm md:text-base mb-1">
@@ -1263,7 +1261,7 @@ const LyricContent: React.FC = () => {
                                         {notification.message}
                                     </p>
                                 </div>
-                                
+
                                 {/* Close button */}
                                 <button
                                     onClick={() => setNotification(null)}
@@ -1275,13 +1273,12 @@ const LyricContent: React.FC = () => {
                                     </svg>
                                 </button>
                             </div>
-                            
+
                             {/* Progress bar */}
                             <div className="mt-3 h-1 bg-gray-700/50 rounded-full overflow-hidden">
-                                <div 
-                                    className={`h-full ${
-                                        notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'
-                                    }`}
+                                <div
+                                    className={`h-full ${notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'
+                                        }`}
                                     style={{
                                         animation: `progress-bar ${notification.type === 'success' ? '4s' : '5s'} linear forwards`
                                     }}
