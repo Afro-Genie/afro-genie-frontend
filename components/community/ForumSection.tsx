@@ -74,7 +74,7 @@ const ForumSection: React.FC = () => {
         <h2 className="text-3xl font-bold text-gray-100">Community Forums</h2>
         <Link
           to="/community/create"
-          className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-gray-900 font-semibold rounded-lg transition-colors"
+          className="inline-flex items-center min-h-[44px] px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-gray-900 font-semibold rounded-lg transition-colors"
         >
           Create Topic
         </Link>
@@ -94,7 +94,7 @@ const ForumSection: React.FC = () => {
               <Link
                 key={category.id}
                 to={`/community?category=${category.id}`}
-                className="block bg-gray-800 hover:bg-gray-700/80 transition-colors duration-200 p-4 rounded-lg border border-gray-700"
+                className="block min-h-[48px] bg-gray-800 hover:bg-gray-700/80 transition-colors duration-200 p-4 rounded-lg border border-gray-700"
               >
                 <div className="flex items-start space-x-4">
                   <div className="flex-shrink-0">

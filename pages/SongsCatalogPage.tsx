@@ -237,7 +237,7 @@ const SongsCatalogPage: React.FC = () => {
         <div className="md:hidden mb-4">
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className="w-full flex items-center justify-between px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+            className="w-full flex items-center justify-between min-h-[44px] px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
           >
             <span className="font-medium">Filters & Sort</span>
             <svg
@@ -411,7 +411,7 @@ const SongsCatalogPage: React.FC = () => {
                 <Link
                   key={song.id}
                   to={`/song/${song.id}`}
-                  className="group flex items-center gap-2 sm:gap-3 md:gap-4 p-3 sm:p-4 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg sm:rounded-xl border border-gray-700 hover:border-green-400/50 transition-all duration-300 active:scale-[0.98]"
+                  className="group flex items-center gap-2 sm:gap-3 md:gap-4 p-3 sm:p-4 min-h-[48px] bg-gray-800/50 hover:bg-gray-700/50 rounded-lg sm:rounded-xl border border-gray-700 hover:border-green-400/50 transition-all duration-300 active:scale-[0.98]"
                 >
                   {/* Mobile: Compact layout */}
                   <div className="flex-shrink-0 w-8 sm:w-10 md:w-12 text-center">

@@ -66,11 +66,27 @@ const LyricContent: React.FC = () => {
         const loadLanguages = async () => {
             try {
                 const fetchedLanguages = await getAllLanguages();
-                // Deduplicate by code
-                const uniqueLanguages = Array.from(
-                    new Map(fetchedLanguages.map(lang => [lang.code, lang])).values()
-                );
-                setLanguages(uniqueLanguages.map(lang => ({ code: lang.code, name: lang.name })));
+
+                // Deduplicate by Name (case-insensitive) to prevent "Igbo" and "Igbo" appearing twice
+                const nameMap = new Map();
+                fetchedLanguages.forEach(lang => {
+                    const normalizedName = lang.name.trim().toLowerCase();
+                    if (!nameMap.has(normalizedName)) {
+                        nameMap.set(normalizedName, lang);
+                    }
+                });
+
+                // Then deduplicate by Code (case-insensitive) just to be safe
+                const codeMap = new Map();
+                Array.from(nameMap.values()).forEach(lang => {
+                    const normalizedCode = lang.code.trim().toLowerCase();
+                    if (!codeMap.has(normalizedCode)) {
+                        codeMap.set(normalizedCode, lang);
+                    }
+                });
+
+                const uniqueLanguages = Array.from(codeMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+                setLanguages(uniqueLanguages.map(lang => ({ code: lang.code.toLowerCase(), name: lang.name })));
             } catch (error) {
                 console.error('Error loading languages:', error);
                 // Fallback to default languages
@@ -686,11 +702,12 @@ const LyricContent: React.FC = () => {
                             <img
                                 src={song.image}
                                 alt={`${title} by ${artist}`}
-                                className="w-20 h-20 md:w-24 md:h-24 rounded-lg object-cover border border-gray-700"
+                                className="w-32 h-32 md:w-40 md:h-40 rounded-lg object-cover border border-gray-700 cursor-pointer hover:opacity-80 transition-opacity"
+                                onClick={() => window.open(song.spotifyUrl || `https://open.spotify.com/search/${encodeURIComponent(title + ' ' + artist)}`, '_blank')}
                             />
                         ) : (
-                            <div className="w-20 h-20 md:w-24 md:h-24 rounded-lg bg-gradient-to-br from-green-600/30 to-amber-600/30 flex items-center justify-center border border-gray-700">
-                                <svg className="w-10 h-10 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                            <div className="w-32 h-32 md:w-40 md:h-40 rounded-lg bg-gradient-to-br from-green-600/30 to-amber-600/30 flex items-center justify-center border border-gray-700">
+                                <svg className="w-16 h-16 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
                                     <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
                                 </svg>
                             </div>
@@ -943,7 +960,7 @@ const LyricContent: React.FC = () => {
                             <button
                                 onClick={handleRequestTranslation}
                                 disabled={requestLoading}
-                                className="w-full md:w-auto group relative overflow-hidden bg-gradient-to-r from-gray-700 to-gray-600 hover:from-gray-600 hover:to-gray-500 disabled:from-gray-800 disabled:to-gray-800 text-white font-semibold py-3 px-6 md:px-8 rounded-xl transition-all duration-300 flex items-center justify-center gap-3 shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="w-full md:w-auto min-h-[44px] group relative overflow-hidden bg-gradient-to-r from-gray-700 to-gray-600 hover:from-gray-600 hover:to-gray-500 disabled:from-gray-800 disabled:to-gray-800 text-white font-semibold py-3 px-6 md:px-8 rounded-xl transition-all duration-300 flex items-center justify-center gap-3 shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {/* Shine effect on hover */}
                                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
@@ -991,7 +1008,7 @@ const LyricContent: React.FC = () => {
                                             } disabled:opacity-50`}
                                     >
                                         <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fillRule="evenodd" d="M3.293 9.707a1 1 0 010-1.414l6-6a1 1 0 011.414 0l6 6a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L4.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                                            <path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.43a2 2 0 001.106 1.79l.05.025A4 4 0 008.943 18h5.416a2 2 0 001.962-1.608l1.2-6A2 2 0 0015.56 8H12V4a2 2 0 00-2-2 1 1 0 00-1 1v.667a4 4 0 01-.8 2.4L6.8 7.933a4 4 0 00-.8 2.4z" />
                                         </svg>
                                         <span className="text-sm font-medium">{upvotes}</span>
                                     </button>
@@ -1004,7 +1021,7 @@ const LyricContent: React.FC = () => {
                                             } disabled:opacity-50`}
                                     >
                                         <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fillRule="evenodd" d="M16.707 10.293a1 1 0 010 1.414l-6 6a1 1 0 01-1.414 0l-6-6a1 1 0 111.414-1.414L9 14.586V3a1 1 0 012 0v11.586l4.293-4.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                            <path d="M18 9.5a1.5 1.5 0 11-3 0v-6a1.5 1.5 0 013 0v6zM14 9.667v-5.43a2 2 0 00-1.105-1.79l-.05-.025A4 4 0 0011.055 2H5.64a2 2 0 00-1.962 1.608l-1.2 6A2 2 0 004.44 12H8v4a2 2 0 002 2 1 1 0 001-1v-.667a4 4 0 01.8-2.4l1.4-1.866a4 4 0 00.8-2.4z" />
                                         </svg>
                                         <span className="text-sm font-medium">{downvotes}</span>
                                     </button>
@@ -1099,13 +1116,13 @@ const LyricContent: React.FC = () => {
 
             {/* View Mode Selector - Moved up to be with lyrics */}
             {!loading && !error && !hasNoLyrics && !hasNoTranslation && (
-                <div className="mb-4 flex flex-wrap items-center gap-3 bg-gray-800/30 rounded-lg p-3 border border-gray-700/50">
+                <div className="mb-4 flex flex-wrap items-center gap-3 sm:gap-4 bg-gray-800/30 rounded-lg p-3 sm:p-4 border border-gray-700/50">
                     <div className="flex items-center gap-2">
                         <label className="text-gray-300 text-sm font-medium">View:</label>
                         <select
                             value={viewMode}
                             onChange={(e) => setViewMode(e.target.value as TranslationViewMode)}
-                            className="bg-gray-800 border border-gray-600 text-white text-sm px-3 py-1.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                            className="min-h-[44px] bg-gray-800 border border-gray-600 text-white text-sm px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                         >
                             <option value="tabs">Tabs</option>
                             <option value="side-by-side">Side-by-Side</option>
@@ -1124,7 +1141,7 @@ const LyricContent: React.FC = () => {
                             max="24"
                             value={fontSize}
                             onChange={(e) => setFontSize(Number(e.target.value))}
-                            className="w-24"
+                            className="w-24 min-w-[120px] sm:w-28"
                         />
                         <span className="text-gray-400 text-xs">{fontSize}px</span>
                     </div>
@@ -1187,18 +1204,18 @@ const LyricContent: React.FC = () => {
             {!loading && !error && renderLyrics()}
 
             {/* Action Bar */}
-            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-[#2a3c30]/80 backdrop-blur-md p-3 rounded-full border border-white/10">
+            <div className="fixed left-1/2 -translate-x-1/2 flex items-center gap-2 sm:gap-4 bg-[#2a3c30]/95 backdrop-blur-md p-3 rounded-full border border-white/10 shadow-2xl z-40 bottom-[max(1.5rem,env(safe-area-inset-bottom))]">
                 <button
                     onClick={handleFavoriteToggle}
                     disabled={favoriteLoading}
-                    className={`flex flex-col items-center justify-center w-20 h-14 rounded-full hover:bg-white/10 transition-colors ${isFavorite ? 'text-red-400' : ''}`}
+                    className={`flex flex-col items-center justify-center min-w-[44px] min-h-[44px] w-20 h-14 rounded-full hover:bg-white/10 transition-colors touch-manipulation ${isFavorite ? 'text-red-400' : ''}`}
                 >
                     <HeartIcon className={`h-6 w-6 ${isFavorite ? 'fill-current' : ''}`} />
                     <span className="text-xs mt-1">{isFavorite ? 'Liked' : 'Like'}</span>
                 </button>
                 <button
                     onClick={handleShare}
-                    className="flex flex-col items-center justify-center w-20 h-14 rounded-full hover:bg-white/10 transition-colors"
+                    className="flex flex-col items-center justify-center min-w-[44px] min-h-[44px] w-20 h-14 rounded-full hover:bg-white/10 transition-colors touch-manipulation"
                 >
                     <ShareIcon className="h-6 w-6" />
                     <span className="text-xs mt-1">Share</span>
@@ -1206,7 +1223,7 @@ const LyricContent: React.FC = () => {
                 {song && (
                     <Link
                         to={`/community/create?songId=${song.id}&artistId=${song.artistId}`}
-                        className="flex flex-col items-center justify-center w-20 h-14 rounded-full hover:bg-white/10 transition-colors text-amber-400"
+                        className="flex flex-col items-center justify-center min-w-[44px] min-h-[44px] w-20 h-14 rounded-full hover:bg-white/10 transition-colors text-amber-400 touch-manipulation"
                         title="Discuss this song"
                     >
                         <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -12,7 +12,7 @@ const TranslationPage: React.FC = () => {
     return (
         <div className="flex-1 flex flex-col lg:grid lg:grid-cols-[280px_1fr_340px] overflow-hidden h-full">
             {/* Main Content - Always visible, full width on mobile, center column on desktop */}
-            <main className="flex-1 order-1 lg:order-2 overflow-y-auto pb-24 lg:pb-24 relative">
+            <main className="flex-1 order-1 lg:order-2 overflow-y-auto pb-24 lg:pb-24 relative min-h-0">
                 {/* Mobile Sidebar Toggle Buttons - Fixed at top of content */}
                 <div className="lg:hidden sticky top-0 z-10 flex items-center justify-between p-3 bg-gray-800/95 backdrop-blur-sm border-b border-gray-700 mb-4">
                     <button

@@ -49,8 +49,8 @@ const LeftSidebar: React.FC = () => {
           <ul className="space-y-2">
             {trendingSongs.map((song, index) => (
               <li key={song.id} className={index === 0 ? "bg-green-500/20 rounded-lg" : ""}>
-                <Link 
-                  to={`/song/${song.id}`} 
+                <Link
+                  to={`/song/${song.id}`}
                   className="block py-2 px-4 text-gray-300 hover:text-white font-semibold text-sm sm:text-base min-h-[44px] flex items-center"
                   onClick={() => {
                     // Close mobile sidebar when navigating
@@ -72,15 +72,15 @@ const LeftSidebar: React.FC = () => {
 
       <section>
         <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4">Explore by Genre</h2>
-        <div className="bg-[#2a3c30] p-4 rounded-lg">
-            <div className="flex justify-between items-center cursor-pointer">
-                <h3 className="font-semibold">Genres</h3>
-                <ChevronDownIcon className="h-5 w-5"/>
-            </div>
-            <p className="text-sm text-gray-400 mt-2">
-                Afrobeats, Amapiano, Highlife, Kizomba, Gospel
-            </p>
-        </div>
+        <Link to="/search" className="block bg-[#2a3c30] hover:bg-[#3a4c40] p-4 rounded-lg transition-colors">
+          <div className="flex justify-between items-center">
+            <h3 className="font-semibold">Genres</h3>
+            <ChevronDownIcon className="h-5 w-5" />
+          </div>
+          <p className="text-sm text-gray-400 mt-2">
+            Afrobeats, Amapiano, Highlife, Kizomba, Gospel
+          </p>
+        </Link>
       </section>
 
       {user ? (
@@ -89,12 +89,12 @@ const LeftSidebar: React.FC = () => {
             <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4">Personal Library</h2>
             <ul className="space-y-2 text-gray-300">
               <li>
-                <Link to="#" className="block py-2 px-4 hover:bg-white/10 rounded-lg min-h-[44px] flex items-center text-sm sm:text-base">
+                <Link to="/songs" className="block py-2 px-4 hover:bg-white/10 rounded-lg min-h-[44px] flex items-center text-sm sm:text-base">
                   Favorites ({favorites.length})
                 </Link>
               </li>
               <li>
-                <Link to="#" className="block py-2 px-4 hover:bg-white/10 rounded-lg min-h-[44px] flex items-center text-sm sm:text-base">
+                <Link to="/songs" className="block py-2 px-4 hover:bg-white/10 rounded-lg min-h-[44px] flex items-center text-sm sm:text-base">
                   History ({history.length})
                 </Link>
               </li>

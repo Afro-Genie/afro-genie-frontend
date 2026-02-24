@@ -168,7 +168,7 @@ const ArtistDetailPage: React.FC = () => {
         <div className="mb-8">
           <button
             onClick={() => navigate(-1)}
-            className="text-gray-400 hover:text-white mb-4 flex items-center gap-2 transition-colors"
+            className="min-h-[44px] text-gray-400 hover:text-white mb-4 flex items-center gap-2 transition-colors px-2 py-2 -ml-2 rounded-lg hover:bg-gray-800/50"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -226,7 +226,7 @@ const ArtistDetailPage: React.FC = () => {
                     <button
                       onClick={handleSyncWithSpotify}
                       disabled={syncing}
-                      className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+                      className="flex items-center justify-center gap-2 min-h-[44px] bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors"
                     >
                       {syncing ? (
                         <>
@@ -280,7 +280,7 @@ const ArtistDetailPage: React.FC = () => {
                       href={spotifyArtist?.external_urls?.spotify || artist.externalUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-green-400 hover:text-green-300 transition-colors"
+                      className="inline-flex items-center gap-2 min-h-[44px] text-green-400 hover:text-green-300 transition-colors"
                     >
                       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.08-1.26 11.04-1.02 15.24 1.621.539.3.719 1.02.42 1.56-.3.421-1.02.599-1.559.3z"/>
@@ -320,7 +320,7 @@ const ArtistDetailPage: React.FC = () => {
                 <Link
                   key={song.id}
                   to={`/song/${song.id}`}
-                  className="group bg-gray-700/50 hover:bg-gray-700 rounded-lg p-4 border border-gray-600 hover:border-green-500/50 transition-all"
+                  className="group flex flex-col bg-gray-700/50 hover:bg-gray-700 rounded-lg p-4 min-h-[48px] border border-gray-600 hover:border-green-500/50 transition-all"
                 >
                   <div className="aspect-square rounded-lg overflow-hidden mb-3 bg-gray-600">
                     {song.image ? (

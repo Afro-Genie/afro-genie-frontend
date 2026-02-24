@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import LogoIcon from './icons/LogoIcon';
 import MenuIcon from './icons/MenuIcon';
@@ -8,6 +8,16 @@ import LoginModal from './auth/LoginModal';
 
 const Header: React.FC = () => {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isMobileMenuOpen) return;
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsMobileMenuOpen(false);
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [isMobileMenuOpen]);
 
   return (
     <>
@@ -31,7 +41,11 @@ const Header: React.FC = () => {
               >
                 For Artists
               </Link>
-              <button className="p-2 rounded-md text-gray-300 hover:bg-[#2a3c30] hover:text-white transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center">
+              <button
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                className="p-2 rounded-md text-gray-300 hover:bg-[#2a3c30] hover:text-white transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+                aria-label="Toggle menu"
+              >
                 <MenuIcon className="h-5 w-5 sm:h-6 sm:w-6" />
               </button>
               <UserMenu onLoginClick={() => setIsLoginModalOpen(true)} />
@@ -42,11 +56,69 @@ const Header: React.FC = () => {
             <SearchBar variant="header" />
           </div>
         </div>
+
+        {/* Mobile Menu */}
+        {isMobileMenuOpen && (
+          <>
+            <button
+              type="button"
+              aria-label="Close menu"
+              className="fixed inset-0 z-40 lg:hidden"
+              onClick={() => setIsMobileMenuOpen(false)}
+            />
+            <div className="lg:hidden bg-[#1A2B22] border-t border-white/10 relative z-50">
+            <div className="container mx-auto px-4 py-4 space-y-1">
+              <Link
+                to="/"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center min-h-[44px] pl-4 py-3 text-gray-300 hover:text-white hover:bg-[#2a3c30] rounded-md transition-colors"
+              >
+                Home
+              </Link>
+              <Link
+                to="/songs"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center min-h-[44px] pl-4 py-3 text-gray-300 hover:text-white hover:bg-[#2a3c30] rounded-md transition-colors"
+              >
+                Browse Songs
+              </Link>
+              <Link
+                to="/search"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center min-h-[44px] pl-4 py-3 text-gray-300 hover:text-white hover:bg-[#2a3c30] rounded-md transition-colors"
+              >
+                Search
+              </Link>
+              <Link
+                to="/community"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center min-h-[44px] pl-4 py-3 text-gray-300 hover:text-white hover:bg-[#2a3c30] rounded-md transition-colors"
+              >
+                Community
+              </Link>
+              <Link
+                to="/request-translation"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center min-h-[44px] pl-4 py-3 text-gray-300 hover:text-white hover:bg-[#2a3c30] rounded-md transition-colors"
+              >
+                Request Translation
+              </Link>
+              <Link
+                to="/artist/signup"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center min-h-[44px] pl-4 py-3 text-green-400 hover:text-green-300 hover:bg-[#2a3c30] rounded-md transition-colors font-semibold"
+              >
+                For Artists
+              </Link>
+            </div>
+          </div>
+          </>
+        )}
       </header>
 
-      <LoginModal 
-        isOpen={isLoginModalOpen} 
-        onClose={() => setIsLoginModalOpen(false)} 
+      <LoginModal
+        isOpen={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
       />
     </>
   );

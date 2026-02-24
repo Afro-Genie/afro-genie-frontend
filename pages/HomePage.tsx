@@ -73,7 +73,7 @@ const HomePage: React.FC = () => {
     return (
         <div className="min-h-screen bg-[#122118]">
             {/* Modern Hero Section */}
-            <section className="relative bg-gradient-to-br from-[#122118] via-[#1a2b22] to-[#122118] py-16 md:py-24 overflow-hidden">
+            <section className="relative bg-gradient-to-br from-[#122118] via-[#1a2b22] to-[#122118] py-10 sm:py-16 md:py-24 overflow-hidden">
                 {/* Floating Genie Background */}
                 <div className="absolute inset-0 flex items-center justify-center z-0 opacity-10">
                     <img
@@ -140,17 +140,17 @@ const HomePage: React.FC = () => {
             <section className="py-16 bg-gradient-to-b from-[#1a2b22] to-[#122118]">
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="text-center mb-12">
-                        <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
+                        <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4">
                             Explore Our <span className="text-green-400">Lyrics</span>
                         </h2>
-                        <p className="text-xl text-gray-400 max-w-2xl mx-auto">
+                        <p className="text-base sm:text-xl text-gray-400 max-w-2xl mx-auto px-2">
                             Discover the full power of Afro Genie - from AI translations to cultural insights
                         </p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                         {/* Feature Card 1 */}
-                        <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700 hover:border-green-400/50 transition-all duration-300 hover:shadow-lg hover:shadow-green-500/20">
+                        <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-gray-700 hover:border-green-400/50 transition-all duration-300 hover:shadow-lg hover:shadow-green-500/20">
                             <div className="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center mb-4">
                                 <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
@@ -160,13 +160,13 @@ const HomePage: React.FC = () => {
                             <p className="text-gray-400 mb-4">
                                 Get accurate translations that preserve cultural context and meaning
                             </p>
-                            <Link to="/search" className="text-green-400 hover:text-green-300 font-semibold text-sm flex items-center gap-1">
+                            <Link to="/search" className="inline-flex items-center min-h-[44px] text-green-400 hover:text-green-300 font-semibold text-sm gap-1">
                                 Try Now <span>→</span>
                             </Link>
                         </div>
 
                         {/* Feature Card 2 */}
-                        <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700 hover:border-green-400/50 transition-all duration-300 hover:shadow-lg hover:shadow-green-500/20">
+                        <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-gray-700 hover:border-green-400/50 transition-all duration-300 hover:shadow-lg hover:shadow-green-500/20">
                             <div className="w-12 h-12 bg-amber-500/20 rounded-lg flex items-center justify-center mb-4">
                                 <svg className="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -176,13 +176,13 @@ const HomePage: React.FC = () => {
                             <p className="text-gray-400 mb-4">
                                 Join discussions, share experiences, and connect with music lovers
                             </p>
-                            <Link to="/community" className="text-amber-400 hover:text-amber-300 font-semibold text-sm flex items-center gap-1">
+                            <Link to="/community" className="inline-flex items-center min-h-[44px] text-amber-400 hover:text-amber-300 font-semibold text-sm gap-1">
                                 Explore <span>→</span>
                             </Link>
                         </div>
 
                         {/* Feature Card 3 */}
-                        <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700 hover:border-green-400/50 transition-all duration-300 hover:shadow-lg hover:shadow-green-500/20">
+                        <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-gray-700 hover:border-green-400/50 transition-all duration-300 hover:shadow-lg hover:shadow-green-500/20">
                             <div className="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center mb-4">
                                 <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
@@ -192,13 +192,13 @@ const HomePage: React.FC = () => {
                             <p className="text-gray-400 mb-4">
                                 Access thousands of African songs across multiple languages and genres
                             </p>
-                            <Link to="/search" className="text-green-400 hover:text-green-300 font-semibold text-sm flex items-center gap-1">
+                            <Link to="/search" className="inline-flex items-center min-h-[44px] text-green-400 hover:text-green-300 font-semibold text-sm gap-1">
                                 Browse <span>→</span>
                             </Link>
                         </div>
 
                         {/* Feature Card 4 */}
-                        <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700 hover:border-green-400/50 transition-all duration-300 hover:shadow-lg hover:shadow-green-500/20">
+                        <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-gray-700 hover:border-green-400/50 transition-all duration-300 hover:shadow-lg hover:shadow-green-500/20">
                             <div className="w-12 h-12 bg-amber-500/20 rounded-lg flex items-center justify-center mb-4">
                                 <svg className="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
@@ -208,7 +208,7 @@ const HomePage: React.FC = () => {
                             <p className="text-gray-400 mb-4">
                                 Understand the deeper meaning behind lyrics with cultural annotations
                             </p>
-                            <Link to="/search" className="text-amber-400 hover:text-amber-300 font-semibold text-sm flex items-center gap-1">
+                            <Link to="/search" className="inline-flex items-center min-h-[44px] text-amber-400 hover:text-amber-300 font-semibold text-sm gap-1">
                                 Learn More <span>→</span>
                             </Link>
                         </div>
@@ -220,9 +220,9 @@ const HomePage: React.FC = () => {
             {songs.length > 0 && (
                 <section className="py-16 bg-[#122118]">
                     <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-                        <div className="flex items-center justify-between mb-8">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
                             <div>
-                                <h2 className="text-3xl md:text-4xl font-bold text-white">
+                                <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">
                                     Popular <span className="text-green-400">Songs</span>
                                 </h2>
                                 <p className="text-gray-400 mt-2 text-sm">
@@ -231,7 +231,7 @@ const HomePage: React.FC = () => {
                             </div>
                             <Link 
                                 to="/songs" 
-                                className="text-green-400 hover:text-green-300 font-semibold flex items-center gap-2 bg-green-600/20 hover:bg-green-600/30 px-4 py-2 rounded-lg transition-colors"
+                                className="inline-flex items-center min-h-[44px] text-green-400 hover:text-green-300 font-semibold gap-2 bg-green-600/20 hover:bg-green-600/30 px-4 py-2.5 rounded-lg transition-colors self-start"
                             >
                                 View All <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -249,7 +249,7 @@ const HomePage: React.FC = () => {
                                         <Link 
                                             to={`/song/${song.id}`} 
                                             key={song.id} 
-                                            className="group flex items-center gap-2 py-1.5 px-2 hover:bg-gray-700/50 rounded transition-colors"
+                                            className="group flex items-center gap-2 py-2.5 sm:py-1.5 px-2 min-h-[44px] hover:bg-gray-700/50 rounded transition-colors"
                                         >
                                             <div className="flex-shrink-0 w-6 text-right">
                                                 <span className="text-sm font-semibold text-gray-500 group-hover:text-green-400 transition-colors">
@@ -278,28 +278,28 @@ const HomePage: React.FC = () => {
             {/* Browse Languages Section */}
             <section className="py-16 bg-gradient-to-b from-[#122118] to-[#1a2b22]">
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex items-center justify-between mb-8">
-                        <h2 className="text-3xl md:text-4xl font-bold text-white">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
+                        <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">
                             Browse <span className="text-green-400">Languages</span>
                         </h2>
                         <Link 
                             to="/search" 
-                            className="text-green-400 hover:text-green-300 font-semibold flex items-center gap-2"
+                            className="inline-flex items-center min-h-[44px] text-green-400 hover:text-green-300 font-semibold gap-2 self-start"
                         >
                             More <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                             </svg>
                         </Link>
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
                         {languages.map((lang) => (
                             <Link
                                 key={lang.code}
                                 to={`/search/${lang.name}`}
-                                className="group bg-gray-800/50 hover:bg-gray-700/50 rounded-xl p-6 border border-gray-700 hover:border-green-400/50 transition-all duration-300 text-center"
+                                className="group bg-gray-800/50 hover:bg-gray-700/50 rounded-xl p-4 sm:p-6 border border-gray-700 hover:border-green-400/50 transition-all duration-300 text-center min-h-[44px] flex flex-col items-center justify-center"
                             >
                                 <div className="text-4xl mb-3">{lang.flag}</div>
-                                <h3 className="font-semibold text-white group-hover:text-green-400 transition-colors">
+                                <h3 className="font-semibold text-white group-hover:text-green-400 transition-colors text-sm sm:text-base">
                                     {lang.name}
                                 </h3>
                             </Link>
@@ -311,13 +311,13 @@ const HomePage: React.FC = () => {
             {/* Top Artists Section */}
             <section className="py-16 bg-[#122118]">
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex items-center justify-between mb-8">
-                        <h2 className="text-3xl md:text-4xl font-bold text-white">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
+                        <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">
                             Top Artists on <span className="text-green-400">AfroGenie</span>
                         </h2>
                         <Link 
                             to="/search" 
-                            className="text-green-400 hover:text-green-300 font-semibold flex items-center gap-2"
+                            className="inline-flex items-center min-h-[44px] text-green-400 hover:text-green-300 font-semibold gap-2 self-start"
                         >
                             More <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -353,11 +353,11 @@ const HomePage: React.FC = () => {
                                             </div>
                                         )}
                                     </div>
-                                    <h3 className="mt-3 font-semibold text-white group-hover:text-green-400 transition-colors text-center">
+                                    <h3 className="mt-3 font-semibold text-white group-hover:text-green-400 transition-colors text-center text-sm sm:text-base">
                                         {artist.name}
                                     </h3>
                                     {artist.genre && (
-                                        <p className="text-sm text-gray-400 text-center">{artist.genre}</p>
+                                        <p className="text-xs sm:text-sm text-gray-400 text-center">{artist.genre}</p>
                                     )}
                                 </Link>
                             ))}
@@ -369,13 +369,13 @@ const HomePage: React.FC = () => {
             {/* Explore by Genre Section */}
             <section className="py-16 bg-gradient-to-b from-[#1a2b22] to-[#122118]">
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex items-center justify-between mb-8">
-                        <h2 className="text-3xl md:text-4xl font-bold text-white">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
+                        <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">
                             Explore by <span className="text-green-400">Genre</span>
                         </h2>
                         <Link 
                             to="/search" 
-                            className="text-green-400 hover:text-green-300 font-semibold flex items-center gap-2"
+                            className="inline-flex items-center min-h-[44px] text-green-400 hover:text-green-300 font-semibold gap-2 self-start"
                         >
                             More <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -411,7 +411,7 @@ const HomePage: React.FC = () => {
                                             </div>
                                         )}
                                     </div>
-                                    <h3 className="mt-3 font-semibold text-white group-hover:text-green-400 transition-colors text-center">
+                                    <h3 className="mt-3 font-semibold text-white group-hover:text-green-400 transition-colors text-center text-sm sm:text-base">
                                         {genre.name}
                                     </h3>
                                 </Link>
@@ -425,13 +425,13 @@ const HomePage: React.FC = () => {
             {trendingTopics.length > 0 && (
                 <section className="py-16 bg-[#122118]">
                     <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-                        <div className="flex items-center justify-between mb-8">
-                            <h2 className="text-3xl md:text-4xl font-bold text-white">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
+                            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">
                                 Trending <span className="text-amber-400">Discussions</span>
                             </h2>
                             <Link 
                                 to="/community" 
-                                className="text-amber-400 hover:text-amber-300 font-semibold flex items-center gap-2"
+                                className="inline-flex items-center min-h-[44px] text-amber-400 hover:text-amber-300 font-semibold gap-2 self-start"
                             >
                                 View All <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

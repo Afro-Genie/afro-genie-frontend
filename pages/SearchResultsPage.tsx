@@ -152,13 +152,13 @@ const SearchResultsPage: React.FC = () => {
                 <input
                   type="text"
                   placeholder="Search for Songs, Artists & Albums"
-                  className="w-full bg-white/10 backdrop-blur-md text-white placeholder-gray-300 text-lg rounded-full py-4 pl-16 pr-6 focus:outline-none focus:ring-2 focus:ring-green-400 border border-white/20"
+                  className="w-full min-h-[44px] bg-white/10 backdrop-blur-md text-white placeholder-gray-300 text-base sm:text-lg rounded-full py-4 pl-16 pr-14 sm:pr-24 focus:outline-none focus:ring-2 focus:ring-green-400 border border-white/20"
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                 />
                 <button
                   type="submit"
-                  className="absolute inset-y-0 right-0 pr-4 flex items-center"
+                  className="absolute inset-y-0 right-0 pr-2 flex items-center min-h-[44px] min-w-[44px]"
                 >
                   <div className="bg-green-500 hover:bg-green-600 text-white rounded-full p-2 transition-colors">
                     <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -215,16 +215,16 @@ const SearchResultsPage: React.FC = () => {
                   <input
                     type="text"
                     placeholder="Search for Songs, Artists & Albums"
-                    className="w-full bg-white/10 backdrop-blur-md text-white placeholder-gray-300 text-xl rounded-full py-5 pl-16 pr-24 focus:outline-none focus:ring-2 focus:ring-green-400 border-2 border-white/20 hover:border-green-400/50 transition-colors"
+                    className="w-full min-h-[44px] bg-white/10 backdrop-blur-md text-white placeholder-gray-300 text-base sm:text-xl rounded-full py-4 sm:py-5 pl-16 pr-24 focus:outline-none focus:ring-2 focus:ring-green-400 border-2 border-white/20 hover:border-green-400/50 transition-colors"
                     value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}
                     autoFocus
                   />
                   <button
                     type="submit"
-                    className="absolute inset-y-0 right-0 pr-2 flex items-center"
+                    className="absolute inset-y-0 right-0 pr-2 flex items-center min-h-[44px] min-w-[44px] sm:min-w-0"
                   >
-                    <div className="bg-green-500 hover:bg-green-600 text-white rounded-full px-6 py-3 transition-colors font-semibold">
+                    <div className="bg-green-500 hover:bg-green-600 text-white rounded-full px-6 py-3 min-h-[44px] flex items-center transition-colors font-semibold">
                       Search
                     </div>
                   </button>
@@ -303,7 +303,7 @@ const SearchResultsPage: React.FC = () => {
                   <button
                     onClick={handleRequestSong}
                     disabled={requestLoading}
-                    className="w-full md:w-auto group relative overflow-hidden bg-gradient-to-r from-gray-700 to-gray-600 hover:from-gray-600 hover:to-gray-500 disabled:from-gray-800 disabled:to-gray-800 text-white font-semibold py-3 px-6 md:px-8 rounded-xl transition-all duration-300 flex items-center justify-center gap-3 shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed mx-auto"
+                    className="w-full md:w-auto min-h-[44px] group relative overflow-hidden bg-gradient-to-r from-gray-700 to-gray-600 hover:from-gray-600 hover:to-gray-500 disabled:from-gray-800 disabled:to-gray-800 text-white font-semibold py-3 px-6 md:px-8 rounded-xl transition-all duration-300 flex items-center justify-center gap-3 shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed mx-auto"
                   >
                     {/* Shine effect on hover */}
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
@@ -341,18 +341,18 @@ const SearchResultsPage: React.FC = () => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                       </svg>
                     </div>
-                    <input
-                      type="text"
-                      placeholder="Search for Songs, Artists & Albums"
-                      className="w-full bg-white/10 backdrop-blur-md text-white placeholder-gray-300 text-lg md:text-xl rounded-full py-4 md:py-5 pl-16 pr-24 focus:outline-none focus:ring-2 focus:ring-green-400 border-2 border-white/20 hover:border-green-400/50 transition-colors"
-                      value={searchInput}
-                      onChange={(e) => setSearchInput(e.target.value)}
-                      autoFocus
-                    />
-                    <button
-                      type="submit"
-                      className="absolute inset-y-0 right-0 pr-2 flex items-center"
-                    >
+                  <input
+                    type="text"
+                    placeholder="Search for Songs, Artists & Albums"
+                    className="w-full min-h-[44px] bg-white/10 backdrop-blur-md text-white placeholder-gray-300 text-base sm:text-lg md:text-xl rounded-full py-4 md:py-5 pl-16 pr-24 focus:outline-none focus:ring-2 focus:ring-green-400 border-2 border-white/20 hover:border-green-400/50 transition-colors"
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    autoFocus
+                  />
+                  <button
+                    type="submit"
+                    className="absolute inset-y-0 right-0 pr-2 flex items-center min-h-[44px] min-w-[44px]"
+                  >
                       <div className="bg-green-500 hover:bg-green-600 text-white rounded-full px-6 py-3 transition-colors font-semibold">
                         Search
                       </div>
@@ -376,15 +376,15 @@ const SearchResultsPage: React.FC = () => {
                   <input
                     type="text"
                     placeholder="Search for Songs, Artists & Albums"
-                    className="w-full bg-white/10 backdrop-blur-md text-white placeholder-gray-300 text-lg rounded-full py-4 pl-16 pr-24 focus:outline-none focus:ring-2 focus:ring-green-400 border-2 border-white/20 hover:border-green-400/50 transition-colors"
+                    className="w-full min-h-[44px] bg-white/10 backdrop-blur-md text-white placeholder-gray-300 text-base sm:text-lg rounded-full py-4 pl-16 pr-24 focus:outline-none focus:ring-2 focus:ring-green-400 border-2 border-white/20 hover:border-green-400/50 transition-colors"
                     value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}
                   />
                   <button
                     type="submit"
-                    className="absolute inset-y-0 right-0 pr-2 flex items-center"
+                    className="absolute inset-y-0 right-0 pr-2 flex items-center min-h-[44px] min-w-[44px]"
                   >
-                    <div className="bg-green-500 hover:bg-green-600 text-white rounded-full px-6 py-2.5 transition-colors font-semibold text-sm">
+                    <div className="bg-green-500 hover:bg-green-600 text-white rounded-full px-6 py-2.5 min-h-[44px] flex items-center transition-colors font-semibold text-sm">
                       Search
                     </div>
                   </button>
@@ -415,7 +415,7 @@ const SearchResultsPage: React.FC = () => {
                     <Link
                       to={`/song/${song.id}`}
                       key={song.id}
-                      className="group bg-gray-800/50 hover:bg-gray-700/50 rounded-xl overflow-hidden border border-gray-700 hover:border-green-400/50 transition-all duration-300"
+                      className="group bg-gray-800/50 hover:bg-gray-700/50 rounded-xl overflow-hidden border border-gray-700 hover:border-green-400/50 transition-all duration-300 flex items-center min-h-[48px]"
                     >
                       <div className="flex gap-4 p-4">
                         <div className="flex-shrink-0 w-16 h-16 bg-gradient-to-br from-green-500/20 to-amber-500/20 rounded-lg flex items-center justify-center overflow-hidden">

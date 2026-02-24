@@ -38,50 +38,51 @@ function App() {
         <div className="text-white font-sans bg-[#122118] min-h-screen flex flex-col">
           <Header />
           <main className="flex-grow">
-          <Routes>
-            <Route path="/terms" element={<TermsOfUsePage />} />
-            <Route path="/privacy" element={<PrivacyPolicyPage />} />
-            <Route path="/" element={<HomePage />} />
-            <Route path="/song/:id" element={<TranslationPage />} />
-            <Route path="/artist/:id" element={<ArtistDetailPage />} />
-            <Route path="/songs" element={<SongsCatalogPage />} />
-            <Route path="/search/:query" element={<SearchResultsPage />} />
-            <Route path="/request-translation" element={<RequestTranslationPage />} />
-            <Route path="/community" element={<CommunityPage />} />
-            <Route path="/community/create" element={<CommunityPage />} />
-            <Route path="/community/topic/:topicId" element={<TopicDetail />} />
-            <Route path="/artist/signup" element={<ArtistSignupPage />} />
-            <Route
-              path="/artist/dashboard"
-              element={
-                <ProtectedRoute requireArtist>
-                  <ArtistDashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/*"
-              element={
-                <ProtectedRoute requireAdmin>
-                  <AdminLayout />
-                </ProtectedRoute>
-              }
-            >
-                  <Route index element={<AdminDashboard />} />
-                  <Route path="artists" element={<ArtistsManager />} />
-                  <Route path="songs" element={<SongsManager />} />
-                  <Route path="songs/add" element={<AddSongPage />} />
-                  <Route path="songs/edit/:id" element={<EditSongPage />} />
-                  <Route path="genres" element={<GenresManager />} />
-                  <Route path="languages" element={<LanguagesManager />} />
-                  <Route path="community" element={<CommunityManager />} />
-                  <Route path="users" element={<UsersManager />} />
-                  <Route path="unified" element={<UnifiedManager />} />
-                  <Route path="genie" element={<GenieManager />} />
-                  <Route path="spotify" element={<SpotifyManager />} />
-                  <Route path="translation-requests" element={<TranslationRequestsPage />} />
-            </Route>
-          </Routes>
+            <Routes>
+              <Route path="/terms" element={<TermsOfUsePage />} />
+              <Route path="/privacy" element={<PrivacyPolicyPage />} />
+              <Route path="/" element={<HomePage />} />
+              <Route path="/song/:id" element={<TranslationPage />} />
+              <Route path="/artist/:id" element={<ArtistDetailPage />} />
+              <Route path="/songs" element={<SongsCatalogPage />} />
+              <Route path="/search" element={<SearchResultsPage />} />
+              <Route path="/search/:query" element={<SearchResultsPage />} />
+              <Route path="/request-translation" element={<RequestTranslationPage />} />
+              <Route path="/community" element={<CommunityPage />} />
+              <Route path="/community/create" element={<CommunityPage />} />
+              <Route path="/community/topic/:topicId" element={<TopicDetail />} />
+              <Route path="/artist/signup" element={<ArtistSignupPage />} />
+              <Route
+                path="/artist/dashboard"
+                element={
+                  <ProtectedRoute requireArtist>
+                    <ArtistDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/*"
+                element={
+                  <ProtectedRoute requireAdmin>
+                    <AdminLayout />
+                  </ProtectedRoute>
+                }
+              >
+                <Route index element={<AdminDashboard />} />
+                <Route path="artists" element={<ArtistsManager />} />
+                <Route path="songs" element={<SongsManager />} />
+                <Route path="songs/add" element={<AddSongPage />} />
+                <Route path="songs/edit/:id" element={<EditSongPage />} />
+                <Route path="genres" element={<GenresManager />} />
+                <Route path="languages" element={<LanguagesManager />} />
+                <Route path="community" element={<CommunityManager />} />
+                <Route path="users" element={<UsersManager />} />
+                <Route path="unified" element={<UnifiedManager />} />
+                <Route path="genie" element={<GenieManager />} />
+                <Route path="spotify" element={<SpotifyManager />} />
+                <Route path="translation-requests" element={<TranslationRequestsPage />} />
+              </Route>
+            </Routes>
           </main>
           <Footer />
         </div>

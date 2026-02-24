@@ -1,6 +1,11 @@
 /* Main stylesheet - Tailwind CSS is loaded via CDN in index.html */
 /* Additional custom styles can be added here */
 
+/* Mobile: prevent zoom on input focus in iOS by ensuring base font size */
+html {
+  font-size: 16px;
+}
+
 /* Custom animations for translation request popup */
 @keyframes fade-in-up {
   from {

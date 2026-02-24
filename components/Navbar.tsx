@@ -13,11 +13,11 @@ const Navbar: React.FC<NavbarProps> = ({ activeView, setActiveView }) => {
     const inactiveStyles = "border-transparent hover:bg-gray-800/50 hover:text-gray-200";
 
     return (
-        <nav className="bg-gray-900/80 backdrop-blur-sm sticky top-[80px] z-10 border-b border-t border-gray-700/50">
+        <nav className="bg-gray-900/80 backdrop-blur-sm sticky top-14 sm:top-[80px] z-10 border-b border-t border-gray-700/50">
             <div className="container mx-auto flex">
                 <button 
                     onClick={() => setActiveView('translator')}
-                    className={`${baseStyles} ${activeView === 'translator' ? activeStyles : inactiveStyles}`}
+                    className={`${baseStyles} min-h-[44px] ${activeView === 'translator' ? activeStyles : inactiveStyles}`}
                     aria-current={activeView === 'translator' ? 'page' : undefined}
                 >
                     <TranslateIcon className="h-5 w-5" />
@@ -25,7 +25,7 @@ const Navbar: React.FC<NavbarProps> = ({ activeView, setActiveView }) => {
                 </button>
                 <button 
                     onClick={() => setActiveView('community')}
-                    className={`${baseStyles} ${activeView === 'community' ? activeStyles : inactiveStyles}`}
+                    className={`${baseStyles} min-h-[44px] ${activeView === 'community' ? activeStyles : inactiveStyles}`}
                     aria-current={activeView === 'community' ? 'page' : undefined}
                 >
                     <UserGroupIcon className="h-5 w-5" />

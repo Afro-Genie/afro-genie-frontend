@@ -7,11 +7,11 @@ const Footer: React.FC = () => {
 
   return (
     <footer className="bg-[#1A2B22] border-t border-gray-700/50 mt-auto">
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+      <div className="container mx-auto px-4 py-6 sm:py-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 mb-6 sm:mb-8">
           {/* Brand Section */}
           <div>
-            <Link to="/" className="flex items-center space-x-2 mb-4">
+            <Link to="/" className="inline-flex items-center space-x-2 mb-4 min-h-[44px]">
               <LogoIcon className="h-5 w-5 text-green-400" />
               <span className="text-xl font-bold text-white">AfroGenie</span>
             </Link>
@@ -23,29 +23,29 @@ const Footer: React.FC = () => {
           {/* Quick Links */}
           <div>
             <h3 className="text-white font-semibold mb-4">Quick Links</h3>
-            <ul className="space-y-2">
+            <ul className="space-y-1">
               <li>
-                <Link to="/" className="text-gray-400 hover:text-green-400 transition-colors text-sm">
+                <Link to="/" className="inline-flex items-center min-h-[44px] py-2 text-gray-400 hover:text-green-400 transition-colors text-sm">
                   Home
                 </Link>
               </li>
               <li>
-                <Link to="/songs" className="text-gray-400 hover:text-green-400 transition-colors text-sm">
+                <Link to="/songs" className="inline-flex items-center min-h-[44px] py-2 text-gray-400 hover:text-green-400 transition-colors text-sm">
                   Songs Catalog
                 </Link>
               </li>
               <li>
-                <Link to="/community" className="text-gray-400 hover:text-green-400 transition-colors text-sm">
+                <Link to="/community" className="inline-flex items-center min-h-[44px] py-2 text-gray-400 hover:text-green-400 transition-colors text-sm">
                   Community Forum
                 </Link>
               </li>
               <li>
-                <Link to="/request-translation" className="text-gray-400 hover:text-green-400 transition-colors text-sm">
+                <Link to="/request-translation" className="inline-flex items-center min-h-[44px] py-2 text-gray-400 hover:text-green-400 transition-colors text-sm">
                   Request Translation
                 </Link>
               </li>
               <li>
-                <Link to="/artist/signup" className="text-gray-400 hover:text-green-400 transition-colors text-sm">
+                <Link to="/artist/signup" className="inline-flex items-center min-h-[44px] py-2 text-gray-400 hover:text-green-400 transition-colors text-sm">
                   For Artists
                 </Link>
               </li>
@@ -55,14 +55,14 @@ const Footer: React.FC = () => {
           {/* Legal Links */}
           <div>
             <h3 className="text-white font-semibold mb-4">Legal</h3>
-            <ul className="space-y-2">
+            <ul className="space-y-1">
               <li>
-                <Link to="/terms" className="text-gray-400 hover:text-green-400 transition-colors text-sm">
+                <Link to="/terms" className="inline-flex items-center min-h-[44px] py-2 text-gray-400 hover:text-green-400 transition-colors text-sm">
                   Terms of Use
                 </Link>
               </li>
               <li>
-                <Link to="/privacy" className="text-gray-400 hover:text-green-400 transition-colors text-sm">
+                <Link to="/privacy" className="inline-flex items-center min-h-[44px] py-2 text-gray-400 hover:text-green-400 transition-colors text-sm">
                   Privacy Policy
                 </Link>
               </li>

@@ -123,7 +123,7 @@ const RequestTranslationPage: React.FC = () => {
           </p>
           <button
             onClick={() => navigate('/')}
-            className="mt-4 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors"
+            className="mt-4 min-h-[44px] bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 px-6 rounded-lg transition-colors"
           >
             Go to Homepage Now
           </button>
@@ -163,7 +163,7 @@ const RequestTranslationPage: React.FC = () => {
                     onChange={(e) => setArtist(e.target.value)}
                     required
                     placeholder="e.g., Burna Boy, Wizkid, Tems"
-                    className="w-full px-4 py-3 bg-[#0d1612] border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500"
+                    className="w-full min-h-[44px] text-base px-4 py-3 bg-[#0d1612] border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
                 </div>
 
@@ -178,7 +178,7 @@ const RequestTranslationPage: React.FC = () => {
                     onChange={(e) => setTitle(e.target.value)}
                     required
                     placeholder="e.g., Last Last, Essence"
-                    className="w-full px-4 py-3 bg-[#0d1612] border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500"
+                    className="w-full min-h-[44px] text-base px-4 py-3 bg-[#0d1612] border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
                 </div>
 
@@ -191,7 +191,7 @@ const RequestTranslationPage: React.FC = () => {
                     <select
                       value={sourceLang}
                       onChange={(e) => setSourceLang(e.target.value)}
-                      className="w-full px-4 py-3 bg-[#0d1612] border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                      className="w-full min-h-[44px] text-base px-4 py-3 bg-[#0d1612] border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
                     >
                       <option value="yo">Yoruba</option>
                       <option value="ig">Igbo</option>
@@ -208,7 +208,7 @@ const RequestTranslationPage: React.FC = () => {
                     <select
                       value={targetLang}
                       onChange={(e) => setTargetLang(e.target.value)}
-                      className="w-full px-4 py-3 bg-[#0d1612] border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                      className="w-full min-h-[44px] text-base px-4 py-3 bg-[#0d1612] border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
                     >
                       <option value="en">English</option>
                       <option value="fr">French</option>
@@ -239,7 +239,7 @@ const RequestTranslationPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-green-700 hover:bg-green-600 disabled:bg-gray-700 text-white font-bold py-4 px-6 rounded-lg transition-all text-lg flex items-center justify-center gap-2"
+                  className="w-full min-h-[44px] bg-green-700 hover:bg-green-600 disabled:bg-gray-700 text-white font-bold py-4 px-6 rounded-lg transition-all text-base flex items-center justify-center gap-2"
                 >
                   {loading ? (
                     <>
@@ -331,7 +331,7 @@ const RequestTranslationPage: React.FC = () => {
                     <button
                       onClick={handleSave}
                       disabled={saved}
-                      className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-900 text-white font-semibold py-3 px-6 rounded-lg transition-all flex items-center justify-center gap-2"
+                      className="flex-1 min-h-[44px] bg-green-700 hover:bg-green-600 disabled:bg-green-900 text-white font-semibold py-3 px-6 rounded-lg transition-all flex items-center justify-center gap-2"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
@@ -341,7 +341,7 @@ const RequestTranslationPage: React.FC = () => {
 
                     <button
                       onClick={() => window.location.reload()}
-                      className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-lg transition-all"
+                      className="min-h-[44px] px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-lg transition-all"
                     >
                       New Request
                     </button>
@@ -417,13 +417,13 @@ const RequestTranslationPage: React.FC = () => {
             <div className="space-y-3">
               <button
                 onClick={() => setShowLoginPrompt(false)}
-                className="w-full bg-green-700 hover:bg-green-600 text-white font-semibold py-3 rounded-lg transition-all"
+                className="w-full min-h-[44px] bg-green-700 hover:bg-green-600 text-white font-semibold py-3 rounded-lg transition-all"
               >
                 Create Account / Login
               </button>
               <button
                 onClick={() => setShowLoginPrompt(false)}
-                className="w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold py-3 rounded-lg transition-all"
+                className="w-full min-h-[44px] bg-gray-700 hover:bg-gray-600 text-white font-semibold py-3 rounded-lg transition-all"
               >
                 Maybe Later
               </button>

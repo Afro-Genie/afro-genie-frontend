@@ -124,13 +124,13 @@ const SearchBar: React.FC<SearchBarProps> = ({ variant = 'header' }) => {
   const variants = {
     header: {
       container: "w-full sm:w-56",
-      input: "bg-[#2a3c30] text-white placeholder-gray-400 rounded-md py-2.5 sm:py-2 pl-10 pr-4 w-full text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-green-400",
+      input: "bg-[#2a3c30] text-white placeholder-gray-400 rounded-md py-2.5 sm:py-2 min-h-[44px] pl-10 pr-4 w-full text-base focus:outline-none focus:ring-2 focus:ring-green-400",
       icon: "h-5 w-5 text-gray-400",
       iconContainer: "absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
     },
     homepage: {
       container: "w-full max-w-3xl mx-auto",
-      input: "w-full bg-white/10 backdrop-blur-md text-white placeholder-gray-300 text-lg rounded-full py-4 pl-16 pr-6 focus:outline-none focus:ring-2 focus:ring-green-400 border border-white/20",
+      input: "w-full min-h-[44px] sm:min-h-0 bg-white/10 backdrop-blur-md text-white placeholder-gray-300 text-base sm:text-lg rounded-full py-4 pl-16 pr-6 focus:outline-none focus:ring-2 focus:ring-green-400 border border-white/20",
       icon: "h-6 w-6 text-gray-300",
       iconContainer: "absolute inset-y-0 left-0 pl-6 flex items-center pointer-events-none"
     }
