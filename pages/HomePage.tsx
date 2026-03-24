@@ -70,6 +70,13 @@ const HomePage: React.FC = () => {
         fetchData();
     }, []);
 
+    const onImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+        const target = e.currentTarget;
+        if (target.dataset.fallbackApplied === 'true') return;
+        target.dataset.fallbackApplied = 'true';
+        target.src = '/Images/gene.png';
+    };
+
     return (
         <div className="min-h-screen bg-[#122118]">
             {/* Modern Hero Section */}
@@ -239,17 +246,17 @@ const HomePage: React.FC = () => {
                             </Link>
                         </div>
                         {loading ? (
-                            <div className="flex justify-center py-12">
+                            <div className="flex justify-center py-6 sm:py-12">
                                 <LoadingSpinner />
                             </div>
                         ) : (
                             <div className="bg-gray-800/50 rounded-xl border border-gray-700 p-4">
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-1 max-h-[600px] overflow-y-auto pr-2">
+                                <div className="flex md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-1 max-h-[600px] overflow-x-auto md:overflow-y-auto pr-2 pb-2">
                                     {songs.slice(0, 100).map((song, index) => (
                                         <Link 
                                             to={`/song/${song.id}`} 
                                             key={song.id} 
-                                            className="group flex items-center gap-2 py-2.5 sm:py-1.5 px-2 min-h-[44px] hover:bg-gray-700/50 rounded transition-colors"
+                                            className="group min-w-[240px] md:min-w-0 flex items-center gap-2 py-2.5 sm:py-1.5 px-2 min-h-[44px] hover:bg-gray-700/50 rounded transition-colors"
                                         >
                                             <div className="flex-shrink-0 w-6 text-right">
                                                 <span className="text-sm font-semibold text-gray-500 group-hover:text-green-400 transition-colors">
@@ -291,12 +298,12 @@ const HomePage: React.FC = () => {
                             </svg>
                         </Link>
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+                    <div className="flex md:grid md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 overflow-x-auto pb-2">
                         {languages.map((lang) => (
                             <Link
                                 key={lang.code}
                                 to={`/search/${lang.name}`}
-                                className="group bg-gray-800/50 hover:bg-gray-700/50 rounded-xl p-4 sm:p-6 border border-gray-700 hover:border-green-400/50 transition-all duration-300 text-center min-h-[44px] flex flex-col items-center justify-center"
+                                className="group min-w-[150px] md:min-w-0 bg-gray-800/50 hover:bg-gray-700/50 rounded-xl p-4 sm:p-6 border border-gray-700 hover:border-green-400/50 transition-all duration-300 text-center min-h-[44px] flex flex-col items-center justify-center"
                             >
                                 <div className="text-4xl mb-3">{lang.flag}</div>
                                 <h3 className="font-semibold text-white group-hover:text-green-400 transition-colors text-sm sm:text-base">
@@ -325,7 +332,7 @@ const HomePage: React.FC = () => {
                         </Link>
                     </div>
                     {loading ? (
-                        <div className="flex justify-center py-12">
+                        <div className="flex justify-center py-6 sm:py-12">
                             <LoadingSpinner />
                         </div>
                     ) : error ? (
@@ -335,16 +342,16 @@ const HomePage: React.FC = () => {
                             No artists yet. <Link to="/admin/artists" className="text-green-400 hover:underline">Add some in the admin panel!</Link>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 md:gap-6">
+                        <div className="flex md:grid md:grid-cols-4 lg:grid-cols-6 gap-4 md:gap-6 overflow-x-auto pb-2">
                             {artists.map((artist) => (
                                 <Link 
                                     to={`/artist/${artist.id}`} 
                                     key={artist.id} 
-                                    className="group cursor-pointer"
+                                    className="group cursor-pointer min-w-[150px] md:min-w-0"
                                 >
                                     <div className="aspect-square rounded-xl overflow-hidden transition-all duration-300 group-hover:scale-105 shadow-lg bg-gradient-to-br from-green-500/20 to-amber-500/20 border border-gray-700 group-hover:border-green-400/50">
                                         {artist.image ? (
-                                            <img src={artist.image} alt={artist.name} className="w-full h-full object-cover" />
+                                            <img src={artist.image} alt={artist.name} onError={onImageError} className="w-full h-full object-cover" />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center text-gray-500">
                                                 <svg className="w-12 h-12" fill="currentColor" viewBox="0 0 20 20">
@@ -383,7 +390,7 @@ const HomePage: React.FC = () => {
                         </Link>
                     </div>
                     {loading ? (
-                        <div className="flex justify-center py-12">
+                        <div className="flex justify-center py-6 sm:py-12">
                             <LoadingSpinner />
                         </div>
                     ) : error ? (
@@ -393,16 +400,16 @@ const HomePage: React.FC = () => {
                             No genres yet. <Link to="/admin/genres" className="text-green-400 hover:underline">Add some in the admin panel!</Link>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 md:gap-6">
+                        <div className="flex md:grid md:grid-cols-5 gap-4 md:gap-6 overflow-x-auto pb-2">
                             {genres.map((genre) => (
                                 <Link 
                                     to={`/search/${genre.name}`} 
                                     key={genre.id} 
-                                    className="group cursor-pointer"
+                                    className="group cursor-pointer min-w-[150px] md:min-w-0"
                                 >
                                     <div className="aspect-square rounded-xl overflow-hidden transition-all duration-300 group-hover:scale-105 shadow-lg bg-gradient-to-br from-green-500/20 to-amber-500/20 border border-gray-700 group-hover:border-green-400/50">
                                         {genre.image ? (
-                                            <img src={genre.image} alt={genre.name} className="w-full h-full object-cover" />
+                                            <img src={genre.image} alt={genre.name} onError={onImageError} className="w-full h-full object-cover" />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center text-gray-500">
                                                 <svg className="w-12 h-12" fill="currentColor" viewBox="0 0 20 20">

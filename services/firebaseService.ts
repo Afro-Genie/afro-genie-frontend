@@ -14,11 +14,12 @@ import {
   serverTimestamp,
   Timestamp,
   increment,
-  onSnapshot
+  onSnapshot,
+  arrayUnion
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../config/firebase';
-import type { Artist, Song, Genre, GenieSettings, Topic, TopicComment, ForumCategory, TranslationRequest, SongRequest, TranslationVote, TranslationCorrection } from '../types';
+import type { Artist, Song, Genre, GenieSettings, Topic, TopicComment, ForumCategory, Translation, TranslationRequest, SongRequest, TranslationVote, TranslationCorrection, AppNotification } from '../types';
 
 // Collections
 const COLLECTIONS = {
@@ -42,7 +43,24 @@ const COLLECTIONS = {
   SONG_REQUESTS: 'songRequests',
   LANGUAGES: 'languages',
   TRANSLATION_VOTES: 'translationVotes',
-  TRANSLATION_CORRECTIONS: 'translationCorrections'
+  TRANSLATION_CORRECTIONS: 'translationCorrections',
+  NOTIFICATIONS: 'notifications'
+};
+
+const normalizeLyricsText = (value: string): string =>
+  value
+    .replace(/\r\n/g, '\n')
+    .replace(/\u00A0/g, ' ')
+    .replace(/[ \t]+\n/g, '\n')
+    .trim();
+
+const assertLyricsQuality = (field: 'originalLyrics' | 'translatedLyrics', value: string) => {
+  if (!value || !value.trim()) {
+    throw new Error(`${field} cannot be empty`);
+  }
+  if (value.length > 80000) {
+    throw new Error(`${field} exceeds maximum allowed length`);
+  }
 };
 
 // Artist Operations
@@ -188,8 +206,16 @@ export const deleteGenre = async (genreId: string) => {
 
 // Translation Operations
 export const saveTranslation = async (translation: Omit<Translation, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const normalizedOriginal = normalizeLyricsText(translation.originalLyrics || '');
+  const normalizedTranslated = normalizeLyricsText(translation.translatedLyrics || '');
+  assertLyricsQuality('originalLyrics', normalizedOriginal);
+  assertLyricsQuality('translatedLyrics', normalizedTranslated);
+
   const docRef = await addDoc(collection(db, COLLECTIONS.TRANSLATIONS), {
     ...translation,
+    originalLyrics: normalizedOriginal,
+    translatedLyrics: normalizedTranslated,
+    lyricFingerprint: `${normalizedOriginal.length}-${normalizedTranslated.length}`,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
@@ -285,11 +311,38 @@ export const updateTranslation = async (
   translationId: string,
   data: Partial<Omit<Translation, 'id' | 'createdAt'>>
 ) => {
+  const normalizedUpdates: Partial<Omit<Translation, 'id' | 'createdAt'>> = { ...data };
+  if (typeof data.originalLyrics === 'string') {
+    const normalized = normalizeLyricsText(data.originalLyrics);
+    assertLyricsQuality('originalLyrics', normalized);
+    normalizedUpdates.originalLyrics = normalized;
+  }
+  if (typeof data.translatedLyrics === 'string') {
+    const normalized = normalizeLyricsText(data.translatedLyrics);
+    assertLyricsQuality('translatedLyrics', normalized);
+    normalizedUpdates.translatedLyrics = normalized;
+  }
+
   const docRef = doc(db, COLLECTIONS.TRANSLATIONS, translationId);
   await updateDoc(docRef, {
-    ...data,
+    ...normalizedUpdates,
     updatedAt: serverTimestamp()
   });
+};
+
+export const getSuspectTranslations = async () => {
+  const querySnapshot = await getDocs(collection(db, COLLECTIONS.TRANSLATIONS));
+  return querySnapshot.docs
+    .map((d) => ({ id: d.id, ...d.data() } as Translation))
+    .filter((t) => {
+      const original = t.originalLyrics || '';
+      const translated = t.translatedLyrics || '';
+      const hasPlaceholder =
+        original.toLowerCase().includes('lyrics not provided') ||
+        translated.toLowerCase().includes('no translation available yet');
+      const malformedMarkdown = /^#+\s/m.test(t.culturalContext || '') || /\*\*/.test(t.culturalContext || '');
+      return !original.trim() || !translated.trim() || hasPlaceholder || malformedMarkdown;
+    });
 };
 
 // Delete translation
@@ -444,10 +497,11 @@ export const updateCorrectionStatus = async (
 };
 
 // Translation Request Operations
-export const createTranslationRequest = async (request: Omit<TranslationRequest, 'id' | 'createdAt' | 'updatedAt'>) => {
+export const createTranslationRequest = async (request: Omit<TranslationRequest, 'id' | 'status' | 'createdAt' | 'updatedAt'>) => {
   const docRef = await addDoc(collection(db, COLLECTIONS.TRANSLATION_REQUESTS), {
     ...request,
     status: 'pending',
+    statusTimeline: [{ status: 'pending', at: new Date().toISOString() }],
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
@@ -486,8 +540,12 @@ export const updateTranslationRequest = async (
   updates: Partial<Omit<TranslationRequest, 'id'>>
 ) => {
   const docRef = doc(db, COLLECTIONS.TRANSLATION_REQUESTS, requestId);
+  const timelineEntry = updates.status
+    ? arrayUnion({ status: updates.status, at: new Date().toISOString() })
+    : undefined;
   await updateDoc(docRef, {
     ...updates,
+    ...(timelineEntry ? { statusTimeline: timelineEntry } : {}),
     updatedAt: serverTimestamp()
   });
 };
@@ -502,10 +560,11 @@ export const getPendingTranslationRequestCount = async (): Promise<number> => {
 };
 
 // Song Request Operations
-export const createSongRequest = async (request: Omit<SongRequest, 'id' | 'createdAt' | 'updatedAt'>) => {
+export const createSongRequest = async (request: Omit<SongRequest, 'id' | 'status' | 'createdAt' | 'updatedAt'>) => {
   const docRef = await addDoc(collection(db, COLLECTIONS.SONG_REQUESTS), {
     ...request,
     status: 'pending',
+    statusTimeline: [{ status: 'pending', at: new Date().toISOString() }],
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
@@ -544,8 +603,12 @@ export const updateSongRequest = async (
   updates: Partial<Omit<SongRequest, 'id'>>
 ) => {
   const docRef = doc(db, COLLECTIONS.SONG_REQUESTS, requestId);
+  const timelineEntry = updates.status
+    ? arrayUnion({ status: updates.status, at: new Date().toISOString() })
+    : undefined;
   await updateDoc(docRef, {
     ...updates,
+    ...(timelineEntry ? { statusTimeline: timelineEntry } : {}),
     updatedAt: serverTimestamp()
   });
 };
@@ -557,6 +620,41 @@ export const getPendingSongRequestCount = async (): Promise<number> => {
   );
   const querySnapshot = await getDocs(q);
   return querySnapshot.size;
+};
+
+// Notification Operations
+export const getUnreadNotifications = async (userId: string): Promise<AppNotification[]> => {
+  const q = query(
+    collection(db, COLLECTIONS.NOTIFICATIONS),
+    where('userId', '==', userId),
+    where('read', '==', false),
+    orderBy('createdAt', 'desc'),
+    limit(20)
+  );
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map((d) => ({ id: d.id, ...d.data() } as AppNotification));
+};
+
+export const subscribeToUnreadNotifications = (
+  userId: string,
+  onUpdate: (items: AppNotification[]) => void
+) => {
+  const q = query(
+    collection(db, COLLECTIONS.NOTIFICATIONS),
+    where('userId', '==', userId),
+    where('read', '==', false),
+    orderBy('createdAt', 'desc'),
+    limit(20)
+  );
+  return onSnapshot(q, (snapshot) => {
+    const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as AppNotification));
+    onUpdate(items);
+  });
+};
+
+export const markNotificationAsRead = async (notificationId: string) => {
+  const docRef = doc(db, COLLECTIONS.NOTIFICATIONS, notificationId);
+  await updateDoc(docRef, { read: true, updatedAt: serverTimestamp() });
 };
 
 // Annotation Operations
@@ -719,7 +817,7 @@ export const getUserProfile = async (userId: string) => {
   return null;
 };
 
-export const updateUserRole = async (userId: string, role: 'user' | 'admin' | 'moderator') => {
+export const updateUserRole = async (userId: string, role: 'user' | 'admin' | 'moderator' | 'artist') => {
   const docRef = doc(db, COLLECTIONS.USERS, userId);
   await updateDoc(docRef, { role });
 };

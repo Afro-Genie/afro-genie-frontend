@@ -5,8 +5,7 @@ import type { UserProfile } from '../../services/firebaseService';
 const UsersManager: React.FC = () => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
-  const [selectedRole, setSelectedRole] = useState<'user' | 'admin' | 'moderator'>('user');
+  const [roleTab, setRoleTab] = useState<'all' | 'admin' | 'user' | 'contributors' | 'artist'>('all');
 
   useEffect(() => {
     fetchUsers();
@@ -23,7 +22,7 @@ const UsersManager: React.FC = () => {
     }
   };
 
-  const handleRoleUpdate = async (userId: string, newRole: 'user' | 'admin' | 'moderator') => {
+  const handleRoleUpdate = async (userId: string, newRole: 'user' | 'admin' | 'moderator' | 'artist') => {
     try {
       await updateUserRole(userId, newRole);
       fetchUsers(); // Refresh the list
@@ -66,6 +65,17 @@ const UsersManager: React.FC = () => {
     }
   };
 
+  const filteredUsers = users.filter((u) => {
+    if (roleTab === 'all') return true;
+    if (roleTab === 'contributors') return u.role === 'moderator' || u.role === 'artist';
+    return u.role === roleTab;
+  });
+
+  const tabClass = (tab: typeof roleTab) =>
+    `px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+      roleTab === tab ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+    }`;
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -86,16 +96,25 @@ const UsersManager: React.FC = () => {
       {/* Users List */}
       <div className="bg-gray-800 rounded-lg">
         <div className="p-6 border-b border-gray-700">
-          <h2 className="text-xl font-semibold text-white">All Users ({users.length})</h2>
+          <div className="flex flex-wrap gap-2 mb-4">
+            <button className={tabClass('all')} onClick={() => setRoleTab('all')}>All</button>
+            <button className={tabClass('admin')} onClick={() => setRoleTab('admin')}>Admin</button>
+            <button className={tabClass('user')} onClick={() => setRoleTab('user')}>Users</button>
+            <button className={tabClass('contributors')} onClick={() => setRoleTab('contributors')}>Contributors</button>
+            <button className={tabClass('artist')} onClick={() => setRoleTab('artist')}>Artists</button>
+          </div>
+          <h2 className="text-xl font-semibold text-white">
+            {roleTab === 'all' ? 'All Users' : `Users: ${roleTab}`} ({filteredUsers.length})
+          </h2>
         </div>
 
-        {users.length === 0 ? (
+        {filteredUsers.length === 0 ? (
           <div className="p-6 text-center text-gray-400">
-            No users found.
+            No users found for this role.
           </div>
         ) : (
           <div className="divide-y divide-gray-700">
-            {users.map((user) => (
+            {filteredUsers.map((user) => (
               <div key={user.uid} className="p-6 flex items-center justify-between">
                 <div className="flex items-center space-x-4">
                   <div className="flex-shrink-0">
@@ -134,11 +153,16 @@ const UsersManager: React.FC = () => {
                   {/* Role Selector */}
                   <select
                     value={user.role}
-                    onChange={(e) => handleRoleUpdate(user.uid, e.target.value as 'user' | 'admin' | 'moderator')}
+                    onChange={(e) => {
+                      const newRole = e.target.value as 'user' | 'admin' | 'moderator' | 'artist';
+                      if (newRole === 'admin' && !window.confirm('Promote this user to Admin?')) return;
+                      handleRoleUpdate(user.uid, newRole);
+                    }}
                     className="bg-gray-700 border border-gray-600 rounded px-3 py-1 text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                   >
                     <option value="user">User</option>
                     <option value="moderator">Moderator</option>
+                    <option value="artist">Artist</option>
                     <option value="admin">Admin</option>
                   </select>
 

@@ -5,10 +5,18 @@ import MenuIcon from './icons/MenuIcon';
 import SearchBar from './SearchBar';
 import UserMenu from './auth/UserMenu';
 import LoginModal from './auth/LoginModal';
+import Notification, { NotificationData } from './Notification';
+import { useAuth } from '../context/AuthContext';
+import { markNotificationAsRead, subscribeToUnreadNotifications } from '../services/firebaseService';
+import { featureFlags } from '../config/featureFlags';
+import { trackEvent } from '../services/telemetryService';
+import type { AppNotification } from '../types';
 
 const Header: React.FC = () => {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [toast, setToast] = useState<NotificationData | null>(null);
+  const { user } = useAuth();
 
   useEffect(() => {
     if (!isMobileMenuOpen) return;
@@ -18,6 +26,20 @@ const Header: React.FC = () => {
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
   }, [isMobileMenuOpen]);
+
+  useEffect(() => {
+    if (!user?.uid || !featureFlags.requestCompletionNotifications) return;
+    let seen = new Set<string>();
+    const unsubscribe = subscribeToUnreadNotifications(user.uid, async (items: AppNotification[]) => {
+      const next = items.find((item) => item.id && !seen.has(item.id));
+      if (!next || !next.id) return;
+      seen.add(next.id);
+      trackEvent('request_notification_received', { source: next.sourceCollection || 'unknown' });
+      setToast({ message: `${next.title}\n${next.message}`, type: 'info', duration: 6000 });
+      await markNotificationAsRead(next.id);
+    });
+    return () => unsubscribe();
+  }, [user?.uid]);
 
   return (
     <>
@@ -120,6 +142,7 @@ const Header: React.FC = () => {
         isOpen={isLoginModalOpen}
         onClose={() => setIsLoginModalOpen(false)}
       />
+      <Notification notification={toast} onClose={() => setToast(null)} />
     </>
   );
 };

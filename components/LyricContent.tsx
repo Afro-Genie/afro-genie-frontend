@@ -61,6 +61,18 @@ const LyricContent: React.FC = () => {
     const [correctionText, setCorrectionText] = useState('');
     const [correctionReason, setCorrectionReason] = useState('');
 
+    const formattedCulturalContext = useMemo(() => {
+        if (!culturalContext) return '';
+        return culturalContext
+            // Normalize markdown-like symbols that sometimes leak from AI output
+            .replace(/^\s*#{1,6}\s*/gm, '')
+            .replace(/^\s*[-*]\s+/gm, '• ')
+            .replace(/\*\*(.*?)\*\*/g, '$1')
+            .replace(/\*(.*?)\*/g, '$1')
+            .replace(/\n{3,}/g, '\n\n')
+            .trim();
+    }, [culturalContext]);
+
     // Load languages from database
     useEffect(() => {
         const loadLanguages = async () => {
@@ -264,7 +276,10 @@ const LyricContent: React.FC = () => {
                 userId: currentUser?.uid || 'anonymous',
                 userEmail: currentUser?.email || 'anonymous@example.com'
             });
-            setNotification({ message: 'Translation request submitted! Admins will be notified.', type: 'success' });
+            setNotification({
+                message: 'Request received. Estimated turnaround: 5-10 minutes.\nThanks for contributing to AfroGenie.',
+                type: 'success'
+            });
             // Auto-hide after 4 seconds
             setTimeout(() => setNotification(null), 4000);
         } catch (err: any) {
@@ -1190,8 +1205,8 @@ const LyricContent: React.FC = () => {
                                     Learn about the cultural meanings, slang, and context behind these lyrics
                                 </p>
                                 <div className="bg-gray-900/50 rounded-lg p-4 md:p-6 border border-gray-700/50">
-                                    <pre className="whitespace-pre-wrap font-sans text-gray-200 leading-relaxed text-sm md:text-base">
-                                        {culturalContext}
+                                    <pre className="whitespace-pre-wrap break-words font-sans text-gray-200 leading-relaxed text-sm md:text-base">
+                                        {formattedCulturalContext}
                                     </pre>
                                 </div>
                             </div>
@@ -1204,7 +1219,7 @@ const LyricContent: React.FC = () => {
             {!loading && !error && renderLyrics()}
 
             {/* Action Bar */}
-            <div className="fixed left-1/2 -translate-x-1/2 flex items-center gap-2 sm:gap-4 bg-[#2a3c30]/95 backdrop-blur-md p-3 rounded-full border border-white/10 shadow-2xl z-40 bottom-[max(1.5rem,env(safe-area-inset-bottom))]">
+            <div className="fixed left-1/2 -translate-x-1/2 w-[min(92vw,360px)] flex items-center justify-around gap-2 sm:gap-4 bg-[#2a3c30]/95 backdrop-blur-md p-3 rounded-full border border-white/10 shadow-2xl z-40 bottom-[max(1.5rem,env(safe-area-inset-bottom))]">
                 <button
                     onClick={handleFavoriteToggle}
                     disabled={favoriteLoading}

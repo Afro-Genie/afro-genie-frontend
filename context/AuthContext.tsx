@@ -107,19 +107,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const userRef = doc(db, 'users', user.uid);
       
-      // Check if user document already exists to preserve role
+      // Check if user document already exists to preserve role.
+      // Role changes must come from controlled admin actions, not login side-effects.
       const existingDoc = await getDoc(userRef);
       const existingRole = existingDoc.exists() ? existingDoc.data().role : null;
       const existingSpotifyData = existingDoc.exists() ? existingDoc.data().spotifyTokens : null;
-      
-      // Set admin role for admin@afro-genie.com if not already set
-      const shouldBeAdmin = user.email === 'admin@afro-genie.com';
-      const role = shouldBeAdmin ? 'admin' : (existingRole || 'user');
+      const role = existingRole || 'user';
       
       const userProfile: any = {
         uid: user.uid,
         email: user.email,
-        displayName: user.displayName || 'Afro Genie Admin',
+        displayName: user.displayName || user.email?.split('@')[0] || 'Afro Genie User',
         photoURL: user.photoURL,
         role: role as 'user' | 'admin' | 'moderator',
         createdAt: existingDoc.exists() ? existingDoc.data().createdAt : serverTimestamp(),
@@ -151,13 +149,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       await setDoc(userRef, userProfile, { merge: true });
       
-      // If this is admin@afro-genie.com and wasn't admin before, update the profile state
-      if (shouldBeAdmin && existingRole !== 'admin') {
-        const updatedProfile = await getUserProfile(user.uid);
-        setUserProfile(updatedProfile);
-      } else {
-        setUserProfile(userProfile as UserProfile);
-      }
+      setUserProfile(userProfile as UserProfile);
     } catch (error) {
       console.error('Error updating user profile:', error);
     }
@@ -175,7 +167,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           await updateUserProfile(user);
           profile = await getUserProfile(user.uid);
         } else {
-          // Update last login and check if admin@afro-genie.com needs admin role
+          // Update last login while preserving stored role
           await updateUserProfile(user);
           // Refresh profile to get updated role
           profile = await getUserProfile(user.uid);

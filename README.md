@@ -18,3 +18,24 @@ View your app in AI Studio: https://ai.studio/apps/drive/1lC7qWm_ZN2SOWFwWAOV_x5
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
+
+## Firebase Functions (Spotify Proxy + Notifications)
+
+This app now uses Firebase Cloud Functions for Spotify API proxying and request completion notifications.
+
+1. Install function dependencies:
+   `cd functions && npm install`
+2. Set Firebase function secrets:
+   - `firebase functions:secrets:set SPOTIFY_CLIENT_ID`
+   - `firebase functions:secrets:set SPOTIFY_CLIENT_SECRET`
+3. Deploy functions:
+   `firebase deploy --only functions`
+
+### Frontend feature flags
+
+Set these in `.env.local`:
+
+- `VITE_FLAG_USE_SPOTIFY_PROXY=true`
+- `VITE_FLAG_REQUEST_FEEDBACK_MODAL=true`
+- `VITE_FLAG_REQUEST_COMPLETION_NOTIFICATIONS=true`
+- `VITE_SPOTIFY_PROXY_BASE_URL=https://us-central1-afrogenie.cloudfunctions.net`

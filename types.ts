@@ -296,3 +296,15 @@ export interface SongRequest {
   completedAt?: any;
   notes?: string;
 }
+
+export interface AppNotification {
+  id?: string;
+  userId: string;
+  title: string;
+  message: string;
+  type?: 'request-completed' | 'system';
+  sourceCollection?: 'songRequests' | 'translationRequests';
+  sourceId?: string | null;
+  read: boolean;
+  createdAt?: any;
+}

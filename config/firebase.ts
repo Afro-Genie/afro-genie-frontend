@@ -3,6 +3,7 @@ import { getAnalytics } from "firebase/analytics";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import { connectFunctionsEmulator, getFunctions } from "firebase/functions";
 
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
@@ -24,7 +25,12 @@ const analytics = typeof window !== 'undefined' ? getAnalytics(app) : null;
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
+const functions = getFunctions(app);
 
-export { app, analytics, auth, db, storage };
+if (typeof window !== 'undefined' && import.meta.env.DEV && import.meta.env.VITE_USE_FUNCTIONS_EMULATOR === 'true') {
+  connectFunctionsEmulator(functions, 'localhost', 5001);
+}
+
+export { app, analytics, auth, db, storage, functions };
 
 
