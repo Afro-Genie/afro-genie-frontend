@@ -6,6 +6,7 @@ import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../context/AuthContext';
 import Notification from '../../components/Notification';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import ArtistSearchSelect from '../../components/admin/ArtistSearchSelect';
 import type { Song, Artist, Language } from '../../types';
 
 const EditSongPage: React.FC = () => {
@@ -247,19 +248,18 @@ const EditSongPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label htmlFor="edit-song-artist-select" className="block text-sm font-medium text-gray-300 mb-2">
                   Artist ID
                 </label>
-                <select
+                <ArtistSearchSelect
+                  id="edit-song-artist-select"
+                  artists={artists}
                   value={formData.artistId}
-                  onChange={(e) => setFormData({ ...formData, artistId: e.target.value })}
-                  className="w-full px-4 py-2.5 text-base bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
-                >
-                  <option value="">Select Artist</option>
-                  {artists.map(artist => (
-                    <option key={artist.id} value={artist.id}>{artist.name}</option>
-                  ))}
-                </select>
+                  onChange={(artistId) => setFormData((prev) => ({ ...prev, artistId }))}
+                  onArtistSelected={(artist) =>
+                    setFormData((prev) => ({ ...prev, artistId: artist.id, artist: artist.name }))
+                  }
+                />
               </div>
 
               <div>

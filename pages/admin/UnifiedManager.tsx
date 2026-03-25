@@ -151,7 +151,12 @@ const UnifiedManager: React.FC = () => {
 
   const handleDelete = async (item: any) => {
     if (!confirm(`Are you sure you want to delete this ${activeTab.slice(0, -1)}?`)) return;
-    
+    if (!item?.id) {
+      alert('This item has no ID (try refreshing the page).');
+      await fetchAllData();
+      return;
+    }
+
     try {
       if (activeTab === 'artists') {
         await deleteArtist(item.id);
@@ -163,8 +168,12 @@ const UnifiedManager: React.FC = () => {
         await deleteGenre(item.id);
         setGenres(genres.filter(g => g.id !== item.id));
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting item:', error);
+      const msg = error?.code === 'permission-denied'
+        ? 'You do not have permission to delete this item. Admin access is required.'
+        : (error?.message || 'Delete failed. Check the console for details.');
+      alert(msg);
     }
   };
 
@@ -200,8 +209,8 @@ const UnifiedManager: React.FC = () => {
           await updateArtist(editingItem.id, artistData);
           setArtists(artists.map(a => a.id === editingItem.id ? { ...a, ...artistData } : a));
         } else {
-          const newArtist = await addArtist(artistData);
-          setArtists([...artists, newArtist]);
+          const newId = await addArtist(artistData);
+          setArtists([...artists, { id: newId, ...artistData } as Artist]);
         }
       } else if (activeTab === 'songs') {
         const songData = {
@@ -217,8 +226,8 @@ const UnifiedManager: React.FC = () => {
           await updateSong(editingItem.id, songData);
           setSongs(songs.map(s => s.id === editingItem.id ? { ...s, ...songData } : s));
         } else {
-          const newSong = await addSong(songData);
-          setSongs([...songs, newSong]);
+          const newId = await addSong(songData);
+          setSongs([...songs, { id: newId, ...songData } as Song]);
         }
       } else if (activeTab === 'genres') {
         const genreData = {
@@ -230,8 +239,8 @@ const UnifiedManager: React.FC = () => {
           await updateGenre(editingItem.id, genreData);
           setGenres(genres.map(g => g.id === editingItem.id ? { ...g, ...genreData } : g));
         } else {
-          const newGenre = await addGenre(genreData);
-          setGenres([...genres, newGenre]);
+          const newId = await addGenre(genreData);
+          setGenres([...genres, { id: newId, ...genreData } as Genre]);
         }
       }
       
@@ -284,7 +293,7 @@ const UnifiedManager: React.FC = () => {
         )}
       </div>
       
-      <div className="flex items-center justify-between mt-4 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="flex items-center justify-between mt-4 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
         <button
           onClick={() => handleEdit(item)}
           className="p-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
@@ -328,7 +337,7 @@ const UnifiedManager: React.FC = () => {
           )}
         </div>
         
-        <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex items-center space-x-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
           <button
             onClick={() => handleEdit(item)}
             className="p-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"

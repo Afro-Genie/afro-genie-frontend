@@ -73,13 +73,23 @@ const GenresManager: React.FC = () => {
   };
 
   const handleDelete = async (genreId: string) => {
-    if (window.confirm('Are you sure you want to delete this genre?')) {
-      try {
-        await deleteGenre(genreId);
-        fetchGenres();
-      } catch (error) {
-        console.error('Error deleting genre:', error);
-      }
+    if (!genreId) {
+      alert('This genre has no ID. Refresh the page and try again.');
+      await fetchGenres();
+      return;
+    }
+    if (!window.confirm('Are you sure you want to delete this genre?')) return;
+
+    try {
+      await deleteGenre(genreId);
+      fetchGenres();
+    } catch (error: any) {
+      console.error('Error deleting genre:', error);
+      const msg =
+        error?.code === 'permission-denied'
+          ? 'Permission denied. You must be signed in as an admin to delete genres.'
+          : (error?.message || 'Could not delete the genre.');
+      alert(msg);
     }
   };
 

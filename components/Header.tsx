@@ -16,7 +16,7 @@ const Header: React.FC = () => {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [toast, setToast] = useState<NotificationData | null>(null);
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
 
   useEffect(() => {
     if (!isMobileMenuOpen) return;
@@ -28,6 +28,8 @@ const Header: React.FC = () => {
   }, [isMobileMenuOpen]);
 
   useEffect(() => {
+    // Wait for AuthContext to finish initializing so Firestore has an auth token.
+    if (loading) return;
     if (!user?.uid || !featureFlags.requestCompletionNotifications) return;
     let seen = new Set<string>();
     const unsubscribe = subscribeToUnreadNotifications(user.uid, async (items: AppNotification[]) => {
@@ -39,7 +41,7 @@ const Header: React.FC = () => {
       await markNotificationAsRead(next.id);
     });
     return () => unsubscribe();
-  }, [user?.uid]);
+  }, [user?.uid, loading]);
 
   return (
     <>

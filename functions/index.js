@@ -15,12 +15,6 @@ let tokenExpiresAt = 0;
 
 const recentRequests = new Map();
 
-const allowCors = (res) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-};
-
 const enforceRateLimit = (req) => {
   const ip = req.headers['x-forwarded-for'] || req.ip || 'unknown';
   const now = Date.now();
@@ -96,9 +90,18 @@ const spotifyRequest = async (endpoint, params = {}) => {
   return response.json();
 };
 
+/**
+ * Gen2 HTTP functions sit behind Cloud Run. Without invoker: 'public', unauthenticated
+ * browser requests get 403 with no CORS headers — Chrome reports that as a CORS error.
+ * cors: true adds Access-Control-Allow-* on success and error responses from our code.
+ */
 const withHttpGuard = (handler) =>
-  onRequest({ cors: false, region: 'us-central1', secrets: [SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET] }, async (req, res) => {
-    allowCors(res);
+  onRequest({
+    cors: true,
+    region: 'us-central1',
+    invoker: 'public',
+    secrets: [SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET],
+  }, async (req, res) => {
     if (req.method === 'OPTIONS') {
       res.status(204).send('');
       return;

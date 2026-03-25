@@ -192,7 +192,7 @@ export const addGenre = async (genre: Omit<Genre, 'id'>) => {
 
 export const getAllGenres = async () => {
   const querySnapshot = await getDocs(collection(db, COLLECTIONS.GENRES));
-  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+  return querySnapshot.docs.map((docSnap) => ({ ...docSnap.data(), id: docSnap.id } as Genre));
 };
 
 export const updateGenre = async (genreId: string, updates: any) => {
@@ -646,10 +646,18 @@ export const subscribeToUnreadNotifications = (
     orderBy('createdAt', 'desc'),
     limit(20)
   );
-  return onSnapshot(q, (snapshot) => {
-    const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as AppNotification));
-    onUpdate(items);
-  });
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as AppNotification));
+      onUpdate(items);
+    },
+    (err) => {
+      // If auth/rules are misconfigured, Firestore will throw permission errors.
+      // We log it instead of crashing the app / spamming uncaught errors.
+      console.error('subscribeToUnreadNotifications failed:', err);
+    }
+  );
 };
 
 export const markNotificationAsRead = async (notificationId: string) => {
@@ -804,7 +812,9 @@ export interface UserProfile {
 
 export const getAllUsers = async () => {
   const querySnapshot = await getDocs(collection(db, COLLECTIONS.USERS));
-  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserProfile));
+  return querySnapshot.docs.map((docSnap) => (
+    { id: docSnap.id, ...(docSnap.data() as Record<string, any>) } as unknown as UserProfile
+  ));
 };
 
 export const getUserProfile = async (userId: string) => {
@@ -812,7 +822,7 @@ export const getUserProfile = async (userId: string) => {
   const docSnap = await getDoc(docRef);
   
   if (docSnap.exists()) {
-    return { id: docSnap.id, ...docSnap.data() } as UserProfile;
+    return { id: docSnap.id, ...(docSnap.data() as Record<string, any>) } as unknown as UserProfile;
   }
   return null;
 };
@@ -1127,7 +1137,9 @@ export const getTopics = async (
     }
     
     const querySnapshot = await getDocs(q);
-    const topics = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Topic));
+    const topics = querySnapshot.docs.map((docSnap) => (
+      { id: docSnap.id, ...(docSnap.data() as Record<string, any>) } as Topic
+    ));
     
     // Sort pinned topics to top manually if needed
     return topics.sort((a, b) => {
