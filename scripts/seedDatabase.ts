@@ -4,7 +4,7 @@ import { getFirestore, collection, addDoc, doc, setDoc, serverTimestamp } from '
 import { artists, songs, genres } from '../data/mockData';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDEyw5ZYV5v4pcIM1lVmMHeOHGrnd9wY-M",
+  apiKey: process.env.FIREBASE_API_KEY || process.env.VITE_FIREBASE_API_KEY || '',
   authDomain: "afrogenie.firebaseapp.com",
   projectId: "afrogenie",
   storageBucket: "afrogenie.firebasestorage.app",
@@ -12,6 +12,11 @@ const firebaseConfig = {
   appId: "1:848394587261:web:904a2946e0bc0ec9ac3514",
   measurementId: "G-YNWYDMNHES"
 };
+
+if (!firebaseConfig.apiKey) {
+  console.error('Missing FIREBASE_API_KEY (or VITE_FIREBASE_API_KEY) for script execution.');
+  process.exit(1);
+}
 
 async function seedDatabase() {
   console.log('🚀 Starting database seeding...\n');

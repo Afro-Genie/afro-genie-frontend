@@ -6,9 +6,9 @@ Your Genius API credentials have been configured. To use them, create a `.env.lo
 
 ```env
 # Genius API Credentials
-GENIUS_ACCESS_TOKEN=2HZ49eJK0X7UnpcBIUZ17xCYsqA73dx8DajYcNKbJlH2h8KyAFxCivncWFfQl5uX
-GENIUS_CLIENT_ID=fLT_JyBegR-PAkedME8avEEXrT3QNnampDVKqbZ2PD-QtdZDzDsCbUSBzhIEzUhR
-GENIUS_CLIENT_SECRET=If1if-XuaTlxUBmOCsWct-OX4M3aGvlboUnUJ9tC4KBF98SfGEnZiEvE8vhGUBZMWCsDqrRqv0bSPnIqJ6oPjw
+GENIUS_ACCESS_TOKEN=your_genius_access_token_here
+GENIUS_CLIENT_ID=your_genius_client_id_here
+GENIUS_CLIENT_SECRET=your_genius_client_secret_here
 ```
 
 ## Setup Instructions

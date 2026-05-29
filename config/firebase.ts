@@ -8,7 +8,7 @@ import { connectFunctionsEmulator, getFunctions } from "firebase/functions";
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: "AIzaSyDEyw5ZYV5v4pcIM1lVmMHeOHGrnd9wY-M",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
   authDomain: "afrogenie.firebaseapp.com",
   projectId: "afrogenie",
   storageBucket: "afrogenie.firebasestorage.app",
@@ -16,6 +16,10 @@ const firebaseConfig = {
   appId: "1:848394587261:web:904a2946e0bc0ec9ac3514",
   measurementId: "G-YNWYDMNHES"
 };
+
+if (!firebaseConfig.apiKey) {
+  throw new Error('Missing VITE_FIREBASE_API_KEY. Add it to your environment configuration.');
+}
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
