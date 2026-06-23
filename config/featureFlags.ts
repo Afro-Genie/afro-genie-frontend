@@ -21,4 +21,4 @@ export const featureFlags = {
 
 export const spotifyProxyBaseUrl =
   import.meta.env.VITE_SPOTIFY_PROXY_BASE_URL ||
-  `https://us-central1-${import.meta.env.VITE_FIREBASE_PROJECT_ID || 'afrogenie'}.cloudfunctions.net`;
+  `http://localhost:3001/api`;

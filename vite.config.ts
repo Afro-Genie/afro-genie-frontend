@@ -85,6 +85,11 @@ export default defineConfig(({ mode }) => {
               });
             }
           },
+          // Proxy API requests to the Express backend
+          '/api': {
+            target: 'http://localhost:3001',
+            changeOrigin: true,
+          },
           // Proxy TheAudioDB API to avoid CORS issues
           '/proxy/theaudiodb': {
             target: 'https://theaudiodb.com',
