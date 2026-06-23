@@ -12,7 +12,8 @@ export const addArtist = async (artist: Omit<Artist, 'id'>) => {
 
 export const getArtist = async (artistId: string) => {
   try {
-    return await artistsApi.get(artistId);
+    const result = await artistsApi.get(artistId);
+    return normalizeArtist(result);
   } catch {
     return null;
   }
@@ -21,7 +22,7 @@ export const getArtist = async (artistId: string) => {
 export const getAllArtists = async () => {
   try {
     const result = await artistsApi.getAll({ limit: 200 });
-    return result.data || [];
+    return (result.data || []).map((a: any) => normalizeArtist(a)).filter(Boolean);
   } catch {
     return [];
   }
@@ -33,7 +34,7 @@ export const getArtistByName = async (name: string): Promise<Artist | null> => {
     const match = (result.data || []).find(
       (a: any) => a.name?.toLowerCase() === name.toLowerCase()
     );
-    return match || null;
+    return normalizeArtist(match);
   } catch {
     return null;
   }
@@ -71,9 +72,52 @@ export const addSong = async (song: Omit<Song, 'id'>) => {
   return result.id;
 };
 
+const normalizeSong = (s: any): Song | null => {
+  if (!s) return null;
+  return {
+    id: s.id,
+    title: s.title,
+    artist: s.artist?.name || s.artist || '',
+    artistId: s.artistId,
+    image: s.imageUrl || s.coverImageUrl || s.image || '',
+    createdBy: s.createdBy,
+    createdAt: s.createdAt,
+    updatedAt: s.updatedAt,
+    views: s.views,
+    year: s.releaseYear,
+    genre: s.genres?.[0]?.genre?.name || (Array.isArray(s.genres) ? s.genres[0] : '') || '',
+    genres: Array.isArray(s.genres) ? s.genres.map((g: any) => g.genre?.name || g).filter(Boolean) : [],
+    language: s.primaryLanguage || s.languages?.[0] || '',
+    languages: s.languages || [],
+    album: s.albumName,
+    releaseDate: s.releaseDate,
+    popularity: s.popularity,
+    requestCount: s.requestCount,
+  };
+};
+
+const normalizeArtist = (a: any): Artist | null => {
+  if (!a) return null;
+  return {
+    id: a.id,
+    name: a.name,
+    genre: a.genres?.[0] || '',
+    image: a.imageUrl || a.image || '',
+    spotifyId: a.spotifyId,
+    bio: a.bio,
+    popularity: a.popularity,
+    followers: a.followers,
+    externalUrl: a.externalUrl,
+    genres: a.genres,
+    updatedAt: a.updatedAt,
+    spotifySyncedAt: a.spotifySyncedAt,
+  };
+};
+
 export const getSong = async (songId: string) => {
   try {
-    return await songsApi.get(songId);
+    const result = await songsApi.get(songId);
+    return normalizeSong(result);
   } catch {
     return null;
   }
@@ -82,7 +126,8 @@ export const getSong = async (songId: string) => {
 export const getSongsByArtist = async (artistId: string) => {
   try {
     const result = await songsApi.getAll({ artistId, limit: 200 });
-    return result.songs || result.data || [];
+    const raw = result.songs || result.data || [];
+    return raw.map((s: any) => normalizeSong(s)).filter(Boolean);
   } catch {
     return [];
   }
@@ -91,7 +136,8 @@ export const getSongsByArtist = async (artistId: string) => {
 export const getAllSongs = async () => {
   try {
     const result = await songsApi.getAll({ limit: 500 });
-    return result.songs || result.data || [];
+    const raw = result.songs || result.data || [];
+    return raw.map((s: any) => normalizeSong(s)).filter(Boolean);
   } catch {
     return [];
   }
