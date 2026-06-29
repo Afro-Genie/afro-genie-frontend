@@ -1,46 +1,37 @@
-import { useEffect, useState } from 'react';
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import Navbar from './components/Navbar';
+import { AuthProvider } from './context/AuthContext';
+import CommunityFeedPage from './pages/CommunityFeedPage';
+import CommunityPage from './pages/CommunityPage';
+import HomePage from './pages/HomePage';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import SearchResultsPage from './pages/SearchResultsPage';
+import SongsCatalogPage from './pages/SongsCatalogPage';
+import TopicDetailPage from './pages/TopicDetailPage';
+import TranslationPage from './pages/TranslationPage';
+import StatusDashboard from './pages/admin/StatusDashboard';
 
-interface HealthResponse {
-  status: string;
-  uptime: number;
-  version: string;
-  checks: {
-    database: string;
-    redis: string;
-  };
-}
-
-function App() {
-  const [health, setHealth] = useState<HealthResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const loadHealth = async () => {
-      try {
-        const response = await fetch('/api/health');
-        if (!response.ok) {
-          throw new Error('Failed to fetch health endpoint');
-        }
-        const data = (await response.json()) as HealthResponse;
-        setHealth(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Unknown error');
-      }
-    };
-
-    void loadHealth();
-  }, []);
-
+export default function App() {
   return (
-    <main style={{ fontFamily: 'ui-sans-serif, system-ui', margin: '2rem' }}>
-      <h1>Afro Genie Client</h1>
-      <p>Vite React app with dev proxy to Express server.</p>
-      {error && <p style={{ color: 'crimson' }}>Error: {error}</p>}
-      {health && (
-        <pre>{JSON.stringify(health, null, 2)}</pre>
-      )}
-    </main>
+    <AuthProvider>
+      <BrowserRouter>
+        <div className="app-shell">
+          <Navbar />
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/songs" element={<SongsCatalogPage />} />
+            <Route path="/songs/:id" element={<TranslationPage />} />
+            <Route path="/search" element={<SearchResultsPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/admin/status" element={<StatusDashboard />} />
+            <Route path="/community" element={<CommunityPage />} />
+            <Route path="/community/:categoryId" element={<CommunityFeedPage />} />
+            <Route path="/community/topic/:topicId" element={<TopicDetailPage />} />
+          </Routes>
+        </div>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
-
-export default App;
