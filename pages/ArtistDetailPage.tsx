@@ -7,7 +7,6 @@ import { useNotification } from '../hooks/useNotification';
 import { useConfirm } from '../hooks/useConfirm';
 import Notification from '../components/Notification';
 import ConfirmDialog from '../components/ConfirmDialog';
-import LoadingSpinner from '../components/LoadingSpinner';
 import { DetailPageSkeleton } from '../components/PageSkeletons';
 import type { Artist, Song } from '../types';
 
@@ -237,7 +236,7 @@ const ArtistDetailPage: React.FC = () => {
                     >
                       {syncing ? (
                         <>
-                          <LoadingSpinner />
+                          <span className="h-4 w-4 rounded-full border-2 border-white/60 border-t-transparent animate-pulse" />
                           <span>Updating...</span>
                         </>
                       ) : (

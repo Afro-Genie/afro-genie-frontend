@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { uploadArtistImage } from '../../services/firebaseService';
 import { useAuth } from '../../context/AuthContext';
 import { getArtists } from '../../lib/apiClient';
+import { AdminListPageSkeleton } from '../../components/PageSkeletons';
 import type { Artist } from '../../types';
 
 const ArtistsManager: React.FC = () => {
@@ -139,9 +140,7 @@ const ArtistsManager: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-green-400"></div>
-      </div>
+      <AdminListPageSkeleton rows={6} />
     );
   }
 

@@ -6,7 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { getSongs, getArtists } from '../../lib/apiClient';
 import Notification from '../../components/Notification';
 import ConfirmDialog from '../../components/ConfirmDialog';
-import LoadingSpinner from '../../components/LoadingSpinner';
+import { AdminListPageSkeleton } from '../../components/PageSkeletons';
 import type { Song, Artist } from '../../types';
 
 const SongsManager: React.FC = () => {
@@ -201,9 +201,7 @@ const SongsManager: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <LoadingSpinner />
-      </div>
+      <AdminListPageSkeleton rows={8} />
     );
   }
 

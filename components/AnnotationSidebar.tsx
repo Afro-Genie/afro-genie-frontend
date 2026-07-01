@@ -99,9 +99,14 @@ const AnnotationSidebar: React.FC<AnnotationSidebarProps> = ({ songId }) => {
       {/* Annotations List */}
       <div className="space-y-6">
         {loading ? (
-          <div className="text-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-400 mx-auto"></div>
-            <p className="text-gray-400 mt-2">Loading comments...</p>
+          <div className="space-y-4 py-8 animate-pulse">
+            <div className="mx-auto h-8 w-8 rounded-full bg-gray-700/70" />
+            <div className="mx-auto h-4 w-40 rounded-full bg-gray-700/60" />
+            <div className="space-y-3 pt-4">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <div key={index} className="h-20 rounded-lg bg-gray-800/70" />
+              ))}
+            </div>
           </div>
         ) : annotations.length === 0 ? (
           <div className="text-center py-8">

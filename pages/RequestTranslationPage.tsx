@@ -5,7 +5,6 @@ import { saveTranslation } from '../services/firebaseService';
 import { getAiAnalysis } from '../services/geminiService';
 import UserProfileCard from '../components/community/UserProfileCard';
 import RegistrationForm from '../components/community/RegistrationForm';
-import LoadingSpinner from '../components/LoadingSpinner';
 import { useNotification } from '../hooks/useNotification';
 import Notification from '../components/Notification';
 import type { AiAnalysisResult } from '../types';
@@ -243,7 +242,7 @@ const RequestTranslationPage: React.FC = () => {
                 >
                   {loading ? (
                     <>
-                      <LoadingSpinner />
+                      <span className="h-5 w-5 rounded-full border-2 border-white/60 border-t-transparent animate-pulse" />
                       Analyzing with AI...
                     </>
                   ) : (

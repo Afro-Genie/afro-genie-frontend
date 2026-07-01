@@ -190,8 +190,13 @@ const CommunityManager: React.FC = () => {
 
   if (loading && viewMode === 'topics' && topics.length === 0) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-green-400"></div>
+      <div className="space-y-6 animate-pulse">
+        <div className="h-16 rounded-xl bg-gray-800/70 border border-gray-700" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div key={index} className="h-48 rounded-xl bg-gray-800/70 border border-gray-700" />
+          ))}
+        </div>
       </div>
     );
   }

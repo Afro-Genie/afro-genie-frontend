@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getGenieSettings, updateGenieSettings, uploadGenieImage } from '../../services/firebaseService';
 import type { GenieSettings } from '../../types';
-import LoadingSpinner from '../../components/LoadingSpinner';
+import { AdminFormPageSkeleton } from '../../components/PageSkeletons';
 
 const GenieManager: React.FC = () => {
   const [settings, setSettings] = useState<GenieSettings>({
@@ -151,9 +151,7 @@ const GenieManager: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <LoadingSpinner />
-      </div>
+      <AdminFormPageSkeleton />
     );
   }
 

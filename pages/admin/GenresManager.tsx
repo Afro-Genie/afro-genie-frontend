@@ -105,8 +105,13 @@ const GenresManager: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-green-400"></div>
+      <div className="space-y-6 animate-pulse">
+        <div className="h-8 w-64 rounded-full bg-gray-800/70" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 8 }).map((_, index) => (
+            <div key={index} className="h-52 rounded-xl bg-gray-800/70 border border-gray-700" />
+          ))}
+        </div>
       </div>
     );
   }

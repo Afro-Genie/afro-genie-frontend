@@ -88,3 +88,92 @@ export const DetailPageSkeleton: React.FC = () => {
     </div>
   );
 };
+
+export const AdminDashboardSkeleton: React.FC = () => {
+  return (
+    <div className="space-y-8 animate-pulse">
+      <div className="h-16 rounded-xl bg-gradient-to-r from-red-700/70 to-red-800/70 border border-white/10" />
+      <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
+        <div className="h-8 w-72 rounded-full bg-gray-700/80 mb-3" />
+        <div className="h-4 w-96 max-w-full rounded-full bg-gray-700/60" />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+        {Array.from({ length: 6 }).map((_, index) => (
+          <div key={index} className="rounded-xl p-6 bg-gray-800/80 border border-gray-700 space-y-4">
+            <div className="h-4 w-28 rounded-full bg-gray-700/80" />
+            <div className="h-10 w-20 rounded-full bg-gray-700/70" />
+            <div className="h-4 w-16 rounded-full bg-gray-700/60" />
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="h-72 rounded-xl bg-gray-800/70 border border-gray-700" />
+        <div className="h-72 rounded-xl bg-gray-800/70 border border-gray-700" />
+      </div>
+    </div>
+  );
+};
+
+export const AdminListPageSkeleton: React.FC<{ rows?: number }> = ({ rows = 6 }) => {
+  return (
+    <div className="space-y-6 animate-pulse">
+      <div className="flex justify-between items-center gap-4">
+        <div className="space-y-3">
+          <div className="h-8 w-72 rounded-full bg-gray-700/80" />
+          <div className="h-4 w-96 max-w-full rounded-full bg-gray-700/60" />
+        </div>
+        <div className="h-11 w-40 rounded-lg bg-gray-700/80" />
+      </div>
+      <div className="rounded-lg border border-gray-700 bg-gray-800/60 p-4 space-y-4">
+        <div className="h-12 rounded-lg bg-gray-700/80" />
+        <div className="space-y-3">
+          {Array.from({ length: rows }).map((_, index) => (
+            <div key={index} className="h-16 rounded-lg bg-gray-700/70" />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export const AdminFormPageSkeleton: React.FC = () => {
+  return (
+    <div className="space-y-6 animate-pulse">
+      <div className="h-8 w-48 rounded-full bg-gray-700/80" />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-4">
+          <div className="h-64 rounded-xl bg-gray-800/70 border border-gray-700" />
+          <div className="h-64 rounded-xl bg-gray-800/70 border border-gray-700" />
+        </div>
+        <div className="space-y-4">
+          <div className="h-40 rounded-xl bg-gray-800/70 border border-gray-700" />
+          <div className="h-40 rounded-xl bg-gray-800/70 border border-gray-700" />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export const AdminTabbedPageSkeleton: React.FC = () => {
+  return (
+    <div className="space-y-6 animate-pulse">
+      <div className="h-16 rounded-xl bg-gradient-to-r from-red-700/70 to-red-800/70 border border-white/10" />
+      <div className="rounded-xl bg-white/5 border border-white/10 p-4">
+        <div className="flex gap-2">
+          <div className="h-10 w-28 rounded-lg bg-gray-700/80" />
+          <div className="h-10 w-28 rounded-lg bg-gray-700/70" />
+          <div className="h-10 w-28 rounded-lg bg-gray-700/60" />
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {Array.from({ length: 6 }).map((_, index) => (
+          <div key={index} className="rounded-xl bg-gray-800/70 border border-gray-700 p-4 space-y-3">
+            <div className="h-4 w-1/2 rounded-full bg-gray-700/80" />
+            <div className="h-3 w-3/4 rounded-full bg-gray-700/60" />
+            <div className="h-3 w-2/3 rounded-full bg-gray-700/50" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};

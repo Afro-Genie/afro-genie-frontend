@@ -6,8 +6,8 @@ import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../context/AuthContext';
 import { getSongById, getSongTranslations, getArtists } from '../../lib/apiClient';
 import Notification from '../../components/Notification';
-import LoadingSpinner from '../../components/LoadingSpinner';
 import ArtistSearchSelect from '../../components/admin/ArtistSearchSelect';
+import { AdminFormPageSkeleton } from '../../components/PageSkeletons';
 import type { Song, Artist, Language } from '../../types';
 
 const EditSongPage: React.FC = () => {
@@ -202,9 +202,7 @@ const EditSongPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <LoadingSpinner />
-      </div>
+      <AdminFormPageSkeleton />
     );
   }
 
@@ -499,10 +497,10 @@ const EditSongPage: React.FC = () => {
               className="w-full sm:w-auto min-h-[44px] bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-semibold py-2.5 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 text-base"
             >
               {saving ? (
-                <>
-                  <LoadingSpinner />
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-4 w-4 rounded-full border-2 border-white/60 border-t-transparent animate-pulse" />
                   Saving...
-                </>
+                </span>
               ) : (
                 <>
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

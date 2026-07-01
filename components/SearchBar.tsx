@@ -7,7 +7,7 @@ import MusicNoteIcon from './icons/MusicNoteIcon';
 import MicIcon from './icons/MicIcon';
 import TagIcon from './icons/TagIcon';
 import TranslateIcon from './icons/TranslateIcon';
-import LoadingSpinner from './LoadingSpinner';
+import { SearchResultsSkeleton } from './PageSkeletons';
 import { spotifyService } from '../services/spotifyService';
 import { trackEvent } from '../services/telemetryService';
 import { searchSuggest } from '../lib/apiClient';
@@ -261,9 +261,8 @@ const SearchBar: React.FC<SearchBarProps> = ({ variant = 'header' }) => {
       {(suggestions.length > 0 || loading) && (
         <div className="absolute top-full mt-2 w-full bg-[#2a3c30] border border-white/10 rounded-lg shadow-lg z-50 overflow-hidden">
           {loading ? (
-            <div className="flex items-center justify-center py-4">
-              <LoadingSpinner />
-              <span className="ml-2 text-gray-400">Searching...</span>
+            <div className="p-2">
+              <SearchResultsSkeleton count={3} />
             </div>
           ) : suggestions.length > 0 ? (
             <ul>

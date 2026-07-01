@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { spotifyService, SpotifyArtist, SpotifyTrack, SpotifyAlbum } from '../../services/spotifyService';
 import { addArtist, addSong, updateArtist, updateSong } from '../../services/firebaseService';
-import LoadingSpinner from '../../components/LoadingSpinner';
 import type { Artist, Song } from '../../types';
 
 const SpotifyManager: React.FC = () => {
@@ -220,7 +219,7 @@ const SpotifyManager: React.FC = () => {
               disabled={loading}
               className="bg-green-600 hover:bg-green-700 disabled:bg-gray-700 text-white font-semibold px-6 py-2 rounded-lg transition-colors flex items-center gap-2"
             >
-              {loading ? <LoadingSpinner /> : 'Search'}
+              {loading ? <span className="inline-flex h-4 w-16 items-center rounded-full bg-white/30 animate-pulse" /> : 'Search'}
             </button>
           </div>
 
@@ -233,8 +232,8 @@ const SpotifyManager: React.FC = () => {
 
         {/* Results */}
         {loading && artists.length === 0 && tracks.length === 0 && (
-          <div className="flex justify-center py-12">
-            <LoadingSpinner />
+          <div className="py-12">
+            <div className="mx-auto h-24 w-24 rounded-full bg-gray-700/70 animate-pulse" />
           </div>
         )}
 

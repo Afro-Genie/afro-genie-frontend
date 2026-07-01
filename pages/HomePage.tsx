@@ -392,10 +392,10 @@ const HomePage: React.FC = () => {
                                 </svg>
                             </Link>
                         </div>
-                        {loading ? (
-                            <div className="flex justify-center py-6 sm:py-12">
-                                <LoadingSpinner />
-                            </div>
+                        {songsLoading ? (
+                            <SongListSkeleton count={8} />
+                        ) : songsError ? (
+                            <div className="text-red-400 text-center py-8">{songsError}</div>
                         ) : (
                             <div className="bg-gray-800/50 rounded-xl border border-gray-700 p-4">
                                 <div className="flex md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-1 max-h-[600px] overflow-x-auto md:overflow-y-auto pr-2 pb-2">

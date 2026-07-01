@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { uploadImage } from '../services/firebaseService';
-import LoadingSpinner from '../components/LoadingSpinner';
 
 const ArtistSignupPage: React.FC = () => {
   const navigate = useNavigate();
@@ -171,7 +170,7 @@ const ArtistSignupPage: React.FC = () => {
             Please check your email and verify your account. You'll be redirected to your dashboard shortly.
           </p>
           <div className="flex items-center justify-center">
-            <LoadingSpinner />
+            <div className="h-20 w-20 rounded-full bg-gray-700/70 animate-pulse" />
           </div>
         </div>
       </div>
@@ -437,7 +436,7 @@ const ArtistSignupPage: React.FC = () => {
               >
                 {loading ? (
                   <>
-                    <LoadingSpinner />
+                    <span className="h-4 w-4 rounded-full border-2 border-white/60 border-t-transparent animate-pulse" />
                     <span className="ml-2">Creating Account...</span>
                   </>
                 ) : (

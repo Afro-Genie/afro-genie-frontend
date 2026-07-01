@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { getAllSongs, getAllArtists, getAllGenres } from '../services/firebaseService';
-import LoadingSpinner from '../components/LoadingSpinner';
 import { SongListSkeleton } from '../components/PageSkeletons';
 import type { Song, Artist, Genre } from '../types';
 
