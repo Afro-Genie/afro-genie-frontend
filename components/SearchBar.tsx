@@ -10,6 +10,7 @@ import TranslateIcon from './icons/TranslateIcon';
 import LoadingSpinner from './LoadingSpinner';
 import { spotifyService } from '../services/spotifyService';
 import { trackEvent } from '../services/telemetryService';
+import { searchSuggest } from '../lib/apiClient';
 import type { Suggestion, Artist, Song, Genre } from '../types';
 
 interface SearchBarProps {
@@ -57,6 +58,68 @@ const SearchBar: React.FC<SearchBarProps> = ({ variant = 'header' }) => {
     const performSearch = async () => {
       setLoading(true);
       const lowerCaseQuery = query.toLowerCase();
+
+      // Primary fast path: backend suggest endpoint
+      try {
+        const suggestResult = await searchSuggest(query);
+        const items = Array.isArray(suggestResult)
+          ? suggestResult
+          : Array.isArray(suggestResult?.suggestions)
+          ? suggestResult.suggestions
+          : [];
+
+        const apiSuggestions: Suggestion[] = items
+          .map((item: any) => {
+            const type = String(item.type || '').toLowerCase();
+
+            if (type === 'song') {
+              return {
+                type: 'song' as const,
+                data: {
+                  id: item.id || item.songId || '',
+                  title: item.title || item.name || 'Untitled',
+                  artist: item.artist || item.artistName || 'Unknown',
+                  artistId: item.artistId || '',
+                  image: item.image || item.coverImageUrl || item.imageUrl || '',
+                } as Song,
+              };
+            }
+
+            if (type === 'artist') {
+              return {
+                type: 'artist' as const,
+                data: {
+                  id: item.id || '',
+                  name: item.name || item.artist || 'Unknown Artist',
+                  genre: item.genre || '',
+                  image: item.image || item.imageUrl || '',
+                } as Artist,
+              };
+            }
+
+            if (type === 'genre') {
+              return {
+                type: 'genre' as const,
+                data: {
+                  id: item.id || item.name || 'genre',
+                  name: item.name || item.genre || 'Unknown Genre',
+                  image: '',
+                } as Genre,
+              };
+            }
+
+            return null;
+          })
+          .filter(Boolean) as Suggestion[];
+
+        if (apiSuggestions.length > 0) {
+          setSuggestions(apiSuggestions.slice(0, 10));
+          setLoading(false);
+          return;
+        }
+      } catch {
+        // Fall back to existing local+Spotify search below.
+      }
       
       // Search artists, songs, and genres (synchronous - already loaded)
       const filteredArtists = allData.artists
@@ -185,6 +248,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ variant = 'header' }) => {
             <SearchIcon className={currentVariant.icon} />
           </div>
           <input
+            data-testid="search-bar"
             type="text"
             placeholder={variant === 'header' ? 'Search artists, songs, lyrics...' : 'Search for artist, song, lyrics, or genre'}
             className={currentVariant.input}
@@ -208,9 +272,9 @@ const SearchBar: React.FC<SearchBarProps> = ({ variant = 'header' }) => {
                 if (item.type === 'song') {
                   linkTo = item.data.id.startsWith('spotify-track-')
                     ? `/search/${encodeURIComponent(`${item.data.title} ${item.data.artist}`)}`
-                    : `/song/${item.data.id}`;
+                    : `/songs/${item.data.id}`;
                 } else if (item.type === 'lyrics') {
-                  linkTo = `/song/${item.data.songId}`;
+                  linkTo = `/songs/${item.data.songId}`;
                 } else {
                   linkTo = `/search/${encodeURIComponent(item.data.name)}`;
                 }
@@ -220,6 +284,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ variant = 'header' }) => {
                     <Link 
                       to={linkTo} 
                       onClick={handleSuggestionClick} 
+                      data-testid="search-suggestion"
                       className="flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3 min-h-[60px] sm:min-h-[auto] hover:bg-green-500/10 active:bg-green-500/20 transition-colors border-b border-gray-700/50 last:border-b-0"
                     >
                       {item.type === 'artist' && <MicIcon className="h-5 w-5 text-gray-400 flex-shrink-0" />}

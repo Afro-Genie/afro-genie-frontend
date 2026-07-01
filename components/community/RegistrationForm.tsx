@@ -121,6 +121,7 @@ const RegistrationForm: React.FC = () => {
                         <div className="pt-2">
                             <button 
                                 type="submit" 
+                                data-testid="join-btn"
                                 disabled={loading}
                                 className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-gray-900 font-bold py-3 px-4 rounded-lg transition-all transform hover:scale-105 disabled:transform-none"
                             >

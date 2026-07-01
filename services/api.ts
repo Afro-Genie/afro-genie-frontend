@@ -221,6 +221,12 @@ export const translationsApi = {
       method: 'POST',
       body: JSON.stringify({ lyrics }),
     }),
+
+  vote: (id: string, voteType: 'UPVOTE' | 'DOWNVOTE') =>
+    apiRequest<any>(`/translations/${id}/vote`, {
+      method: 'POST',
+      body: JSON.stringify({ voteType }),
+    }),
 };
 
 // Search API

@@ -258,7 +258,7 @@ const TranslationRequestsPage: React.FC = () => {
                         )}
                         {request.songId && (
                           <Link
-                            to={`/song/${request.songId}`}
+                            to={`/songs/${request.songId}`}
                             className="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-xs font-semibold rounded transition-colors"
                           >
                             View Song

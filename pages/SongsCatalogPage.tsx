@@ -410,7 +410,7 @@ const SongsCatalogPage: React.FC = () => {
               {paginatedSongs.map((song, index) => (
                 <Link
                   key={song.id}
-                  to={`/song/${song.id}`}
+                  to={`/songs/${song.id}`}
                   className="group flex items-center gap-2 sm:gap-3 md:gap-4 p-3 sm:p-4 min-h-[48px] bg-gray-800/50 hover:bg-gray-700/50 rounded-lg sm:rounded-xl border border-gray-700 hover:border-green-400/50 transition-all duration-300 active:scale-[0.98]"
                 >
                   {/* Mobile: Compact layout */}

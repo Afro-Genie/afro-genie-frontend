@@ -2,21 +2,18 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
     getSong,
-    getLatestTranslationForSong,
     addToFavorites,
     removeFromFavorites,
     getUserFavorites,
     addToHistory,
     createTranslationRequest,
     updateTranslation,
-    saveTranslation,
-    voteTranslation,
-    getUserVote,
     submitTranslationCorrection
 } from '../services/firebaseService';
-import { getAiAnalysis } from '../services/geminiService';
 import { getAllLanguages, detectLanguageWithAI, getLanguageByCode } from '../services/languageService';
+import { spotifyService } from '../services/spotifyService';
 import { useAuth } from '../context/AuthContext';
+import { getSongById, getSongTranslations } from '../lib/apiClient';
 import HeartIcon from './icons/HeartIcon';
 import ShareIcon from './icons/ShareIcon';
 import FontSizeIcon from './icons/FontSizeIcon';
@@ -24,7 +21,7 @@ import SpotifyPlayer from './SpotifyPlayer';
 import type { Song, TranslationViewMode } from '../types';
 
 const LyricContent: React.FC = () => {
-    const { user: currentUser } = useAuth();
+    const { user: currentUser, authFetch } = useAuth();
     const [showLoginPrompt, setShowLoginPrompt] = useState(false);
     const { id: songIdParam } = useParams<{ id: string }>();
     const songId = useMemo(() => songIdParam ?? '', [songIdParam]);
@@ -61,6 +58,19 @@ const LyricContent: React.FC = () => {
     const [correctionText, setCorrectionText] = useState('');
     const [correctionReason, setCorrectionReason] = useState('');
 
+    const isBrokenHostImage = (url?: string) => {
+        if (!url) {
+            return false;
+        }
+
+        try {
+            const parsed = new URL(url);
+            return parsed.hostname.toLowerCase() === 'images.afrogenie.dev';
+        } catch {
+            return false;
+        }
+    };
+
     const formattedCulturalContext = useMemo(() => {
         if (!culturalContext) return '';
         return culturalContext
@@ -72,6 +82,24 @@ const LyricContent: React.FC = () => {
             .replace(/\n{3,}/g, '\n\n')
             .trim();
     }, [culturalContext]);
+
+    const extractTranslations = (payload: any): any[] => {
+        if (!payload) return [];
+        if (Array.isArray(payload)) return payload;
+        if (Array.isArray(payload.translations)) return payload.translations;
+        if (payload.translations && typeof payload.translations === 'object') {
+            return Object.values(payload.translations).flatMap((group: any) =>
+                Array.isArray(group) ? group : []
+            );
+        }
+        return [];
+    };
+
+    const pickTranslationText = (translation: any) =>
+        translation?.translatedLyrics ||
+        translation?.translation ||
+        translation?.result?.translatedLyrics ||
+        '';
 
     // Load languages from database
     useEffect(() => {
@@ -142,55 +170,72 @@ const LyricContent: React.FC = () => {
             setLoading(true);
             setError('');
             try {
-                const song = await getSong(songId);
-                if (!song) {
+                const songResponse = await getSongById(songId);
+                const normalizedSong: Song | null = songResponse
+                    ? {
+                        id: songResponse.id,
+                        title: songResponse.title,
+                        artist: songResponse.artist?.name || songResponse.artistName || '',
+                        artistId: songResponse.artistId || songResponse.artist?.id || '',
+                        image: songResponse.coverImageUrl || songResponse.imageUrl || songResponse.image || '',
+                        language: songResponse.primaryLanguage || songResponse.languages?.[0] || '',
+                    }
+                    : null;
+
+                if (!normalizedSong) {
                     if (!cancelled) {
                         setError('Song not found');
                         setTitle('Song');
                         setArtist('');
                     }
                 } else if (!cancelled) {
-                    setTitle(song.title);
-                    setArtist(song.artist);
-                    setSong(song);
+                    setTitle(normalizedSong.title);
+                    setArtist(normalizedSong.artist);
+
+                    if (!normalizedSong.image || isBrokenHostImage(normalizedSong.image)) {
+                        try {
+                            const summary = await spotifyService.searchBestTrackSummary(normalizedSong.artist, normalizedSong.title);
+                            if (summary?.imageUrl && !cancelled) {
+                                setSong({ ...normalizedSong, image: summary.imageUrl });
+                            } else {
+                                setSong(normalizedSong);
+                            }
+                        } catch {
+                            setSong(normalizedSong);
+                        }
+                    } else {
+                        setSong(normalizedSong);
+                    }
                 }
 
-                const latest = await getLatestTranslationForSong(songId);
+                const songLyrics = songResponse?.lyrics?.rawText || '';
+                const translationResponse = await getSongTranslations(songId).catch(() => null);
+                const availableTranslations = extractTranslations(translationResponse);
+                const latest = availableTranslations[0] || null;
+
                 if (latest && !cancelled) {
-                    setOriginalLyrics(latest.originalLyrics);
-                    setTranslatedLyrics(latest.translatedLyrics || '');
+                    setOriginalLyrics(latest.originalLyrics || songLyrics || 'No lyrics available yet for this song.');
+                    setTranslatedLyrics(pickTranslationText(latest) || 'No translation available yet. Use "Reveal the Meaning" to generate one.');
                     setCulturalContext(latest.culturalContext || '');
-                    setExistingTranslationId(latest.id || null);
-                    setUpvotes(latest.upvotes || 0);
-                    setDownvotes(latest.downvotes || 0);
+                    setExistingTranslationId(latest.id || latest.translationId || null);
+                    setUpvotes(latest.upvotes || latest.voteStats?.upvotes || 0);
+                    setDownvotes(latest.downvotes || latest.voteStats?.downvotes || 0);
                     // Set source language from translation or song metadata
                     if (latest.sourceLang) {
                         setSourceLang(latest.sourceLang);
-                    } else if (song?.language) {
-                        setSourceLang(song.language.toLowerCase().split(',')[0].trim() || 'en');
+                    } else if (normalizedSong?.language) {
+                        setSourceLang(normalizedSong.language.toLowerCase().split(',')[0].trim() || 'en');
                     }
                     if (latest.targetLang) {
                         setTargetLang(latest.targetLang);
                     }
-                    // Load user's vote if logged in
-                    if (currentUser && latest.id && currentUser.uid) {
-                        try {
-                            const vote = await getUserVote(latest.id, currentUser.uid);
-                            if (!cancelled) {
-                                setUserVote(vote);
-                            }
-                        } catch (error) {
-                            console.error('Error loading user vote:', error);
-                            // Silently fail - user can still vote
-                        }
-                    }
                 } else if (!cancelled) {
-                    setOriginalLyrics('No lyrics available yet for this song.');
+                    setOriginalLyrics(songLyrics || 'No lyrics available yet for this song.');
                     setTranslatedLyrics('No translation available yet. Use "Reveal the Meaning" to generate one.');
                     setExistingTranslationId(null);
                     // Set source language from song metadata if available
-                    if (song?.language) {
-                        setSourceLang(song.language.toLowerCase().split(',')[0].trim() || 'en');
+                    if (normalizedSong?.language) {
+                        setSourceLang(normalizedSong.language.toLowerCase().split(',')[0].trim() || 'en');
                     }
                 }
 
@@ -309,13 +354,15 @@ const LyricContent: React.FC = () => {
             return;
         }
 
-        // Validate source and target languages are different
-
-
         setTranslationLoading(true);
         let detectedSourceLang = 'en';
 
         try {
+            if (!currentUser) {
+                setShowLoginPrompt(true);
+                throw new Error('Please sign in to generate translations');
+            }
+
             // ALWAYS auto-detect source language - user doesn't need to select it
             setDetectingLanguage(true);
             try {
@@ -369,42 +416,61 @@ const LyricContent: React.FC = () => {
                 console.log('Source matches target, proceeding anyway for context-aware translation');
             }
 
-            // Call AI translation
-            const result = await getAiAnalysis(artist, title, originalLyrics, detectedSourceLang, targetLang);
-
-            if (!result.translatedLyrics) {
-                throw new Error('AI did not return a translation');
-            }
-
-            // Save or update translation
-            if (existingTranslationId) {
-                // Update existing translation
-                await updateTranslation(existingTranslationId, {
-                    translatedLyrics: result.translatedLyrics,
-                    sourceLang: detectedSourceLang,
-                    targetLang
-                });
-            } else {
-                // Create new translation
-                if (!currentUser) {
-                    throw new Error('Please sign in to generate translations');
-                }
-                const translationId = await saveTranslation({
+            const requestResult = await authFetch('/api/translations/request', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
                     songId,
-                    userId: currentUser.uid,
-                    originalLyrics,
-                    translatedLyrics: result.translatedLyrics,
-                    culturalContext: '',
-                    sourceLang: detectedSourceLang,
+                    sourceLang: detectedSourceLang || 'auto',
                     targetLang,
-                    source: 'ai',
-                    status: 'approved'
-                });
-                setExistingTranslationId(translationId);
+                }),
+            });
+
+            const jobId = requestResult?.jobId || requestResult?.id;
+
+            const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+            let resolvedTranslationText =
+                pickTranslationText(requestResult?.translation) ||
+                pickTranslationText(requestResult?.result) ||
+                requestResult?.translatedLyrics ||
+                '';
+            let resolvedTranslationId = requestResult?.translation?.id || null;
+
+            if (!resolvedTranslationText && jobId) {
+                for (let attempt = 0; attempt < 15; attempt += 1) {
+                    const pollResult = await authFetch('/api/translations/status/' + jobId);
+                    const status = String(pollResult?.status || '').toLowerCase();
+
+                    if (status === 'failed' || status === 'error') {
+                        throw new Error(pollResult?.error || 'Translation job failed');
+                    }
+
+                    resolvedTranslationText =
+                        pickTranslationText(pollResult?.translation) ||
+                        pickTranslationText(pollResult?.result) ||
+                        pollResult?.translatedLyrics ||
+                        '';
+                    resolvedTranslationId =
+                        pollResult?.translation?.id ||
+                        pollResult?.result?.id ||
+                        resolvedTranslationId;
+
+                    if (resolvedTranslationText) {
+                        break;
+                    }
+
+                    await sleep(2000);
+                }
             }
+
+            if (!resolvedTranslationText) {
+                throw new Error('Translation is still processing. Please try again shortly.');
+            }
+
+            setExistingTranslationId(resolvedTranslationId || existingTranslationId);
 
             // Update local state
-            setTranslatedLyrics(result.translatedLyrics);
+            setTranslatedLyrics(resolvedTranslationText);
             setSourceLang(detectedSourceLang);
             setShowLanguageSelector(false);
 
@@ -415,6 +481,9 @@ const LyricContent: React.FC = () => {
             setTimeout(() => setNotification(null), 4000);
         } catch (err: any) {
             console.error('Translation generation error:', err);
+            if (String(err?.message || '').toLowerCase().includes('session expired')) {
+                setShowLoginPrompt(true);
+            }
             setNotification({
                 message: 'Failed to generate translation: ' + (err.message || 'Unknown error'),
                 type: 'error'
@@ -436,19 +505,23 @@ const LyricContent: React.FC = () => {
 
         setVotingLoading(true);
         try {
-            await voteTranslation(existingTranslationId, currentUser.uid, voteType);
-            // Reload vote counts and user vote
-            const latest = await getLatestTranslationForSong(songId);
-            if (latest) {
-                setUpvotes(latest.upvotes || 0);
-                setDownvotes(latest.downvotes || 0);
-            }
-            try {
-                const vote = await getUserVote(existingTranslationId, currentUser.uid);
-                setUserVote(vote);
-            } catch (voteError) {
-                console.error('Error loading vote after voting:', voteError);
-                // Continue even if we can't load the vote
+            await authFetch('/api/translations/' + existingTranslationId + '/vote', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ voteType: voteType === 'upvote' ? 'UPVOTE' : 'DOWNVOTE' }),
+            });
+
+            setUserVote(voteType);
+            if (voteType === 'upvote') {
+                setUpvotes((prev) => prev + (userVote === 'upvote' ? 0 : 1));
+                if (userVote === 'downvote') {
+                    setDownvotes((prev) => Math.max(0, prev - 1));
+                }
+            } else {
+                setDownvotes((prev) => prev + (userVote === 'downvote' ? 0 : 1));
+                if (userVote === 'upvote') {
+                    setUpvotes((prev) => Math.max(0, prev - 1));
+                }
             }
             setNotification({
                 message: `Your ${voteType} has been recorded`,
@@ -457,6 +530,9 @@ const LyricContent: React.FC = () => {
             setTimeout(() => setNotification(null), 3000);
         } catch (err: any) {
             console.error('Voting error:', err);
+            if (String(err?.message || '').toLowerCase().includes('session expired')) {
+                setShowLoginPrompt(true);
+            }
             const errorMessage = err.message || 'Failed to vote. Please try again.';
             setNotification({ message: errorMessage, type: 'error' });
             setTimeout(() => setNotification(null), 4000);
@@ -731,7 +807,7 @@ const LyricContent: React.FC = () => {
 
                     {/* Song Info - Compact */}
                     <div className="flex-1 min-w-0">
-                        <h1 className="text-xl md:text-2xl font-bold text-white mb-1 break-words">
+                        <h1 className="text-xl md:text-2xl font-bold text-white mb-1 break-words" data-testid="song-title">
                             {title || 'Loading...'}
                         </h1>
                         <div className="flex items-center gap-2 flex-wrap">
@@ -855,6 +931,7 @@ const LyricContent: React.FC = () => {
                                     {/* Generate Button */}
                                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                                         <button
+                                            data-testid="translate-btn"
                                             onClick={() => {
                                                 if (!showLanguageSelector) {
                                                     setShowLanguageSelector(true);
@@ -1216,7 +1293,17 @@ const LyricContent: React.FC = () => {
             )}
 
             {/* Lyrics Display - Main Focus */}
-            {!loading && !error && renderLyrics()}
+            {!loading && !error && (
+                <div data-testid="translation-result">
+                    {renderLyrics()}
+                </div>
+            )}
+
+            {showLoginPrompt && (
+                <div className="mb-4 p-4 bg-amber-900/30 border border-amber-500/40 rounded-lg">
+                    <p className="text-amber-200 text-sm">Your session has expired. Please sign in again to continue.</p>
+                </div>
+            )}
 
             {/* Action Bar */}
             <div className="fixed left-1/2 -translate-x-1/2 w-[min(92vw,360px)] flex items-center justify-around gap-2 sm:gap-4 bg-[#2a3c30]/95 backdrop-blur-md p-3 rounded-full border border-white/10 shadow-2xl z-40 bottom-[max(1.5rem,env(safe-area-inset-bottom))]">

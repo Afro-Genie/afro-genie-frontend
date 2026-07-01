@@ -35,7 +35,9 @@ const SpotifyPlayer: React.FC<SpotifyPlayerProps> = ({ title, artist, compact = 
         setLoading(true);
         setError(null);
         
-        const track = await spotifyService.searchBestTrackSummary(artist, title);
+        const track = await spotifyService.searchBestTrackSummary(artist, title, {
+          requirePreview: true
+        });
 
         if (track) {
           setSpotifyTrack(track);

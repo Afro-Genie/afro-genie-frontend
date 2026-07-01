@@ -28,6 +28,16 @@ const Header: React.FC = () => {
   }, [isMobileMenuOpen]);
 
   useEffect(() => {
+    const handleAuthExpired = () => {
+      setIsLoginModalOpen(true);
+      setToast({ message: 'Session expired. Please sign in again.', type: 'error', duration: 5000 });
+    };
+
+    window.addEventListener('auth:expired', handleAuthExpired);
+    return () => window.removeEventListener('auth:expired', handleAuthExpired);
+  }, []);
+
+  useEffect(() => {
     // Wait for AuthContext to finish initializing so Firestore has an auth token.
     if (loading) return;
     if (!user?.uid || !featureFlags.requestCompletionNotifications) return;

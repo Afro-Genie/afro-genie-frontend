@@ -79,6 +79,7 @@ interface AuthContextType {
   signInWithSpotify: () => Promise<void>;
   signInAnonymously: () => Promise<void>;
   logout: () => Promise<void>;
+  authFetch: (url: string, options?: RequestInit) => Promise<any>;
   isAdmin: boolean;
   isArtist: boolean;
 }
@@ -231,6 +232,69 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const authFetch = async (url: string, options: RequestInit = {}) => {
+    const buildHeaders = () => {
+      const nextHeaders: Record<string, string> = {
+        ...(options.headers as Record<string, string>),
+      };
+
+      if (options.body && !nextHeaders['Content-Type']) {
+        nextHeaders['Content-Type'] = 'application/json';
+      }
+
+      const token = getAccessToken();
+      if (token) {
+        nextHeaders['Authorization'] = `Bearer ${token}`;
+      }
+
+      return nextHeaders;
+    };
+
+    let headers = buildHeaders();
+    let res = await fetch(url, {
+      ...options,
+      headers,
+    });
+
+    if (res.status === 401) {
+      const storedRefresh = getRefreshToken();
+      if (!storedRefresh) {
+        clearTokens();
+        setUser(null);
+        setUserProfile(null);
+        window.dispatchEvent(new Event('auth:expired'));
+        throw new Error('Session expired. Please sign in again.');
+      }
+
+      try {
+        const refreshed = await authApi.refresh(storedRefresh);
+        initFromAuthResult(refreshed);
+        headers = buildHeaders();
+        res = await fetch(url, {
+          ...options,
+          headers,
+        });
+      } catch {
+        clearTokens();
+        setUser(null);
+        setUserProfile(null);
+        window.dispatchEvent(new Event('auth:expired'));
+        throw new Error('Session expired. Please sign in again.');
+      }
+    }
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ error: 'Request failed' }));
+      throw new Error(body.error || body.message || 'Request failed');
+    }
+
+    if (res.status === 204) {
+      return null;
+    }
+
+    return res.json();
+  };
+
   const isAdmin = userProfile?.role === 'admin';
   const isArtist = userProfile?.role === 'artist';
 
@@ -245,6 +309,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signInWithSpotify,
     signInAnonymously,
     logout,
+    authFetch,
     isAdmin,
     isArtist,
   };

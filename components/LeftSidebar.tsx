@@ -50,7 +50,7 @@ const LeftSidebar: React.FC = () => {
             {trendingSongs.map((song, index) => (
               <li key={song.id} className={index === 0 ? "bg-green-500/20 rounded-lg" : ""}>
                 <Link
-                  to={`/song/${song.id}`}
+                  to={`/songs/${song.id}`}
                   className="block py-2 px-4 text-gray-300 hover:text-white font-semibold text-sm sm:text-base min-h-[44px] flex items-center"
                   onClick={() => {
                     // Close mobile sidebar when navigating

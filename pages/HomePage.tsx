@@ -1,9 +1,48 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getAllArtists, getAllGenres, getAllSongs, getGenieSettings, getTopics } from '../services/firebaseService';
+import { getAllArtists, getAllGenres, getGenieSettings, getTopics } from '../services/firebaseService';
+import { spotifyService } from '../services/spotifyService';
 import SearchBar from '../components/SearchBar';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { getSongs } from '../lib/apiClient';
 import type { Artist, Genre, Song, GenieSettings, Topic } from '../types';
+
+const isBrokenHostImage = (url?: string): boolean => {
+    if (!url) {
+        return false;
+    }
+
+    try {
+        const parsed = new URL(url);
+        return parsed.hostname.toLowerCase() === 'images.afrogenie.dev';
+    } catch {
+        return false;
+    }
+};
+
+const enrichArtistImage = async (artist: Artist): Promise<Artist> => {
+    if (artist.image && !isBrokenHostImage(artist.image)) {
+        return artist;
+    }
+
+    try {
+        const spotifyArtist = artist.spotifyId
+            ? await spotifyService.getArtist(artist.spotifyId)
+            : (await spotifyService.searchArtist(artist.name, 1))[0];
+
+        const imageUrl = spotifyArtist?.images?.[0]?.url;
+        if (!imageUrl) {
+            return artist;
+        }
+
+        return {
+            ...artist,
+            image: imageUrl
+        };
+    } catch {
+        return artist;
+    }
+};
 
 const HomePage: React.FC = () => {
     const [artists, setArtists] = useState<Artist[]>([]);
@@ -12,6 +51,7 @@ const HomePage: React.FC = () => {
     const [trendingTopics, setTrendingTopics] = useState<Topic[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [selectedLanguage, setSelectedLanguage] = useState<string>('all');
     const [genieSettings, setGenieSettings] = useState<GenieSettings>({
         imageUrl: '/Images/gene.png',
         animationType: 'float',
@@ -39,16 +79,29 @@ const HomePage: React.FC = () => {
             setLoading(true);
             setError(null);
             try {
-                const [fetchedArtists, fetchedGenres, fetchedSongs, fetchedGenieSettings, topics] = await Promise.all([
+                const [fetchedArtists, fetchedGenres, fetchedSongsResponse, fetchedGenieSettings, topics] = await Promise.all([
                     getAllArtists(),
                     getAllGenres(),
-                    getAllSongs(),
+                    getSongs({
+                        limit: 100,
+                        lang: selectedLanguage !== 'all' ? selectedLanguage : undefined,
+                        sortBy: 'createdAt',
+                        sortOrder: 'desc'
+                    }),
                     getGenieSettings(),
                     getTopics(undefined, 'mostLiked', 5).catch(() => [])
                 ]);
-                setArtists(fetchedArtists.slice(0, 12)); // Show top 12 artists
+                const topArtists = fetchedArtists.slice(0, 12); // Show top 12 artists
+                const enrichedArtists = await Promise.all(topArtists.map(enrichArtistImage));
+                setArtists(enrichedArtists);
                 setGenres(fetchedGenres.slice(0, 10)); // Show top 10 genres
                 
+                const fetchedSongs = Array.isArray(fetchedSongsResponse?.songs)
+                    ? fetchedSongsResponse.songs
+                    : Array.isArray(fetchedSongsResponse?.data)
+                    ? fetchedSongsResponse.data
+                    : [];
+
                 // Sort songs by popularity (views + requestCount) and take up to 100
                 const sortedSongs = fetchedSongs.sort((a, b) => {
                     const aScore = (a.views || 0) + (a.requestCount || 0) * 2; // Requests weighted more
@@ -68,13 +121,11 @@ const HomePage: React.FC = () => {
         };
 
         fetchData();
-    }, []);
+    }, [selectedLanguage]);
 
     const onImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
         const target = e.currentTarget;
-        if (target.dataset.fallbackApplied === 'true') return;
-        target.dataset.fallbackApplied = 'true';
-        target.src = '/Images/gene.png';
+        target.style.display = 'none';
     };
 
     return (
@@ -125,6 +176,7 @@ const HomePage: React.FC = () => {
                         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 px-4">
                             <Link 
                                 to="/community" 
+                                data-testid="join-btn"
                                 className="w-full sm:w-auto min-h-[44px] bg-amber-500 hover:bg-amber-600 text-gray-900 font-semibold py-3 px-6 sm:px-8 rounded-full transition-all duration-300 shadow-lg hover:shadow-amber-500/50 flex items-center justify-center gap-2 text-base sm:text-lg"
                             >
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -254,7 +306,7 @@ const HomePage: React.FC = () => {
                                 <div className="flex md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-1 max-h-[600px] overflow-x-auto md:overflow-y-auto pr-2 pb-2">
                                     {songs.slice(0, 100).map((song, index) => (
                                         <Link 
-                                            to={`/song/${song.id}`} 
+                                            to={`/songs/${song.id}`} 
                                             key={song.id} 
                                             className="group min-w-[240px] md:min-w-0 flex items-center gap-2 py-2.5 sm:py-1.5 px-2 min-h-[44px] hover:bg-gray-700/50 rounded transition-colors"
                                         >
@@ -300,17 +352,28 @@ const HomePage: React.FC = () => {
                     </div>
                     <div className="flex md:grid md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 overflow-x-auto pb-2">
                         {languages.map((lang) => (
-                            <Link
+                            <button
                                 key={lang.code}
-                                to={`/search/${lang.name}`}
+                                type="button"
+                                onClick={() => setSelectedLanguage(lang.code)}
                                 className="group min-w-[150px] md:min-w-0 bg-gray-800/50 hover:bg-gray-700/50 rounded-xl p-4 sm:p-6 border border-gray-700 hover:border-green-400/50 transition-all duration-300 text-center min-h-[44px] flex flex-col items-center justify-center"
                             >
                                 <div className="text-4xl mb-3">{lang.flag}</div>
                                 <h3 className="font-semibold text-white group-hover:text-green-400 transition-colors text-sm sm:text-base">
                                     {lang.name}
                                 </h3>
-                            </Link>
+                            </button>
                         ))}
+                        <button
+                            type="button"
+                            onClick={() => setSelectedLanguage('all')}
+                            className="group min-w-[150px] md:min-w-0 bg-gray-800/50 hover:bg-gray-700/50 rounded-xl p-4 sm:p-6 border border-gray-700 hover:border-green-400/50 transition-all duration-300 text-center min-h-[44px] flex flex-col items-center justify-center"
+                        >
+                            <div className="text-4xl mb-3">🌍</div>
+                            <h3 className="font-semibold text-white group-hover:text-green-400 transition-colors text-sm sm:text-base">
+                                All Languages
+                            </h3>
+                        </button>
                     </div>
                 </div>
             </section>

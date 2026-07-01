@@ -43,6 +43,7 @@ function App() {
               <Route path="/privacy" element={<PrivacyPolicyPage />} />
               <Route path="/" element={<HomePage />} />
               <Route path="/song/:id" element={<TranslationPage />} />
+              <Route path="/songs/:id" element={<TranslationPage />} />
               <Route path="/artist/:id" element={<ArtistDetailPage />} />
               <Route path="/songs" element={<SongsCatalogPage />} />
               <Route path="/search" element={<SearchResultsPage />} />

@@ -454,7 +454,7 @@ const SearchResultsPage: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
                   {localSongs.slice(0, 10).map((r) => (
                     <Link
-                      to={`/song/${r.localId!}`}
+                      to={`/songs/${r.localId!}`}
                       key={r.id}
                       className="group bg-gray-800/50 hover:bg-gray-700/50 rounded-xl overflow-hidden border border-gray-700 hover:border-green-400/50 transition-all duration-300 flex items-center min-h-[48px]"
                     >
