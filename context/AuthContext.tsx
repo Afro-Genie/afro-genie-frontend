@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { authApi, setTokens, clearTokens, getAccessToken, getRefreshToken } from '../services/api';
 import { spotifyAuthService, SpotifyUserProfile, SpotifyTokenResponse } from '../services/spotifyAuthService';
+import { toApiUrl } from '../lib/apiBase';
 
 interface AuthUser {
   uid: string;
@@ -251,7 +252,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     let headers = buildHeaders();
-    let res = await fetch(url, {
+    let res = await fetch(toApiUrl(url), {
       ...options,
       headers,
     });
@@ -270,7 +271,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const refreshed = await authApi.refresh(storedRefresh);
         initFromAuthResult(refreshed);
         headers = buildHeaders();
-        res = await fetch(url, {
+        res = await fetch(toApiUrl(url), {
           ...options,
           headers,
         });

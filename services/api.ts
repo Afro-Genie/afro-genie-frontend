@@ -1,6 +1,8 @@
 // API client for the Express backend
 
-const API_BASE = '/api';
+import { API_BASE_URL } from '../lib/apiBase';
+
+const API_BASE = API_BASE_URL;
 
 let accessToken: string | null = localStorage.getItem('accessToken');
 let refreshToken: string | null = localStorage.getItem('refreshToken');

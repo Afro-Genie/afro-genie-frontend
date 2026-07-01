@@ -1,5 +1,7 @@
+import { toApiUrl } from './apiBase';
+
 export async function apiFetch(url: string, options?: RequestInit) {
-  const res = await fetch(url, options);
+  const res = await fetch(toApiUrl(url), options);
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: 'Request failed' }));
     throw new Error(err.error || err.message || 'Request failed');
