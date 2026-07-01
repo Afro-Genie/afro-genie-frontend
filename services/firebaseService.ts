@@ -46,9 +46,9 @@ export const getArtist = async (artistId: string) => {
   }
 };
 
-export const getAllArtists = async () => {
+export const getAllArtists = async (params?: { limit?: number; search?: string; genre?: string }) => {
   try {
-    const result = await artistsApi.getAll({ limit: 200 });
+    const result = await artistsApi.getAll({ limit: params?.limit ?? 200, search: params?.search, genre: params?.genre });
     return (result.data || []).map((a: any) => normalizeArtist(a)).filter(Boolean);
   } catch {
     return [];

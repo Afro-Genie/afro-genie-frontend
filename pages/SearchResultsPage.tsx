@@ -4,6 +4,7 @@ import { getAllArtists, createSongRequest } from '../services/firebaseService';
 import { useAuth } from '../context/AuthContext';
 import SearchBar from '../components/SearchBar';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { SearchResultsSkeleton } from '../components/PageSkeletons';
 import { featureFlags } from '../config/featureFlags';
 import { trackEvent } from '../services/telemetryService';
 import { unifiedSearchService, type UnifiedSearchResult, type UnifiedSearchResponse } from '../services/unifiedSearchService';
@@ -208,11 +209,22 @@ const SearchResultsPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#122118] py-16">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-center items-center h-64">
-          <LoadingSpinner />
+      <div className="min-h-screen bg-[#122118]">
+        <section className="bg-gradient-to-br from-[#122118] via-[#1a2b22] to-[#122118] py-12 border-b border-gray-800">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="max-w-4xl mx-auto">
+              <div className="mb-6 animate-pulse">
+                <div className="h-14 rounded-full bg-gray-800/70 border border-white/10" />
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <div className="h-8 w-32 rounded-full bg-gray-800/70 animate-pulse" />
+                <div className="h-8 w-24 rounded-full bg-gray-800/70 animate-pulse" />
+              </div>
+            </div>
           </div>
+        </section>
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-10">
+          <SearchResultsSkeleton count={6} />
         </div>
       </div>
     );

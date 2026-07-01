@@ -34,7 +34,7 @@ import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 function App() {
   return (
     <AuthProvider>
-      <HashRouter>
+      <HashRouter future={{ v7_startTransition: true }}>
         <div className="text-white font-sans bg-[#122118] min-h-screen flex flex-col">
           <Header />
           <main className="flex-grow">

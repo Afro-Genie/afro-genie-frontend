@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom';
 import { getAllArtists, getAllGenres, getGenieSettings, getTopics } from '../services/firebaseService';
 import { spotifyService } from '../services/spotifyService';
 import SearchBar from '../components/SearchBar';
-import LoadingSpinner from '../components/LoadingSpinner';
 import { getSongs } from '../lib/apiClient';
+import { SearchResultsSkeleton, SongListSkeleton, SquareGridSkeleton } from '../components/PageSkeletons';
 import type { Artist, Genre, Song, GenieSettings, Topic } from '../types';
 
 const isBrokenHostImage = (url?: string): boolean => {
@@ -44,13 +44,31 @@ const enrichArtistImage = async (artist: Artist): Promise<Artist> => {
     }
 };
 
+const getSongArtistName = (artist: Song['artist'] | { name?: string } | null | undefined): string => {
+    if (!artist) {
+        return '';
+    }
+
+    if (typeof artist === 'string') {
+        return artist;
+    }
+
+    return artist.name || '';
+};
+
 const HomePage: React.FC = () => {
     const [artists, setArtists] = useState<Artist[]>([]);
     const [genres, setGenres] = useState<Genre[]>([]);
     const [songs, setSongs] = useState<Song[]>([]);
     const [trendingTopics, setTrendingTopics] = useState<Topic[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const [artistsLoading, setArtistsLoading] = useState(true);
+    const [genresLoading, setGenresLoading] = useState(true);
+    const [songsLoading, setSongsLoading] = useState(true);
+    const [topicsLoading, setTopicsLoading] = useState(true);
+    const [artistsError, setArtistsError] = useState<string | null>(null);
+    const [genresError, setGenresError] = useState<string | null>(null);
+    const [songsError, setSongsError] = useState<string | null>(null);
+    const [topicsError, setTopicsError] = useState<string | null>(null);
     const [selectedLanguage, setSelectedLanguage] = useState<string>('all');
     const [genieSettings, setGenieSettings] = useState<GenieSettings>({
         imageUrl: '/Images/gene.png',
@@ -75,52 +93,129 @@ const HomePage: React.FC = () => {
     ];
 
     useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            setError(null);
-            try {
-                const [fetchedArtists, fetchedGenres, fetchedSongsResponse, fetchedGenieSettings, topics] = await Promise.all([
-                    getAllArtists(),
-                    getAllGenres(),
-                    getSongs({
-                        limit: 100,
-                        lang: selectedLanguage !== 'all' ? selectedLanguage : undefined,
-                        sortBy: 'createdAt',
-                        sortOrder: 'desc'
-                    }),
-                    getGenieSettings(),
-                    getTopics(undefined, 'mostLiked', 5).catch(() => [])
-                ]);
-                const topArtists = fetchedArtists.slice(0, 12); // Show top 12 artists
-                const enrichedArtists = await Promise.all(topArtists.map(enrichArtistImage));
-                setArtists(enrichedArtists);
-                setGenres(fetchedGenres.slice(0, 10)); // Show top 10 genres
-                
-                const fetchedSongs = Array.isArray(fetchedSongsResponse?.songs)
-                    ? fetchedSongsResponse.songs
-                    : Array.isArray(fetchedSongsResponse?.data)
-                    ? fetchedSongsResponse.data
-                    : [];
+        let cancelled = false;
 
-                // Sort songs by popularity (views + requestCount) and take up to 100
-                const sortedSongs = fetchedSongs.sort((a, b) => {
-                    const aScore = (a.views || 0) + (a.requestCount || 0) * 2; // Requests weighted more
-                    const bScore = (b.views || 0) + (b.requestCount || 0) * 2;
-                    return bScore - aScore;
+        const fetchData = async () => {
+            setArtistsLoading(true);
+            setGenresLoading(true);
+            setSongsLoading(true);
+            setTopicsLoading(true);
+            setArtistsError(null);
+            setGenresError(null);
+            setSongsError(null);
+            setTopicsError(null);
+
+            void getGenieSettings()
+                .then((fetchedGenieSettings) => {
+                    if (!cancelled && fetchedGenieSettings) {
+                        setGenieSettings(fetchedGenieSettings);
+                    }
+                })
+                .catch(() => undefined);
+
+            void getAllArtists({ limit: 12 })
+                .then((fetchedArtists) => {
+                    if (cancelled) {
+                        return;
+                    }
+
+                    const topArtists = fetchedArtists.slice(0, 12);
+                    setArtists(topArtists);
+                    void Promise.all(topArtists.map(enrichArtistImage))
+                        .then((enrichedArtists) => {
+                            if (!cancelled) {
+                                setArtists(enrichedArtists);
+                            }
+                        })
+                        .catch(() => undefined);
+                })
+                .catch((err: any) => {
+                    if (!cancelled) {
+                        setArtistsError(err.message || 'Failed to load artists');
+                    }
+                })
+                .finally(() => {
+                    if (!cancelled) {
+                        setArtistsLoading(false);
+                    }
                 });
-                setSongs(sortedSongs.slice(0, 100)); // Show top 100 songs
-                setTrendingTopics(topics);
-                if (fetchedGenieSettings) {
-                    setGenieSettings(fetchedGenieSettings);
-                }
-            } catch (err: any) {
-                setError(err.message || 'Failed to load data');
-            } finally {
-                setLoading(false);
-            }
+
+            void getAllGenres()
+                .then((fetchedGenres) => {
+                    if (!cancelled) {
+                        setGenres(fetchedGenres.slice(0, 10));
+                    }
+                })
+                .catch((err: any) => {
+                    if (!cancelled) {
+                        setGenresError(err.message || 'Failed to load genres');
+                    }
+                })
+                .finally(() => {
+                    if (!cancelled) {
+                        setGenresLoading(false);
+                    }
+                });
+
+            void getSongs({
+                limit: 100,
+                lang: selectedLanguage !== 'all' ? selectedLanguage : undefined,
+                sortBy: 'createdAt',
+                sortOrder: 'desc'
+            })
+                .then((fetchedSongsResponse) => {
+                    if (cancelled) {
+                        return;
+                    }
+
+                    const fetchedSongs = Array.isArray(fetchedSongsResponse?.songs)
+                        ? fetchedSongsResponse.songs
+                        : Array.isArray(fetchedSongsResponse?.data)
+                        ? fetchedSongsResponse.data
+                        : [];
+
+                    const sortedSongs = fetchedSongs.sort((a, b) => {
+                        const aScore = (a.views || 0) + (a.requestCount || 0) * 2;
+                        const bScore = (b.views || 0) + (b.requestCount || 0) * 2;
+                        return bScore - aScore;
+                    });
+
+                    setSongs(sortedSongs.slice(0, 100));
+                })
+                .catch((err: any) => {
+                    if (!cancelled) {
+                        setSongsError(err.message || 'Failed to load songs');
+                    }
+                })
+                .finally(() => {
+                    if (!cancelled) {
+                        setSongsLoading(false);
+                    }
+                });
+
+            void getTopics(undefined, 'mostLiked', 5)
+                .then((topics) => {
+                    if (!cancelled) {
+                        setTrendingTopics(topics);
+                    }
+                })
+                .catch((err: any) => {
+                    if (!cancelled) {
+                        setTopicsError(err.message || 'Failed to load community topics');
+                    }
+                })
+                .finally(() => {
+                    if (!cancelled) {
+                        setTopicsLoading(false);
+                    }
+                });
         };
 
         fetchData();
+
+        return () => {
+            cancelled = true;
+        };
     }, [selectedLanguage]);
 
     const onImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
@@ -304,7 +399,10 @@ const HomePage: React.FC = () => {
                         ) : (
                             <div className="bg-gray-800/50 rounded-xl border border-gray-700 p-4">
                                 <div className="flex md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-1 max-h-[600px] overflow-x-auto md:overflow-y-auto pr-2 pb-2">
-                                    {songs.slice(0, 100).map((song, index) => (
+                                    {songs.slice(0, 100).map((song, index) => {
+                                        const artistName = getSongArtistName(song.artist as Song['artist'] | { name?: string });
+
+                                        return (
                                         <Link 
                                             to={`/songs/${song.id}`} 
                                             key={song.id} 
@@ -319,14 +417,15 @@ const HomePage: React.FC = () => {
                                                 <h3 className="text-sm font-medium text-white group-hover:text-green-400 transition-colors line-clamp-1">
                                                     {song.title}
                                                 </h3>
-                                                {song.artist && (
+                                                {artistName && (
                                                     <p className="text-xs text-gray-400 line-clamp-1">
-                                                        {song.artist}
+                                                        {artistName}
                                                     </p>
                                                 )}
                                             </div>
                                         </Link>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             </div>
                         )}
@@ -394,12 +493,10 @@ const HomePage: React.FC = () => {
                             </svg>
                         </Link>
                     </div>
-                    {loading ? (
-                        <div className="flex justify-center py-6 sm:py-12">
-                            <LoadingSpinner />
-                        </div>
-                    ) : error ? (
-                        <div className="text-red-400 text-center py-8">{error}</div>
+                    {artistsLoading ? (
+                        <SquareGridSkeleton count={6} />
+                    ) : artistsError ? (
+                        <div className="text-red-400 text-center py-8">{artistsError}</div>
                     ) : artists.length === 0 ? (
                         <div className="text-gray-400 text-center py-8">
                             No artists yet. <Link to="/admin/artists" className="text-green-400 hover:underline">Add some in the admin panel!</Link>
@@ -452,12 +549,10 @@ const HomePage: React.FC = () => {
                             </svg>
                         </Link>
                     </div>
-                    {loading ? (
-                        <div className="flex justify-center py-6 sm:py-12">
-                            <LoadingSpinner />
-                        </div>
-                    ) : error ? (
-                        <div className="text-red-400 text-center py-8">{error}</div>
+                    {genresLoading ? (
+                        <SquareGridSkeleton count={5} />
+                    ) : genresError ? (
+                        <div className="text-red-400 text-center py-8">{genresError}</div>
                     ) : genres.length === 0 ? (
                         <div className="text-gray-400 text-center py-8">
                             No genres yet. <Link to="/admin/genres" className="text-green-400 hover:underline">Add some in the admin panel!</Link>
@@ -492,7 +587,7 @@ const HomePage: React.FC = () => {
             </section>
 
             {/* Trending Discussions Section */}
-            {trendingTopics.length > 0 && (
+            {(topicsLoading || trendingTopics.length > 0) && (
                 <section className="py-16 bg-[#122118]">
                     <div className="container mx-auto px-4 sm:px-6 lg:px-8">
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
@@ -508,7 +603,12 @@ const HomePage: React.FC = () => {
                                 </svg>
                             </Link>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {topicsLoading ? (
+                            <SearchResultsSkeleton count={3} />
+                        ) : topicsError ? (
+                            <div className="text-red-400 text-center py-8">{topicsError}</div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {trendingTopics.map((topic) => (
                                 <Link
                                     key={topic.id}
@@ -555,7 +655,8 @@ const HomePage: React.FC = () => {
                                     </div>
                                 </Link>
                             ))}
-                        </div>
+                            </div>
+                        )}
                     </div>
                 </section>
             )}

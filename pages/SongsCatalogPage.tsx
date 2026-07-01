@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { getAllSongs, getAllArtists, getAllGenres } from '../services/firebaseService';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { SongListSkeleton } from '../components/PageSkeletons';
 import type { Song, Artist, Genre } from '../types';
 
 type SortOption = 'popularity' | 'title' | 'artist' | 'year' | 'genre' | 'language' | 'views' | 'requests';
@@ -190,8 +191,22 @@ const SongsCatalogPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#122118] flex items-center justify-center">
-        <LoadingSpinner />
+      <div className="min-h-screen bg-[#122118]">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8">
+          <div className="mb-4 sm:mb-6 lg:mb-8 space-y-3">
+            <div className="h-10 w-72 max-w-full rounded-full bg-gray-800/70 animate-pulse" />
+            <div className="h-5 w-96 max-w-full rounded-full bg-gray-800/60 animate-pulse" />
+          </div>
+          <div className="mb-4 sm:mb-6">
+            <div className="h-12 rounded-lg bg-gray-800/70 animate-pulse" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 mb-4 sm:mb-6">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <div key={index} className="h-24 rounded-lg bg-gray-800/70 animate-pulse" />
+            ))}
+          </div>
+          <SongListSkeleton count={8} />
+        </div>
       </div>
     );
   }

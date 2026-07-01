@@ -8,6 +8,7 @@ import { useConfirm } from '../hooks/useConfirm';
 import Notification from '../components/Notification';
 import ConfirmDialog from '../components/ConfirmDialog';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { DetailPageSkeleton } from '../components/PageSkeletons';
 import type { Artist, Song } from '../types';
 
 const ArtistDetailPage: React.FC = () => {
@@ -148,8 +149,10 @@ const ArtistDetailPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#122118] flex items-center justify-center">
-        <LoadingSpinner />
+      <div className="min-h-screen bg-[#122118]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <DetailPageSkeleton />
+        </div>
       </div>
     );
   }
