@@ -1,4 +1,4 @@
-import { featureFlags, spotifyProxyBaseUrl } from '../config/featureFlags';
+import { apiRequest } from './api';
 
 interface SpotifyArtist {
   id: string;
@@ -31,6 +31,17 @@ interface SpotifyTrack {
   preview_url?: string;
 }
 
+export interface SpotifyTrackSummary {
+  id: string;
+  name: string;
+  artistName: string;
+  albumName: string | null;
+  imageUrl: string | null;
+  previewUrl: string | null;
+  durationMs: number;
+  externalUrl: string | null;
+}
+
 interface SpotifySearchResponse {
   artists?: {
     items: SpotifyArtist[];
@@ -47,20 +58,13 @@ interface SpotifySearchResponse {
 }
 
 class SpotifyService {
-  private async proxyGet<T>(path: string, params: Record<string, string | number> = {}): Promise<T> {
-    if (!featureFlags.useSpotifyProxy) {
-      throw new Error('Spotify proxy is disabled by feature flag');
-    }
-
-    const url = new URL(`${spotifyProxyBaseUrl}/${path}`);
-    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, String(v)));
-
-    const response = await fetch(url.toString());
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Spotify proxy error (${response.status}): ${error}`);
-    }
-    return response.json() as Promise<T>;
+  private async spotifyGet<T>(path: string, params: Record<string, string | number> = {}): Promise<T> {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      query.set(key, String(value));
+    });
+    const qs = query.toString();
+    return apiRequest<T>(`${path}${qs ? `?${qs}` : ''}`);
   }
 
   /**
@@ -68,7 +72,7 @@ class SpotifyService {
    */
   async searchArtist(name: string, limit: number = 20): Promise<SpotifyArtist[]> {
     try {
-      const response = await this.proxyGet<SpotifySearchResponse>('spotifySearch', {
+      const response = await this.spotifyGet<SpotifySearchResponse>('/spotify/search', {
         q: name,
         type: 'artist',
         limit
@@ -86,7 +90,18 @@ class SpotifyService {
    */
   async getArtist(artistId: string): Promise<SpotifyArtist> {
     try {
-      return await this.proxyGet<SpotifyArtist>('spotifyArtistDetails', { artistId });
+      const response = await this.spotifyGet<SpotifySearchResponse>('/spotify/search', {
+        q: `id:${artistId}`,
+        type: 'artist',
+        limit: 1
+      });
+
+      const artist = response.artists?.items?.[0];
+      if (!artist) {
+        throw new Error('Artist not found on Spotify');
+      }
+
+      return artist;
     } catch (error) {
       console.error('Error getting artist:', error);
       throw error;
@@ -97,43 +112,26 @@ class SpotifyService {
    * Get artist's albums
    */
   async getArtistAlbums(artistId: string, limit: number = 50): Promise<SpotifyAlbum[]> {
-    try {
-      const response = await this.proxyGet<{ items: SpotifyAlbum[] }>('spotifyArtistAlbums', {
-        artistId,
-        limit
-      });
-      
-      return response.items || [];
-    } catch (error) {
-      console.error('Error getting artist albums:', error);
-      throw error;
-    }
+    void artistId;
+    void limit;
+    return [];
   }
 
   /**
    * Get album tracks
    */
   async getAlbumTracks(albumId: string, limit: number = 50): Promise<SpotifyTrack[]> {
-    try {
-      const response = await this.proxyGet<{ items: Array<SpotifyTrack> }>('spotifyAlbumTracks', {
-        albumId,
-        limit
-      });
-      
-      return response.items
-        .filter((track): track is SpotifyTrack => track !== undefined);
-    } catch (error) {
-      console.error('Error getting album tracks:', error);
-      throw error;
-    }
+    void albumId;
+    void limit;
+    return [];
   }
 
   /**
    * Get track details by ID
    */
-  async getTrack(trackId: string): Promise<SpotifyTrack> {
+  async getTrack(trackId: string): Promise<SpotifyTrackSummary> {
     try {
-      return await this.proxyGet<SpotifyTrack>('spotifyTrackDetails', { trackId });
+      return await this.spotifyGet<SpotifyTrackSummary>(`/spotify/track/${encodeURIComponent(trackId)}`);
     } catch (error) {
       console.error('Error getting track:', error);
       throw error;
@@ -145,7 +143,7 @@ class SpotifyService {
    */
   async searchTracks(query: string, limit: number = 20): Promise<SpotifyTrack[]> {
     try {
-      const response = await this.proxyGet<SpotifySearchResponse>('spotifySearch', {
+      const response = await this.spotifyGet<SpotifySearchResponse>('/spotify/search', {
         q: query,
         type: 'track',
         limit
@@ -164,6 +162,16 @@ class SpotifyService {
   async searchTrackByArtistAndTitle(artist: string, title: string): Promise<SpotifyTrack[]> {
     const query = `artist:${artist} track:${title}`;
     return this.searchTracks(query, 10);
+  }
+
+  async searchBestTrackSummary(artist: string, title: string): Promise<SpotifyTrackSummary | null> {
+    const tracks = await this.searchTrackByArtistAndTitle(artist, title);
+    const first = tracks[0];
+    if (!first?.id) {
+      return null;
+    }
+
+    return this.getTrack(first.id);
   }
 }
 

@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { spotifyService, SpotifyTrack } from '../services/spotifyService';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import type { MouseEvent } from 'react';
+import { spotifyService, type SpotifyTrackSummary } from '../services/spotifyService';
 
 interface SpotifyPlayerProps {
   title: string;
@@ -7,10 +8,21 @@ interface SpotifyPlayerProps {
   compact?: boolean;
 }
 
+const formatTime = (seconds: number) => {
+  const safe = Number.isFinite(seconds) && seconds >= 0 ? seconds : 0;
+  const minutes = Math.floor(safe / 60);
+  const remaining = Math.floor(safe % 60);
+  return `${minutes}:${remaining.toString().padStart(2, '0')}`;
+};
+
 const SpotifyPlayer: React.FC<SpotifyPlayerProps> = ({ title, artist, compact = false }) => {
-  const [spotifyTrack, setSpotifyTrack] = useState<SpotifyTrack | null>(null);
+  const [spotifyTrack, setSpotifyTrack] = useState<SpotifyTrackSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     const searchTrack = async () => {
@@ -23,12 +35,10 @@ const SpotifyPlayer: React.FC<SpotifyPlayerProps> = ({ title, artist, compact = 
         setLoading(true);
         setError(null);
         
-        // Search for the track using Spotify API
-        const tracks = await spotifyService.searchTrackByArtistAndTitle(artist, title);
-        
-        if (tracks && tracks.length > 0) {
-          // Use the first result (most relevant)
-          setSpotifyTrack(tracks[0]);
+        const track = await spotifyService.searchBestTrackSummary(artist, title);
+
+        if (track) {
+          setSpotifyTrack(track);
         } else {
           setError('Track not found on Spotify');
         }
@@ -48,48 +58,156 @@ const SpotifyPlayer: React.FC<SpotifyPlayerProps> = ({ title, artist, compact = 
     searchTrack();
   }, [title, artist]);
 
-  // Don't render anything if loading, error, or no track found
-  if (loading || error || !spotifyTrack) {
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) {
+      return;
+    }
+
+    const onTimeUpdate = () => setCurrentTime(audio.currentTime);
+    const onLoadedMetadata = () => setDuration(audio.duration || 0);
+    const onEnded = () => setIsPlaying(false);
+
+    audio.addEventListener('timeupdate', onTimeUpdate);
+    audio.addEventListener('loadedmetadata', onLoadedMetadata);
+    audio.addEventListener('ended', onEnded);
+
+    return () => {
+      audio.removeEventListener('timeupdate', onTimeUpdate);
+      audio.removeEventListener('loadedmetadata', onLoadedMetadata);
+      audio.removeEventListener('ended', onEnded);
+      audio.pause();
+      audio.src = '';
+    };
+  }, []);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) {
+      return;
+    }
+
+    setCurrentTime(0);
+    setDuration(0);
+    setIsPlaying(false);
+
+    audio.pause();
+    audio.currentTime = 0;
+
+    if (spotifyTrack?.previewUrl) {
+      audio.src = spotifyTrack.previewUrl;
+      audio.load();
+    } else {
+      audio.src = '';
+    }
+  }, [spotifyTrack?.previewUrl]);
+
+  const progressPercent = useMemo(() => {
+    if (!duration || duration <= 0) {
+      return 0;
+    }
+
+    return Math.min(100, (currentTime / duration) * 100);
+  }, [currentTime, duration]);
+
+  const togglePlayPause = async () => {
+    const audio = audioRef.current;
+    if (!audio || !spotifyTrack?.previewUrl) {
+      return;
+    }
+
+    if (isPlaying) {
+      audio.pause();
+      setIsPlaying(false);
+      return;
+    }
+
+    try {
+      await audio.play();
+      setIsPlaying(true);
+    } catch {
+      setIsPlaying(false);
+    }
+  };
+
+  const seek = (event: MouseEvent<HTMLDivElement>) => {
+    const audio = audioRef.current;
+    if (!audio || !duration) {
+      return;
+    }
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const ratio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+    const nextTime = ratio * duration;
+    audio.currentTime = nextTime;
+    setCurrentTime(nextTime);
+  };
+
+  if (loading) {
     return null;
   }
 
-  const spotifyEmbedUrl = `https://open.spotify.com/embed/track/${spotifyTrack.id}?utm_source=generator&theme=0`;
-
-  if (compact) {
+  if (error || !spotifyTrack) {
     return (
-      <div className="bg-gray-800/50 rounded-lg border border-gray-700 overflow-hidden w-full md:w-[280px] h-[80px]">
-        <iframe
-          src={spotifyEmbedUrl}
-          width="100%"
-          height="80"
-          frameBorder="0"
-          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-          loading="lazy"
-          style={{ border: 'none' }}
-        />
+      <div className={compact ? 'rounded-lg border border-gray-700 bg-gray-800/50 p-3 w-full md:w-[280px]' : 'mb-6 rounded-xl border border-gray-700 bg-gray-800/50 p-4 md:p-6 shadow-lg'}>
+        <div className="mb-2">
+          <h3 className="text-sm md:text-base font-bold text-white mb-1 truncate">{title}</h3>
+          <p className="text-gray-300 text-xs md:text-sm truncate">{artist}</p>
+        </div>
+        <p className="text-sm text-gray-400">Preview unavailable</p>
       </div>
     );
   }
 
+  const wrapperClass = compact
+    ? 'rounded-lg border border-gray-700 bg-gray-800/50 p-3 w-full md:w-[280px]'
+    : 'mb-6 rounded-xl border border-gray-700 bg-gray-800/50 p-4 md:p-6 shadow-lg';
+
   return (
-    <div className="mb-6 bg-gray-800/50 rounded-xl border border-gray-700 p-4 md:p-6 shadow-lg">
+    <div className={wrapperClass}>
+      <audio
+        ref={audioRef}
+        src={spotifyTrack.previewUrl ?? undefined}
+        preload="metadata"
+        crossOrigin="anonymous"
+      >
+        <source src={spotifyTrack.previewUrl ?? undefined} type="audio/mpeg" />
+      </audio>
+
       <div className="mb-4">
-        <h3 className="text-xl md:text-2xl font-bold text-white mb-1">{title}</h3>
-        <p className="text-gray-300 text-base md:text-lg">{artist}</p>
+        <h3 className="text-sm md:text-base font-bold text-white mb-1 truncate">{spotifyTrack.name}</h3>
+        <p className="text-gray-300 text-xs md:text-sm truncate">{spotifyTrack.artistName}</p>
       </div>
-      
-      <div className="w-full rounded-lg overflow-hidden">
-        <iframe
-          src={spotifyEmbedUrl}
-          width="100%"
-          height="152"
-          frameBorder="0"
-          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-          loading="lazy"
-          className="rounded-lg"
-          style={{ minHeight: '152px' }}
-        />
-      </div>
+
+      {!spotifyTrack.previewUrl ? (
+        <p className="text-sm text-gray-400">Preview unavailable</p>
+      ) : (
+        <>
+          <div className="mb-2 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={togglePlayPause}
+              className="rounded-md bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-500"
+            >
+              {isPlaying ? 'Pause' : 'Play'}
+            </button>
+            <span className="text-xs text-gray-300">
+              {formatTime(currentTime)} / {formatTime(duration)}
+            </span>
+          </div>
+
+          <div
+            onClick={seek}
+            className="relative h-2 w-full cursor-pointer rounded-full bg-gray-700"
+            aria-label="Seek track preview"
+          >
+            <div
+              className="absolute left-0 top-0 h-2 rounded-full bg-green-500"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 };
