@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { getAllSongs, getAllArtists, getAllGenres } from '../services/firebaseService';
+import { apiFetch } from '../lib/apiClient';
 import { SongListSkeleton } from '../components/PageSkeletons';
 import type { Song, Artist, Genre } from '../types';
 
@@ -45,14 +45,17 @@ const SongsCatalogPage: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        const [fetchedSongs, fetchedArtists, fetchedGenres] = await Promise.all([
-          getAllSongs(),
-          getAllArtists(),
-          getAllGenres()
+        const [songsData, artistsData, genresData] = await Promise.all([
+          apiFetch('/api/catalog/songs?limit=500'),
+          apiFetch('/api/catalog/artists?limit=200'),
+          apiFetch('/api/catalog/home'),
         ]);
-        setSongs(fetchedSongs);
-        setArtists(fetchedArtists);
-        setGenres(fetchedGenres);
+        setSongs((songsData?.songs || []).map((s: any) => ({
+          ...s,
+          image: s.image || '',
+        })));
+        setArtists(artistsData?.artists || []);
+        setGenres(genresData?.genres || []);
       } catch (err: any) {
         setError(err.message || 'Failed to load songs');
       } finally {

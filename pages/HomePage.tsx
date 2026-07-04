@@ -1,60 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getAllArtists, getAllGenres, getGenieSettings, getTopics } from '../services/firebaseService';
-import { spotifyService } from '../services/spotifyService';
+import { getGenieSettings, getTopics } from '../services/firebaseService';
 import SearchBar from '../components/SearchBar';
-import { getSongs } from '../lib/apiClient';
+import { apiFetch } from '../lib/apiClient';
 import { SearchResultsSkeleton, SongListSkeleton, SquareGridSkeleton } from '../components/PageSkeletons';
 import type { Artist, Genre, Song, GenieSettings, Topic } from '../types';
-
-const isBrokenHostImage = (url?: string): boolean => {
-    if (!url) {
-        return false;
-    }
-
-    try {
-        const parsed = new URL(url);
-        return parsed.hostname.toLowerCase() === 'images.afrogenie.dev';
-    } catch {
-        return false;
-    }
-};
-
-const enrichArtistImage = async (artist: Artist): Promise<Artist> => {
-    if (artist.image && !isBrokenHostImage(artist.image)) {
-        return artist;
-    }
-
-    try {
-        const spotifyArtist = artist.spotifyId
-            ? await spotifyService.getArtist(artist.spotifyId)
-            : (await spotifyService.searchArtist(artist.name, 1))[0];
-
-        const imageUrl = spotifyArtist?.images?.[0]?.url;
-        if (!imageUrl) {
-            return artist;
-        }
-
-        return {
-            ...artist,
-            image: imageUrl
-        };
-    } catch {
-        return artist;
-    }
-};
-
-const getSongArtistName = (artist: Song['artist'] | { name?: string } | null | undefined): string => {
-    if (!artist) {
-        return '';
-    }
-
-    if (typeof artist === 'string') {
-        return artist;
-    }
-
-    return artist.name || '';
-};
 
 const HomePage: React.FC = () => {
     const [artists, setArtists] = useState<Artist[]>([]);
@@ -113,83 +63,43 @@ const HomePage: React.FC = () => {
                 })
                 .catch(() => undefined);
 
-            void getAllArtists({ limit: 12 })
-                .then((fetchedArtists) => {
-                    if (cancelled) {
-                        return;
-                    }
+            void apiFetch('/api/catalog/home')
+                .then((data: any) => {
+                    if (cancelled) return;
 
-                    const topArtists = fetchedArtists.slice(0, 12);
-                    setArtists(topArtists);
-                    void Promise.all(topArtists.map(enrichArtistImage))
-                        .then((enrichedArtists) => {
-                            if (!cancelled) {
-                                setArtists(enrichedArtists);
-                            }
-                        })
-                        .catch(() => undefined);
-                })
-                .catch((err: any) => {
-                    if (!cancelled) {
-                        setArtistsError(err.message || 'Failed to load artists');
-                    }
-                })
-                .finally(() => {
-                    if (!cancelled) {
-                        setArtistsLoading(false);
-                    }
-                });
-
-            void getAllGenres()
-                .then((fetchedGenres) => {
-                    if (!cancelled) {
-                        setGenres(fetchedGenres.slice(0, 10));
-                    }
-                })
-                .catch((err: any) => {
-                    if (!cancelled) {
-                        setGenresError(err.message || 'Failed to load genres');
-                    }
-                })
-                .finally(() => {
-                    if (!cancelled) {
-                        setGenresLoading(false);
-                    }
-                });
-
-            void getSongs({
-                limit: 100,
-                lang: selectedLanguage !== 'all' ? selectedLanguage : undefined,
-                sortBy: 'createdAt',
-                sortOrder: 'desc'
-            })
-                .then((fetchedSongsResponse) => {
-                    if (cancelled) {
-                        return;
-                    }
-
-                    const fetchedSongs = Array.isArray(fetchedSongsResponse?.songs)
-                        ? fetchedSongsResponse.songs
-                        : Array.isArray(fetchedSongsResponse?.data)
-                        ? fetchedSongsResponse.data
-                        : [];
-
-                    const sortedSongs = fetchedSongs.sort((a, b) => {
+                    const fetchedSongs = (data.songs || []).map((s: any) => ({
+                        id: s.id,
+                        title: s.title,
+                        artist: s.artistName,
+                        artistId: s.artistId,
+                        image: s.imageUrl || '',
+                        views: 0,
+                        year: null,
+                        genre: '',
+                        album: s.albumName,
+                        requestCount: 0,
+                    }));
+                    const sortedSongs = fetchedSongs.sort((a: any, b: any) => {
                         const aScore = (a.views || 0) + (a.requestCount || 0) * 2;
                         const bScore = (b.views || 0) + (b.requestCount || 0) * 2;
                         return bScore - aScore;
                     });
-
                     setSongs(sortedSongs.slice(0, 100));
+                    setArtists((data.artists || []).slice(0, 12));
+                    setGenres((data.genres || []).slice(0, 10));
                 })
                 .catch((err: any) => {
                     if (!cancelled) {
-                        setSongsError(err.message || 'Failed to load songs');
+                        setSongsError(err.message || 'Failed to load catalog');
+                        setArtistsError(err.message || 'Failed to load catalog');
+                        setGenresError(err.message || 'Failed to load catalog');
                     }
                 })
                 .finally(() => {
                     if (!cancelled) {
                         setSongsLoading(false);
+                        setArtistsLoading(false);
+                        setGenresLoading(false);
                     }
                 });
 
@@ -400,7 +310,7 @@ const HomePage: React.FC = () => {
                             <div className="bg-gray-800/50 rounded-xl border border-gray-700 p-4">
                                 <div className="flex md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-1 max-h-[600px] overflow-x-auto md:overflow-y-auto pr-2 pb-2">
                                     {songs.slice(0, 100).map((song, index) => {
-                                        const artistName = getSongArtistName(song.artist as Song['artist'] | { name?: string });
+                                        const artistName = song.artist || '';
 
                                         return (
                                         <Link 
@@ -498,9 +408,7 @@ const HomePage: React.FC = () => {
                     ) : artistsError ? (
                         <div className="text-red-400 text-center py-8">{artistsError}</div>
                     ) : artists.length === 0 ? (
-                        <div className="text-gray-400 text-center py-8">
-                            No artists yet. <Link to="/admin/artists" className="text-green-400 hover:underline">Add some in the admin panel!</Link>
-                        </div>
+                        <SquareGridSkeleton count={6} />
                     ) : (
                         <div className="flex md:grid md:grid-cols-4 lg:grid-cols-6 gap-4 md:gap-6 overflow-x-auto pb-2">
                             {artists.map((artist) => (
