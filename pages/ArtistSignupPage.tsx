@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { uploadImage } from '../services/firebaseService';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 const ArtistSignupPage: React.FC = () => {
@@ -61,18 +60,6 @@ const ArtistSignupPage: React.FC = () => {
         throw new Error('Please fill in all required fields');
       }
 
-      // Upload profile image if provided
-      let photoURL: string | undefined;
-      if (profileImage) {
-        try {
-          photoURL = await uploadImage(profileImage, `artists/${formData.stageName}/${profileImage.name}`);
-        } catch (uploadError) {
-          console.error('Image upload error:', uploadError);
-          // Continue without image if upload fails
-        }
-      }
-
-      // Prepare artist data
       const artistData = {
         stageName: formData.stageName,
         genre: formData.genre,
@@ -85,7 +72,7 @@ const ArtistSignupPage: React.FC = () => {
           facebook: formData.facebook || undefined,
           youtube: formData.youtube || undefined,
         },
-        photoURL
+        photoURL: undefined as string | undefined,
       };
 
       // Sign up as artist
@@ -100,17 +87,18 @@ const ArtistSignupPage: React.FC = () => {
     } catch (err: any) {
       console.error('Artist signup error:', err);
 
-      // Handle specific Firebase auth errors with user-friendly messages
       let errorMessage = 'Failed to create artist account. Please try again.';
 
-      if (err.code === 'auth/email-already-in-use') {
+      const backendCode = err.code || '';
+
+      if (backendCode === 'UNAUTHORIZED') {
+        errorMessage = 'Invalid email or password. Please try again.';
+      } else if (backendCode === 'CONFLICT') {
         errorMessage = 'This email is already registered. Please sign in instead or use a different email.';
-      } else if (err.code === 'auth/weak-password') {
-        errorMessage = 'Password is too weak. Please use at least 6 characters.';
-      } else if (err.code === 'auth/invalid-email') {
-        errorMessage = 'Invalid email address. Please check and try again.';
-      } else if (err.code === 'auth/network-request-failed') {
-        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (backendCode === 'VALIDATION_ERROR') {
+        errorMessage = err.message || 'Please check your inputs and try again.';
+      } else if (backendCode === 'RATE_LIMITED') {
+        errorMessage = 'Too many attempts. Please try again later.';
       } else if (err.message) {
         errorMessage = err.message;
       }

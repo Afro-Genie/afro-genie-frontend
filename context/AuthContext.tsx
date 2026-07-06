@@ -148,6 +148,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return;
         }
 
+        const spotifyCode = params.get('code');
+        if (spotifyCode) {
+          try {
+            const spotifyTokens = await spotifyAuthService.exchangeCodeForToken(spotifyCode);
+            const authResult = await authApi.signInWithSpotify(spotifyTokens.access_token);
+            initFromAuthResult(authResult);
+          } catch (err) {
+            console.error('Spotify auth callback error:', err);
+          }
+          window.history.replaceState({}, document.title, window.location.pathname);
+          setLoading(false);
+          return;
+        }
+
         const storedRefresh = getRefreshToken();
         if (storedRefresh) {
           try {
@@ -194,7 +208,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       photoURL?: string;
     }
   ) => {
-    const result = await authApi.register(email, password, artistData.stageName);
+    const result = await authApi.registerArtist({
+      email,
+      password,
+      stageName: artistData.stageName,
+      genre: artistData.genre,
+      bio: artistData.bio,
+      location: artistData.location,
+      website: artistData.website,
+      socialLinks: artistData.socialLinks,
+      photoURL: artistData.photoURL,
+    });
     initFromAuthResult(result);
   };
 

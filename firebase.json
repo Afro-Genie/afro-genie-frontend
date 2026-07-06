@@ -2,10 +2,7 @@
   "functions": {
     "source": "functions"
   },
-  "firestore": {
-    "rules": "firestore.rules"
-  },
-  "storage": [
+"storage": [
     {
       "bucket": "afrogenie.firebasestorage.app",
       "rules": "storage.rules"

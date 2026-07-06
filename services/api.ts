@@ -133,7 +133,49 @@ export const authApi = {
       body: JSON.stringify({ refreshToken: token }),
     }),
 
+  registerArtist: (data: {
+    email: string;
+    password: string;
+    stageName: string;
+    genre: string;
+    bio: string;
+    location?: string;
+    website?: string;
+    socialLinks?: Record<string, string | undefined>;
+    photoURL?: string;
+  }) =>
+    apiRequest<{
+      user: { id: string; email: string; displayName: string; role: string };
+      accessToken: string;
+      refreshToken: string;
+    }>('/auth/register-artist', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
   getGoogleUrl: () => `${API_BASE}/auth/google`,
+
+  signInWithSpotify: (accessToken: string) =>
+    apiRequest<{
+      user: { id: string; email: string; displayName: string; role: string };
+      accessToken: string;
+      refreshToken: string;
+    }>('/auth/spotify', {
+      method: 'POST',
+      body: JSON.stringify({ accessToken }),
+    }),
+
+  forgotPassword: (email: string) =>
+    apiRequest<{ success: boolean }>('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+
+  resetPassword: (token: string, newPassword: string) =>
+    apiRequest<{ success: boolean }>('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, newPassword }),
+    }),
 };
 
 // Songs API

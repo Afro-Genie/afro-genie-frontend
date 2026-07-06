@@ -31,22 +31,23 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
       }
       onClose();
     } catch (err: any) {
-      // Provide user-friendly error messages
-      const errorCode = err.code || '';
-      let errorMessage = 'An error occurred';
-      
-      if (errorCode.includes('invalid-credential') || errorCode.includes('user-not-found') || errorCode.includes('wrong-password')) {
+      const backendCode = err.code || '';
+      const backendMessage = err.message || 'An error occurred';
+
+      let errorMessage = backendMessage;
+
+      if (backendCode === 'UNAUTHORIZED') {
         errorMessage = 'Invalid email or password. Please try again.';
-      } else if (errorCode.includes('email-already-in-use')) {
+      } else if (backendCode === 'CONFLICT') {
         errorMessage = 'This email is already registered. Please sign in instead.';
-      } else if (errorCode.includes('weak-password')) {
-        errorMessage = 'Password should be at least 6 characters.';
-      } else if (errorCode.includes('invalid-email')) {
-        errorMessage = 'Please enter a valid email address.';
-      } else {
-        errorMessage = err.message || 'An error occurred';
+      } else if (backendCode === 'RATE_LIMITED') {
+        errorMessage = 'Too many login attempts. Please try again later.';
+      } else if (backendCode === 'VALIDATION_ERROR') {
+        errorMessage = backendMessage;
+      } else if (!backendCode || backendCode === 'UNKNOWN') {
+        errorMessage = 'An error occurred. Please try again.';
       }
-      
+
       setError(errorMessage);
     } finally {
       setLoading(false);
