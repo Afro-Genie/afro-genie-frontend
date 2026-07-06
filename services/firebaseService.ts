@@ -4,6 +4,33 @@
 import { artistsApi, songsApi, translationsApi, apiRequest } from './api';
 import type { Artist, Song, Genre, GenieSettings, Topic, TopicComment, ForumCategory, Translation, TranslationRequest, SongRequest, TranslationVote, TranslationCorrection, AppNotification } from '../types';
 
+const BROKEN_IMAGE_HOSTS = new Set(['images.afrogenie.dev']);
+
+const sanitizeImageUrl = (raw: unknown): string => {
+  if (typeof raw !== 'string') {
+    return '';
+  }
+
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  if (trimmed.startsWith('/')) {
+    return trimmed;
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    if (BROKEN_IMAGE_HOSTS.has(parsed.hostname.toLowerCase())) {
+      return '';
+    }
+    return trimmed;
+  } catch {
+    return '';
+  }
+};
+
 // Artist Operations
 export const addArtist = async (artist: Omit<Artist, 'id'>) => {
   const result = await artistsApi.create(artist);
@@ -19,9 +46,9 @@ export const getArtist = async (artistId: string) => {
   }
 };
 
-export const getAllArtists = async () => {
+export const getAllArtists = async (params?: { limit?: number; search?: string; genre?: string }) => {
   try {
-    const result = await artistsApi.getAll({ limit: 200 });
+    const result = await artistsApi.getAll({ limit: params?.limit ?? 200, search: params?.search, genre: params?.genre });
     return (result.data || []).map((a: any) => normalizeArtist(a)).filter(Boolean);
   } catch {
     return [];
@@ -79,7 +106,7 @@ const normalizeSong = (s: any): Song | null => {
     title: s.title,
     artist: s.artist?.name || s.artist || '',
     artistId: s.artistId,
-    image: s.imageUrl || s.coverImageUrl || s.image || '',
+    image: sanitizeImageUrl(s.imageUrl || s.coverImageUrl || s.image || ''),
     createdBy: s.createdBy,
     createdAt: s.createdAt,
     updatedAt: s.updatedAt,
@@ -102,7 +129,7 @@ const normalizeArtist = (a: any): Artist | null => {
     id: a.id,
     name: a.name,
     genre: a.genres?.[0] || '',
-    image: a.imageUrl || a.image || '',
+    image: sanitizeImageUrl(a.imageUrl || a.image || ''),
     spotifyId: a.spotifyId,
     bio: a.bio,
     popularity: a.popularity,

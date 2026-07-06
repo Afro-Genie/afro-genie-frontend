@@ -12,6 +12,7 @@ import {
   PlusIcon
 } from '../../components/icons/FlatIcons';
 import APIManagement from '../../components/admin/APIManagement';
+import { AdminDashboardSkeleton } from '../../components/PageSkeletons';
 
 const AdminDashboard: React.FC = () => {
   const [stats, setStats] = useState({
@@ -111,8 +112,8 @@ const AdminDashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-green-400"></div>
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 px-6 py-8">
+        <AdminDashboardSkeleton />
       </div>
     );
   }

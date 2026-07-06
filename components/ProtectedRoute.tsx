@@ -14,9 +14,9 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireAdmin 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#122118]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-green-400 mx-auto mb-4"></div>
-          <p className="text-gray-400">Loading...</p>
+        <div className="text-center w-full max-w-sm px-4">
+          <div className="mx-auto h-32 w-full max-w-[18rem] rounded-2xl bg-gray-800/70 border border-gray-700 animate-pulse mb-4" />
+          <div className="h-4 w-28 mx-auto rounded-full bg-gray-700/70 animate-pulse" />
         </div>
       </div>
     );

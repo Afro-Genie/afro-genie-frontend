@@ -11,7 +11,7 @@ import {
   uploadImage,
   addArtist
 } from '../services/firebaseService';
-import LoadingSpinner from '../components/LoadingSpinner';
+import { AdminListPageSkeleton } from '../components/PageSkeletons';
 import type { Song, Translation } from '../types';
 
 type TabType = 'songs' | 'add-song' | 'add-lyrics' | 'analytics' | 'profile';
@@ -294,9 +294,7 @@ const ArtistDashboard: React.FC = () => {
           <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
             <h2 className="text-2xl font-semibold text-white mb-4">My Songs</h2>
             {loading ? (
-              <div className="flex justify-center py-12">
-                <LoadingSpinner />
-              </div>
+              <AdminListPageSkeleton rows={5} />
             ) : songs.length === 0 ? (
               <div className="text-center py-12 text-gray-400">
                 <p>You haven't added any songs yet.</p>
@@ -381,7 +379,7 @@ const ArtistDashboard: React.FC = () => {
                 disabled={loading}
                 className="w-full bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
               >
-                {loading ? <LoadingSpinner /> : 'Add Song'}
+                {loading ? <span className="inline-flex h-4 w-16 rounded-full bg-white/30 animate-pulse" /> : 'Add Song'}
               </button>
             </form>
           </div>
@@ -474,7 +472,7 @@ const ArtistDashboard: React.FC = () => {
                 disabled={loading}
                 className="w-full bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
               >
-                {loading ? <LoadingSpinner /> : 'Add Lyrics'}
+                {loading ? <span className="inline-flex h-4 w-20 rounded-full bg-white/30 animate-pulse" /> : 'Add Lyrics'}
               </button>
             </form>
           </div>
@@ -485,8 +483,17 @@ const ArtistDashboard: React.FC = () => {
           <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
             <h2 className="text-2xl font-semibold text-white mb-4">Analytics</h2>
             {loading ? (
-              <div className="flex justify-center py-12">
-                <LoadingSpinner />
+              <div className="space-y-4 animate-pulse py-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {Array.from({ length: 3 }).map((_, index) => (
+                    <div key={index} className="h-24 rounded-lg bg-gray-700" />
+                  ))}
+                </div>
+                <div className="space-y-2">
+                  {Array.from({ length: 4 }).map((_, index) => (
+                    <div key={index} className="h-12 rounded-lg bg-gray-700/70" />
+                  ))}
+                </div>
               </div>
             ) : analytics ? (
               <div className="space-y-6">
@@ -656,7 +663,7 @@ const ArtistDashboard: React.FC = () => {
                 disabled={loading}
                 className="w-full bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
               >
-                {loading ? <LoadingSpinner /> : 'Update Profile'}
+                {loading ? <span className="inline-flex h-4 w-24 rounded-full bg-white/30 animate-pulse" /> : 'Update Profile'}
               </button>
             </form>
           </div>

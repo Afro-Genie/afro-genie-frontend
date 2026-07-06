@@ -32,7 +32,7 @@ import {
   UploadIcon,
   ImageIcon
 } from '../../components/icons/FlatIcons';
-import LoadingSpinner from '../../components/LoadingSpinner';
+import { AdminTabbedPageSkeleton } from '../../components/PageSkeletons';
 import type { Artist, Song, Genre } from '../../types';
 
 type ContentType = 'artists' | 'songs' | 'genres';
@@ -357,9 +357,7 @@ const UnifiedManager: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <LoadingSpinner />
-      </div>
+      <AdminTabbedPageSkeleton />
     );
   }
 

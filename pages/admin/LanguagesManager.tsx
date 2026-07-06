@@ -8,7 +8,7 @@ import {
 } from '../../services/languageService';
 import { useNotification } from '../../hooks/useNotification';
 import Notification from '../../components/Notification';
-import LoadingSpinner from '../../components/LoadingSpinner';
+import { AdminListPageSkeleton } from '../../components/PageSkeletons';
 import type { Language } from '../../types';
 
 const LanguagesManager: React.FC = () => {
@@ -143,9 +143,7 @@ const LanguagesManager: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-[400px]">
-        <LoadingSpinner />
-      </div>
+      <AdminListPageSkeleton rows={6} />
     );
   }
 
@@ -215,10 +213,10 @@ const LanguagesManager: React.FC = () => {
                 className="w-full sm:w-auto min-h-[44px] bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-semibold py-2.5 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 text-base"
               >
                 {submitting ? (
-                  <>
-                    <LoadingSpinner />
+                  <span className="inline-flex items-center gap-2">
+                    <span className="h-4 w-4 rounded-full border-2 border-white/60 border-t-transparent animate-pulse" />
                     {editingLanguage ? 'Updating...' : 'Adding...'}
-                  </>
+                  </span>
                 ) : (
                   <>
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

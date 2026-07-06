@@ -5,7 +5,7 @@ import { useNotification } from '../../hooks/useNotification';
 import { useConfirm } from '../../hooks/useConfirm';
 import Notification from '../../components/Notification';
 import ConfirmDialog from '../../components/ConfirmDialog';
-import LoadingSpinner from '../../components/LoadingSpinner';
+import { AdminListPageSkeleton } from '../../components/PageSkeletons';
 import type { TranslationRequest } from '../../types';
 
 const TranslationRequestsPage: React.FC = () => {
@@ -105,9 +105,7 @@ const TranslationRequestsPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <LoadingSpinner />
-      </div>
+      <AdminListPageSkeleton rows={6} />
     );
   }
 
@@ -258,7 +256,7 @@ const TranslationRequestsPage: React.FC = () => {
                         )}
                         {request.songId && (
                           <Link
-                            to={`/song/${request.songId}`}
+                            to={`/songs/${request.songId}`}
                             className="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-xs font-semibold rounded transition-colors"
                           >
                             View Song

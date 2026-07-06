@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getAllUsers, updateUserRole, deleteUser } from '../../services/firebaseService';
+import { AdminListPageSkeleton } from '../../components/PageSkeletons';
 import type { UserProfile } from '../../services/firebaseService';
 
 const UsersManager: React.FC = () => {
@@ -78,9 +79,7 @@ const UsersManager: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-green-400"></div>
-      </div>
+      <AdminListPageSkeleton rows={6} />
     );
   }
 

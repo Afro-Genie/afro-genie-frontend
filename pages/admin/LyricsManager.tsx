@@ -17,7 +17,7 @@ import {
 import lyricAPIService from '../../services/lyricAPIService';
 import lyricDataProcessor from '../../services/lyricDataProcessor';
 import DuplicateResolver from '../../components/admin/DuplicateResolver';
-import LoadingSpinner from '../../components/LoadingSpinner';
+import { AdminTabbedPageSkeleton } from '../../components/PageSkeletons';
 import type { Translation, Song, Artist, APISearchResult, FullSongData } from '../../types';
 
 type TabType = 'all' | 'manual' | 'api' | 'requests' | 'translations';
@@ -459,9 +459,7 @@ const LyricsManager: React.FC = () => {
 
   if (loading && activeTab === 'all') {
     return (
-      <div className="flex justify-center items-center h-64">
-        <LoadingSpinner />
-      </div>
+      <AdminTabbedPageSkeleton />
     );
   }
 

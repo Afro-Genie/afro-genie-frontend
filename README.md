@@ -39,3 +39,18 @@ Set these in `.env.local`:
 - `VITE_FLAG_REQUEST_FEEDBACK_MODAL=true`
 - `VITE_FLAG_REQUEST_COMPLETION_NOTIFICATIONS=true`
 - `VITE_SPOTIFY_PROXY_BASE_URL=https://us-central1-afrogenie.cloudfunctions.net`
+
+## Frontend -> Backend Link (Env)
+
+Set `VITE_API_URL` to your backend base path including `/api`.
+
+- Staging example: `https://afro-genie-backend-staging-production.up.railway.app/api`
+- Production example: `https://afro-genie-backend-production.up.railway.app/api`
+
+Automated commands:
+
+- `npm run env:set:api:staging`
+- `npm run env:set:api:production`
+- `npm run env:set:api -- staging https://your-custom-backend-domain/api`
+
+These commands update `.env`, `.env.production`, and `.env.example`.

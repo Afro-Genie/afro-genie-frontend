@@ -7,7 +7,7 @@ import { useNotification } from '../hooks/useNotification';
 import { useConfirm } from '../hooks/useConfirm';
 import Notification from '../components/Notification';
 import ConfirmDialog from '../components/ConfirmDialog';
-import LoadingSpinner from '../components/LoadingSpinner';
+import { DetailPageSkeleton } from '../components/PageSkeletons';
 import type { Artist, Song } from '../types';
 
 const ArtistDetailPage: React.FC = () => {
@@ -67,7 +67,7 @@ const ArtistDetailPage: React.FC = () => {
 
         // Get artist's songs
         const allSongs = await getAllSongs();
-        const artistSongs = allSongs.filter(song => song.artistId === id);
+        const artistSongs = allSongs.filter((song: Song) => song.artistId === id);
         setSongs(artistSongs);
       } catch (error: any) {
         showNotification({
@@ -116,6 +116,10 @@ const ArtistDetailPage: React.FC = () => {
       }
 
       // Sync with Spotify
+      if (!spotifyId) {
+        throw new Error('Could not determine Spotify artist ID');
+      }
+
       await syncArtistFromSpotify(artist.id, spotifyId);
       
       // Refresh artist data
@@ -144,8 +148,10 @@ const ArtistDetailPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#122118] flex items-center justify-center">
-        <LoadingSpinner />
+      <div className="min-h-screen bg-[#122118]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <DetailPageSkeleton />
+        </div>
       </div>
     );
   }
@@ -209,7 +215,7 @@ const ArtistDetailPage: React.FC = () => {
                     </h1>
                     {displayGenres.length > 0 && (
                       <div className="flex flex-wrap gap-2 mb-4">
-                        {displayGenres.map((genre, index) => (
+                        {displayGenres.map((genre: string, index: number) => (
                           <span
                             key={index}
                             className="px-3 py-1 bg-green-600/20 text-green-300 rounded-full text-sm font-medium border border-green-600/30"
@@ -230,7 +236,7 @@ const ArtistDetailPage: React.FC = () => {
                     >
                       {syncing ? (
                         <>
-                          <LoadingSpinner />
+                          <span className="h-4 w-4 rounded-full border-2 border-white/60 border-t-transparent animate-pulse" />
                           <span>Updating...</span>
                         </>
                       ) : (
@@ -319,7 +325,7 @@ const ArtistDetailPage: React.FC = () => {
               {songs.map((song) => (
                 <Link
                   key={song.id}
-                  to={`/song/${song.id}`}
+                  to={`/songs/${song.id}`}
                   className="group flex flex-col bg-gray-700/50 hover:bg-gray-700 rounded-lg p-4 min-h-[48px] border border-gray-600 hover:border-green-500/50 transition-all"
                 >
                   <div className="aspect-square rounded-lg overflow-hidden mb-3 bg-gray-600">

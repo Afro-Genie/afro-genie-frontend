@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { getAllSongs, getUserFavorites, getUserHistory } from '../services/firebaseService';
 import { useAuth } from '../context/AuthContext';
 import ChevronDownIcon from './icons/ChevronDownIcon';
-import LoadingSpinner from './LoadingSpinner';
 
 const LeftSidebar: React.FC = () => {
   const { user } = useAuth();
@@ -42,15 +41,17 @@ const LeftSidebar: React.FC = () => {
       <section>
         <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4">Trending Now</h2>
         {loading ? (
-          <div className="flex justify-center py-4">
-            <LoadingSpinner />
+          <div className="space-y-3 py-4 animate-pulse">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={index} className="h-10 rounded-lg bg-gray-800/70" />
+            ))}
           </div>
         ) : (
           <ul className="space-y-2">
             {trendingSongs.map((song, index) => (
               <li key={song.id} className={index === 0 ? "bg-green-500/20 rounded-lg" : ""}>
                 <Link
-                  to={`/song/${song.id}`}
+                  to={`/songs/${song.id}`}
                   className="block py-2 px-4 text-gray-300 hover:text-white font-semibold text-sm sm:text-base min-h-[44px] flex items-center"
                   onClick={() => {
                     // Close mobile sidebar when navigating

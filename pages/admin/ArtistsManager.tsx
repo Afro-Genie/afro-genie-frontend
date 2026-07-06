@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { getAllArtists, addArtist, updateArtist, deleteArtist, uploadArtistImage } from '../../services/firebaseService';
+import { uploadArtistImage } from '../../services/firebaseService';
+import { useAuth } from '../../context/AuthContext';
+import { getArtists } from '../../lib/apiClient';
+import { AdminListPageSkeleton } from '../../components/PageSkeletons';
 import type { Artist } from '../../types';
 
 const ArtistsManager: React.FC = () => {
+  const { authFetch } = useAuth();
   const [artists, setArtists] = useState<Artist[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingArtist, setEditingArtist] = useState<Artist | null>(null);
@@ -18,8 +22,27 @@ const ArtistsManager: React.FC = () => {
 
   const fetchArtists = async () => {
     try {
-      const fetchedArtists = await getAllArtists();
-      setArtists(fetchedArtists);
+      const response = await getArtists({ limit: 200 });
+      const artistsData = Array.isArray(response?.data)
+        ? response.data
+        : Array.isArray(response)
+        ? response
+        : [];
+
+      setArtists(
+        artistsData.map((artist: any) => ({
+          id: artist.id,
+          name: artist.name,
+          genre: Array.isArray(artist.genres) ? artist.genres[0] || '' : artist.genre || '',
+          image: artist.imageUrl || artist.image || '',
+          spotifyId: artist.spotifyId,
+          bio: artist.bio,
+          popularity: artist.popularity,
+          followers: artist.followers,
+          externalUrl: artist.externalUrl,
+          genres: artist.genres || [],
+        }))
+      );
     } catch (error) {
       console.error('Error fetching artists:', error);
     } finally {
@@ -41,16 +64,36 @@ const ArtistsManager: React.FC = () => {
       }
 
       if (editingArtist) {
-        await updateArtist(editingArtist.id, {
-          name: formData.name,
-          genre: formData.genre,
-          image: imageUrl
+        await authFetch('/api/artists/' + editingArtist.id, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: formData.name,
+            bio: editingArtist.bio || '',
+            imageUrl: imageUrl || undefined,
+            spotifyId: editingArtist.spotifyId || undefined,
+            genres: formData.genre ? [formData.genre] : editingArtist.genres || [],
+            popularity: editingArtist.popularity ?? 0,
+            followers: editingArtist.followers ?? 0,
+            externalUrl: editingArtist.externalUrl || undefined,
+            verified: false,
+          }),
         });
       } else {
-        await addArtist({
-          name: formData.name,
-          genre: formData.genre,
-          image: imageUrl
+        await authFetch('/api/artists', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: formData.name,
+            bio: '',
+            imageUrl: imageUrl || undefined,
+            spotifyId: undefined,
+            genres: formData.genre ? [formData.genre] : [],
+            popularity: 0,
+            followers: 0,
+            externalUrl: undefined,
+            verified: false,
+          }),
         });
       }
 
@@ -77,7 +120,7 @@ const ArtistsManager: React.FC = () => {
   const handleDelete = async (artistId: string) => {
     if (window.confirm('Are you sure you want to delete this artist?')) {
       try {
-        await deleteArtist(artistId);
+        await authFetch('/api/artists/' + artistId, { method: 'DELETE' });
         fetchArtists();
       } catch (error) {
         console.error('Error deleting artist:', error);
@@ -97,9 +140,7 @@ const ArtistsManager: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-green-400"></div>
-      </div>
+      <AdminListPageSkeleton rows={6} />
     );
   }
 

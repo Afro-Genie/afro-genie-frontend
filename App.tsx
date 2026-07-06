@@ -36,7 +36,7 @@ import ResetPasswordPage from './pages/ResetPasswordPage';
 function App() {
   return (
     <AuthProvider>
-      <HashRouter>
+      <HashRouter future={{ v7_startTransition: true }}>
         <div className="text-white font-sans bg-[#122118] min-h-screen flex flex-col">
           <Header />
           <main className="flex-grow">
@@ -47,6 +47,7 @@ function App() {
               <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route path="/" element={<HomePage />} />
               <Route path="/song/:id" element={<TranslationPage />} />
+              <Route path="/songs/:id" element={<TranslationPage />} />
               <Route path="/artist/:id" element={<ArtistDetailPage />} />
               <Route path="/songs" element={<SongsCatalogPage />} />
               <Route path="/search" element={<SearchResultsPage />} />

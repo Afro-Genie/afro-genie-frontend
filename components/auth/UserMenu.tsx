@@ -33,8 +33,9 @@ const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
 
   if (user) {
     return (
-      <div className="flex items-center space-x-2 sm:space-x-4">
+      <div className="flex items-center space-x-2 sm:space-x-4" data-testid="user-menu">
         <div className="hidden md:flex items-center space-x-2">
+          <span className="text-sm text-gray-300 max-w-[160px] truncate">{user.displayName || user.email || 'User'}</span>
           {isArtist && (
             <Link 
               to="/artist/dashboard" 

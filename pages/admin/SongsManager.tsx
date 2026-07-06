@@ -1,15 +1,17 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getAllSongs, deleteSong, getAllArtists } from '../../services/firebaseService';
 import { useNotification } from '../../hooks/useNotification';
 import { useConfirm } from '../../hooks/useConfirm';
+import { useAuth } from '../../context/AuthContext';
+import { getSongs, getArtists } from '../../lib/apiClient';
 import Notification from '../../components/Notification';
 import ConfirmDialog from '../../components/ConfirmDialog';
-import LoadingSpinner from '../../components/LoadingSpinner';
+import { AdminListPageSkeleton } from '../../components/PageSkeletons';
 import type { Song, Artist } from '../../types';
 
 const SongsManager: React.FC = () => {
   const navigate = useNavigate();
+  const { authFetch } = useAuth();
   const { notification, showNotification, hideNotification } = useNotification();
   const { confirmState, confirm, closeConfirm } = useConfirm();
   
@@ -31,12 +33,43 @@ const SongsManager: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [fetchedSongs, fetchedArtists] = await Promise.all([
-        getAllSongs(),
-        getAllArtists()
-      ]);
-      setSongs(fetchedSongs);
-      setArtists(fetchedArtists);
+      const [songsResponse, artistsResponse] = await Promise.all([getSongs({ limit: 500 }), getArtists({ limit: 200 })]);
+
+      const songsData = Array.isArray(songsResponse?.songs)
+        ? songsResponse.songs
+        : Array.isArray(songsResponse?.data)
+        ? songsResponse.data
+        : [];
+
+      const artistsData = Array.isArray(artistsResponse?.data)
+        ? artistsResponse.data
+        : Array.isArray(artistsResponse)
+        ? artistsResponse
+        : [];
+
+      setSongs(
+        songsData.map((song: any) => ({
+          id: song.id,
+          title: song.title,
+          artist: song.artist?.name || song.artist || '',
+          artistId: song.artistId || song.artist?.id || '',
+          image: song.coverImageUrl || song.imageUrl || song.image || '',
+          genre: Array.isArray(song.genres) ? song.genres[0]?.genre?.name || song.genres[0] || '' : song.genre || '',
+          year: song.releaseYear || song.year,
+          language: song.primaryLanguage || song.language,
+          views: song.views || 0,
+          createdAt: song.createdAt,
+        }))
+      );
+
+      setArtists(
+        artistsData.map((artist: any) => ({
+          id: artist.id,
+          name: artist.name,
+          genre: Array.isArray(artist.genres) ? artist.genres[0] || '' : artist.genre || '',
+          image: artist.imageUrl || artist.image || '',
+        }))
+      );
     } catch (error: any) {
       showNotification({
         message: `Error loading songs: ${error.message}`,
@@ -139,7 +172,7 @@ const SongsManager: React.FC = () => {
     if (!hasConfirmed) return;
 
       try {
-        await deleteSong(songId);
+        await authFetch('/api/songs/' + songId, { method: 'DELETE' });
       showNotification({
         message: 'Song deleted successfully!',
         type: 'success'
@@ -168,9 +201,7 @@ const SongsManager: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <LoadingSpinner />
-      </div>
+      <AdminListPageSkeleton rows={8} />
     );
   }
 
@@ -417,7 +448,7 @@ const SongsManager: React.FC = () => {
                             Delete
                           </button>
                           <Link
-                            to={`/song/${song.id}`}
+                            to={`/songs/${song.id}`}
                             className="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm font-semibold rounded transition-colors"
                           >
                             View
@@ -480,7 +511,7 @@ const SongsManager: React.FC = () => {
                     Delete
                   </button>
                     <Link
-                      to={`/song/${song.id}`}
+                      to={`/songs/${song.id}`}
                       className="flex-1 min-h-[44px] px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white text-sm font-semibold rounded transition-colors text-center"
                     >
                       View

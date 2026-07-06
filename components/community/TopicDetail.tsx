@@ -308,7 +308,7 @@ const TopicDetail: React.FC = () => {
           <div className="mb-4 p-3 bg-gray-700/50 rounded-lg border border-gray-600">
             {linkedSong && (
               <Link
-                to={`/song/${linkedSong.id}`}
+                to={`/songs/${linkedSong.id}`}
                 className="flex items-center gap-3 hover:opacity-80 transition-opacity"
               >
                 {linkedSong.image && (

@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getAllArtists, getAllGenres, getAllSongs, getGenieSettings, getTopics } from '../services/firebaseService';
+import { getGenieSettings, getTopics } from '../services/firebaseService';
 import SearchBar from '../components/SearchBar';
-import LoadingSpinner from '../components/LoadingSpinner';
+import { apiFetch } from '../lib/apiClient';
+import { SearchResultsSkeleton, SongListSkeleton, SquareGridSkeleton } from '../components/PageSkeletons';
 import type { Artist, Genre, Song, GenieSettings, Topic } from '../types';
 
 const HomePage: React.FC = () => {
@@ -10,8 +11,15 @@ const HomePage: React.FC = () => {
     const [genres, setGenres] = useState<Genre[]>([]);
     const [songs, setSongs] = useState<Song[]>([]);
     const [trendingTopics, setTrendingTopics] = useState<Topic[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const [artistsLoading, setArtistsLoading] = useState(true);
+    const [genresLoading, setGenresLoading] = useState(true);
+    const [songsLoading, setSongsLoading] = useState(true);
+    const [topicsLoading, setTopicsLoading] = useState(true);
+    const [artistsError, setArtistsError] = useState<string | null>(null);
+    const [genresError, setGenresError] = useState<string | null>(null);
+    const [songsError, setSongsError] = useState<string | null>(null);
+    const [topicsError, setTopicsError] = useState<string | null>(null);
+    const [selectedLanguage, setSelectedLanguage] = useState<string>('all');
     const [genieSettings, setGenieSettings] = useState<GenieSettings>({
         imageUrl: '/Images/gene.png',
         animationType: 'float',
@@ -35,46 +43,94 @@ const HomePage: React.FC = () => {
     ];
 
     useEffect(() => {
+        let cancelled = false;
+
         const fetchData = async () => {
-            setLoading(true);
-            setError(null);
-            try {
-                const [fetchedArtists, fetchedGenres, fetchedSongs, fetchedGenieSettings, topics] = await Promise.all([
-                    getAllArtists(),
-                    getAllGenres(),
-                    getAllSongs(),
-                    getGenieSettings(),
-                    getTopics(undefined, 'mostLiked', 5).catch(() => [])
-                ]);
-                setArtists(fetchedArtists.slice(0, 12)); // Show top 12 artists
-                setGenres(fetchedGenres.slice(0, 10)); // Show top 10 genres
-                
-                // Sort songs by popularity (views + requestCount) and take up to 100
-                const sortedSongs = fetchedSongs.sort((a, b) => {
-                    const aScore = (a.views || 0) + (a.requestCount || 0) * 2; // Requests weighted more
-                    const bScore = (b.views || 0) + (b.requestCount || 0) * 2;
-                    return bScore - aScore;
+            setArtistsLoading(true);
+            setGenresLoading(true);
+            setSongsLoading(true);
+            setTopicsLoading(true);
+            setArtistsError(null);
+            setGenresError(null);
+            setSongsError(null);
+            setTopicsError(null);
+
+            void getGenieSettings()
+                .then((fetchedGenieSettings) => {
+                    if (!cancelled && fetchedGenieSettings) {
+                        setGenieSettings(fetchedGenieSettings);
+                    }
+                })
+                .catch(() => undefined);
+
+            void apiFetch('/api/catalog/home')
+                .then((data: any) => {
+                    if (cancelled) return;
+
+                    const fetchedSongs = (data.songs || []).map((s: any) => ({
+                        id: s.id,
+                        title: s.title,
+                        artist: s.artistName,
+                        artistId: s.artistId,
+                        image: s.imageUrl || '',
+                        views: 0,
+                        year: null,
+                        genre: '',
+                        album: s.albumName,
+                        requestCount: 0,
+                    }));
+                    const sortedSongs = fetchedSongs.sort((a: any, b: any) => {
+                        const aScore = (a.views || 0) + (a.requestCount || 0) * 2;
+                        const bScore = (b.views || 0) + (b.requestCount || 0) * 2;
+                        return bScore - aScore;
+                    });
+                    setSongs(sortedSongs.slice(0, 100));
+                    setArtists((data.artists || []).slice(0, 12));
+                    setGenres((data.genres || []).slice(0, 10));
+                })
+                .catch((err: any) => {
+                    if (!cancelled) {
+                        setSongsError(err.message || 'Failed to load catalog');
+                        setArtistsError(err.message || 'Failed to load catalog');
+                        setGenresError(err.message || 'Failed to load catalog');
+                    }
+                })
+                .finally(() => {
+                    if (!cancelled) {
+                        setSongsLoading(false);
+                        setArtistsLoading(false);
+                        setGenresLoading(false);
+                    }
                 });
-                setSongs(sortedSongs.slice(0, 100)); // Show top 100 songs
-                setTrendingTopics(topics);
-                if (fetchedGenieSettings) {
-                    setGenieSettings(fetchedGenieSettings);
-                }
-            } catch (err: any) {
-                setError(err.message || 'Failed to load data');
-            } finally {
-                setLoading(false);
-            }
+
+            void getTopics(undefined, 'mostLiked', 5)
+                .then((topics) => {
+                    if (!cancelled) {
+                        setTrendingTopics(topics);
+                    }
+                })
+                .catch((err: any) => {
+                    if (!cancelled) {
+                        setTopicsError(err.message || 'Failed to load community topics');
+                    }
+                })
+                .finally(() => {
+                    if (!cancelled) {
+                        setTopicsLoading(false);
+                    }
+                });
         };
 
         fetchData();
-    }, []);
+
+        return () => {
+            cancelled = true;
+        };
+    }, [selectedLanguage]);
 
     const onImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
         const target = e.currentTarget;
-        if (target.dataset.fallbackApplied === 'true') return;
-        target.dataset.fallbackApplied = 'true';
-        target.src = '/Images/gene.png';
+        target.style.display = 'none';
     };
 
     return (
@@ -125,6 +181,7 @@ const HomePage: React.FC = () => {
                         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 px-4">
                             <Link 
                                 to="/community" 
+                                data-testid="join-btn"
                                 className="w-full sm:w-auto min-h-[44px] bg-amber-500 hover:bg-amber-600 text-gray-900 font-semibold py-3 px-6 sm:px-8 rounded-full transition-all duration-300 shadow-lg hover:shadow-amber-500/50 flex items-center justify-center gap-2 text-base sm:text-lg"
                             >
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -245,16 +302,19 @@ const HomePage: React.FC = () => {
                                 </svg>
                             </Link>
                         </div>
-                        {loading ? (
-                            <div className="flex justify-center py-6 sm:py-12">
-                                <LoadingSpinner />
-                            </div>
+                        {songsLoading ? (
+                            <SongListSkeleton count={8} />
+                        ) : songsError ? (
+                            <div className="text-red-400 text-center py-8">{songsError}</div>
                         ) : (
                             <div className="bg-gray-800/50 rounded-xl border border-gray-700 p-4">
                                 <div className="flex md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-1 max-h-[600px] overflow-x-auto md:overflow-y-auto pr-2 pb-2">
-                                    {songs.slice(0, 100).map((song, index) => (
+                                    {songs.slice(0, 100).map((song, index) => {
+                                        const artistName = song.artist || '';
+
+                                        return (
                                         <Link 
-                                            to={`/song/${song.id}`} 
+                                            to={`/songs/${song.id}`} 
                                             key={song.id} 
                                             className="group min-w-[240px] md:min-w-0 flex items-center gap-2 py-2.5 sm:py-1.5 px-2 min-h-[44px] hover:bg-gray-700/50 rounded transition-colors"
                                         >
@@ -267,14 +327,15 @@ const HomePage: React.FC = () => {
                                                 <h3 className="text-sm font-medium text-white group-hover:text-green-400 transition-colors line-clamp-1">
                                                     {song.title}
                                                 </h3>
-                                                {song.artist && (
+                                                {artistName && (
                                                     <p className="text-xs text-gray-400 line-clamp-1">
-                                                        {song.artist}
+                                                        {artistName}
                                                     </p>
                                                 )}
                                             </div>
                                         </Link>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             </div>
                         )}
@@ -300,17 +361,28 @@ const HomePage: React.FC = () => {
                     </div>
                     <div className="flex md:grid md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 overflow-x-auto pb-2">
                         {languages.map((lang) => (
-                            <Link
+                            <button
                                 key={lang.code}
-                                to={`/search/${lang.name}`}
+                                type="button"
+                                onClick={() => setSelectedLanguage(lang.code)}
                                 className="group min-w-[150px] md:min-w-0 bg-gray-800/50 hover:bg-gray-700/50 rounded-xl p-4 sm:p-6 border border-gray-700 hover:border-green-400/50 transition-all duration-300 text-center min-h-[44px] flex flex-col items-center justify-center"
                             >
                                 <div className="text-4xl mb-3">{lang.flag}</div>
                                 <h3 className="font-semibold text-white group-hover:text-green-400 transition-colors text-sm sm:text-base">
                                     {lang.name}
                                 </h3>
-                            </Link>
+                            </button>
                         ))}
+                        <button
+                            type="button"
+                            onClick={() => setSelectedLanguage('all')}
+                            className="group min-w-[150px] md:min-w-0 bg-gray-800/50 hover:bg-gray-700/50 rounded-xl p-4 sm:p-6 border border-gray-700 hover:border-green-400/50 transition-all duration-300 text-center min-h-[44px] flex flex-col items-center justify-center"
+                        >
+                            <div className="text-4xl mb-3">🌍</div>
+                            <h3 className="font-semibold text-white group-hover:text-green-400 transition-colors text-sm sm:text-base">
+                                All Languages
+                            </h3>
+                        </button>
                     </div>
                 </div>
             </section>
@@ -331,16 +403,12 @@ const HomePage: React.FC = () => {
                             </svg>
                         </Link>
                     </div>
-                    {loading ? (
-                        <div className="flex justify-center py-6 sm:py-12">
-                            <LoadingSpinner />
-                        </div>
-                    ) : error ? (
-                        <div className="text-red-400 text-center py-8">{error}</div>
+                    {artistsLoading ? (
+                        <SquareGridSkeleton count={6} />
+                    ) : artistsError ? (
+                        <div className="text-red-400 text-center py-8">{artistsError}</div>
                     ) : artists.length === 0 ? (
-                        <div className="text-gray-400 text-center py-8">
-                            No artists yet. <Link to="/admin/artists" className="text-green-400 hover:underline">Add some in the admin panel!</Link>
-                        </div>
+                        <SquareGridSkeleton count={6} />
                     ) : (
                         <div className="flex md:grid md:grid-cols-4 lg:grid-cols-6 gap-4 md:gap-6 overflow-x-auto pb-2">
                             {artists.map((artist) => (
@@ -389,12 +457,10 @@ const HomePage: React.FC = () => {
                             </svg>
                         </Link>
                     </div>
-                    {loading ? (
-                        <div className="flex justify-center py-6 sm:py-12">
-                            <LoadingSpinner />
-                        </div>
-                    ) : error ? (
-                        <div className="text-red-400 text-center py-8">{error}</div>
+                    {genresLoading ? (
+                        <SquareGridSkeleton count={5} />
+                    ) : genresError ? (
+                        <div className="text-red-400 text-center py-8">{genresError}</div>
                     ) : genres.length === 0 ? (
                         <div className="text-gray-400 text-center py-8">
                             No genres yet. <Link to="/admin/genres" className="text-green-400 hover:underline">Add some in the admin panel!</Link>
@@ -429,7 +495,7 @@ const HomePage: React.FC = () => {
             </section>
 
             {/* Trending Discussions Section */}
-            {trendingTopics.length > 0 && (
+            {(topicsLoading || trendingTopics.length > 0) && (
                 <section className="py-16 bg-[#122118]">
                     <div className="container mx-auto px-4 sm:px-6 lg:px-8">
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
@@ -445,7 +511,12 @@ const HomePage: React.FC = () => {
                                 </svg>
                             </Link>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {topicsLoading ? (
+                            <SearchResultsSkeleton count={3} />
+                        ) : topicsError ? (
+                            <div className="text-red-400 text-center py-8">{topicsError}</div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {trendingTopics.map((topic) => (
                                 <Link
                                     key={topic.id}
@@ -492,7 +563,8 @@ const HomePage: React.FC = () => {
                                     </div>
                                 </Link>
                             ))}
-                        </div>
+                            </div>
+                        )}
                     </div>
                 </section>
             )}

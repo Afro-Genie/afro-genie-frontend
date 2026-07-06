@@ -1,6 +1,8 @@
 // API client for the Express backend
 
-const API_BASE = '/api';
+import { API_BASE_URL } from '../lib/apiBase';
+
+const API_BASE = API_BASE_URL;
 
 let accessToken: string | null = localStorage.getItem('accessToken');
 let refreshToken: string | null = localStorage.getItem('refreshToken');
@@ -262,6 +264,12 @@ export const translationsApi = {
     apiRequest<any>('/translations/detect-language', {
       method: 'POST',
       body: JSON.stringify({ lyrics }),
+    }),
+
+  vote: (id: string, voteType: 'UPVOTE' | 'DOWNVOTE') =>
+    apiRequest<any>(`/translations/${id}/vote`, {
+      method: 'POST',
+      body: JSON.stringify({ voteType }),
     }),
 };
 

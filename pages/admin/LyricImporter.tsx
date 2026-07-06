@@ -4,7 +4,6 @@ import lyricAPIService from '../../services/lyricAPIService';
 import lyricDataProcessor from '../../services/lyricDataProcessor';
 import { saveFullSongPackage, updateFullSongPackage } from '../../services/firebaseService';
 import DuplicateResolver from '../../components/admin/DuplicateResolver';
-import LoadingSpinner from '../../components/LoadingSpinner';
 import type { APISearchResult, FullSongData, DuplicateCheckResult, Song } from '../../types';
 
 interface ImportProgress {
@@ -416,10 +415,10 @@ const LyricImporter: React.FC = () => {
                 className="px-8 py-3 bg-green-700 hover:bg-green-600 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-colors flex items-center gap-2"
               >
                 {importing ? (
-                  <>
-                    <LoadingSpinner />
+                  <span className="inline-flex items-center gap-2">
+                    <span className="h-4 w-4 rounded-full border-2 border-white/60 border-t-transparent animate-pulse" />
                     Importing...
-                  </>
+                  </span>
                 ) : (
                   <>
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -1,18 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { addSong, uploadSongImage, getAllArtists, saveTranslation } from '../../services/firebaseService';
 import { getAllLanguages, addLanguage } from '../../services/languageService';
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../context/AuthContext';
+import { getArtists } from '../../lib/apiClient';
 import Notification from '../../components/Notification';
-import LoadingSpinner from '../../components/LoadingSpinner';
 import ArtistSearchSelect from '../../components/admin/ArtistSearchSelect';
 import type { Artist, Language } from '../../types';
 
 const AddSongPage: React.FC = () => {
   const navigate = useNavigate();
   const { notification, showNotification, hideNotification } = useNotification();
-  const { user } = useAuth();
+  const { user, authFetch } = useAuth();
   
   const [artists, setArtists] = useState<Artist[]>([]);
   const [languages, setLanguages] = useState<Language[]>([]);
@@ -39,11 +38,27 @@ const AddSongPage: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [fetchedArtists, fetchedLanguages] = await Promise.all([
-          getAllArtists(),
-          getAllLanguages()
-        ]);
-        setArtists(fetchedArtists);
+        const [artistsResponse, fetchedLanguages] = await Promise.all([getArtists({ limit: 200 }), getAllLanguages()]);
+        const artistsData = Array.isArray(artistsResponse?.data)
+          ? artistsResponse.data
+          : Array.isArray(artistsResponse)
+          ? artistsResponse
+          : [];
+
+        setArtists(
+          artistsData.map((artist: any) => ({
+            id: artist.id,
+            name: artist.name,
+            genre: Array.isArray(artist.genres) ? artist.genres[0] || '' : artist.genre || '',
+            image: artist.imageUrl || artist.image || '',
+            spotifyId: artist.spotifyId,
+            genres: artist.genres || [],
+            bio: artist.bio,
+            popularity: artist.popularity,
+            followers: artist.followers,
+            externalUrl: artist.externalUrl,
+          }))
+        );
         setLanguages(fetchedLanguages);
       } catch (error: any) {
         showNotification({
@@ -69,45 +84,36 @@ const AddSongPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!formData.artistId) {
+      showNotification({
+        message: 'Please select a valid artist from the Artist ID selector.',
+        type: 'error'
+      });
+      return;
+    }
+
     setSaving(true);
     try {
-      let imageUrl = formData.image;
+      const coverImageUrl = formData.image || imagePreview || undefined;
 
-      // Add song first to get ID
-      const songId = await addSong({
-        title: formData.title,
-        artist: formData.artist,
-        artistId: formData.artistId || '',
-        image: imageUrl,
-        genre: formData.genre || undefined,
-        year: formData.year ? parseInt(formData.year) : undefined,
-        language: formData.language || undefined,
-        album: formData.album || undefined,
-        releaseDate: formData.releaseDate || undefined
+      await authFetch('/api/songs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: formData.title,
+          artistId: formData.artistId,
+          albumName: formData.album || undefined,
+          releaseYear: formData.year ? parseInt(formData.year, 10) : undefined,
+          spotifyId: undefined,
+          coverImageUrl,
+          primaryLanguage: formData.language || undefined,
+          genres: formData.genre ? [formData.genre] : ['Afrobeats'],
+          lyrics: {
+            rawText: formData.lyrics?.trim() || '',
+            lineBreaks: []
+          }
+        }),
       });
-
-      // Upload image if provided (after getting song ID)
-      if (imageFile) {
-        const uploadedImageUrl = await uploadSongImage(imageFile, songId);
-        // Update song with uploaded image URL
-        const { updateSong } = await import('../../services/firebaseService');
-        await updateSong(songId, { image: uploadedImageUrl });
-      }
-
-      // Save lyrics if provided
-      if (formData.lyrics && formData.lyrics.trim().length > 0 && user) {
-        await saveTranslation({
-          songId,
-          userId: user.uid,
-          originalLyrics: formData.lyrics.trim(),
-          translatedLyrics: '', // Will be translated later using AI
-          culturalContext: '',
-          sourceLang: formData.language || 'en',
-          targetLang: 'en',
-          source: 'manual',
-          status: 'approved'
-        });
-      }
 
       showNotification({
         message: 'Song added successfully!',
@@ -118,6 +124,9 @@ const AddSongPage: React.FC = () => {
         navigate('/admin/songs');
       }, 1500);
     } catch (error: any) {
+      if (String(error?.message || '').toLowerCase().includes('session expired')) {
+        showNotification({ message: 'Session expired. Please sign in again.', type: 'error' });
+      }
       showNotification({
         message: `Error adding song: ${error.message}`,
         type: 'error'
@@ -441,10 +450,10 @@ const AddSongPage: React.FC = () => {
               className="w-full sm:w-auto min-h-[44px] bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2.5 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 text-base"
             >
               {saving ? (
-                <>
-                  <LoadingSpinner />
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-4 w-4 rounded-full border-2 border-white/60 border-t-transparent animate-pulse" />
                   Adding...
-                </>
+                </span>
               ) : (
                 <>
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

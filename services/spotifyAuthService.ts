@@ -28,9 +28,14 @@ class SpotifyAuthService {
   constructor() {
     this.clientId = import.meta.env.VITE_SPOTIFY_CLIENT_ID || '';
     this.redirectUri = `${window.location.origin}${window.location.pathname}`;
-    
+  }
+
+  /**
+   * Ensure Spotify OAuth is configured before making auth requests.
+   */
+  private assertConfigured(): void {
     if (!this.clientId) {
-      console.warn('Spotify Client ID not found. Please set VITE_SPOTIFY_CLIENT_ID in your .env.local file');
+      throw new Error('Spotify Client ID not found. Please set VITE_SPOTIFY_CLIENT_ID in your .env.local file');
     }
   }
 
@@ -66,6 +71,8 @@ class SpotifyAuthService {
    * Generate the authorization URL for Spotify OAuth with PKCE
    */
   async getAuthorizationUrl(): Promise<{ url: string; codeVerifier: string }> {
+    this.assertConfigured();
+
     const scopes = [
       'user-read-email',
       'user-read-private'
@@ -94,6 +101,8 @@ class SpotifyAuthService {
    */
   async exchangeCodeForToken(code: string): Promise<SpotifyTokenResponse> {
     try {
+      this.assertConfigured();
+
       const codeVerifier = sessionStorage.getItem('spotify_code_verifier');
       if (!codeVerifier) {
         throw new Error('Code verifier not found. Please try again.');
@@ -156,6 +165,8 @@ class SpotifyAuthService {
    */
   async refreshAccessToken(refreshToken: string): Promise<SpotifyTokenResponse> {
     try {
+      this.assertConfigured();
+
       const response = await fetch(this.TOKEN_URL, {
         method: 'POST',
         headers: {

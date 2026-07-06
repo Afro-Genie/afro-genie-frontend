@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { getAllArtists, createSongRequest } from '../services/firebaseService';
 import { useAuth } from '../context/AuthContext';
 import SearchBar from '../components/SearchBar';
-import LoadingSpinner from '../components/LoadingSpinner';
+import { SearchResultsSkeleton } from '../components/PageSkeletons';
 import { featureFlags } from '../config/featureFlags';
 import { trackEvent } from '../services/telemetryService';
 import { unifiedSearchService, type UnifiedSearchResult, type UnifiedSearchResponse } from '../services/unifiedSearchService';
@@ -208,11 +208,22 @@ const SearchResultsPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#122118] py-16">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-center items-center h-64">
-          <LoadingSpinner />
+      <div className="min-h-screen bg-[#122118]">
+        <section className="bg-gradient-to-br from-[#122118] via-[#1a2b22] to-[#122118] py-12 border-b border-gray-800">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="max-w-4xl mx-auto">
+              <div className="mb-6 animate-pulse">
+                <div className="h-14 rounded-full bg-gray-800/70 border border-white/10" />
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <div className="h-8 w-32 rounded-full bg-gray-800/70 animate-pulse" />
+                <div className="h-8 w-24 rounded-full bg-gray-800/70 animate-pulse" />
+              </div>
+            </div>
           </div>
+        </section>
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-10">
+          <SearchResultsSkeleton count={6} />
         </div>
       </div>
     );
@@ -405,10 +416,7 @@ const SearchResultsPage: React.FC = () => {
                     
                     {requestLoading ? (
                       <>
-                        <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                        </svg>
+                        <span className="h-5 w-5 rounded-full border-2 border-white/60 border-t-transparent animate-pulse" />
                         <span className="relative z-10">Submitting Request...</span>
                       </>
                     ) : (
@@ -454,7 +462,7 @@ const SearchResultsPage: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
                   {localSongs.slice(0, 10).map((r) => (
                     <Link
-                      to={`/song/${r.localId!}`}
+                      to={`/songs/${r.localId!}`}
                       key={r.id}
                       className="group bg-gray-800/50 hover:bg-gray-700/50 rounded-xl overflow-hidden border border-gray-700 hover:border-green-400/50 transition-all duration-300 flex items-center min-h-[48px]"
                     >

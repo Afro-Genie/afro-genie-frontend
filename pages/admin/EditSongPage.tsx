@@ -1,19 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getSong, updateSong, uploadSongImage, getAllArtists, getLatestTranslationForSong, saveTranslation, updateTranslation } from '../../services/firebaseService';
+import { uploadSongImage } from '../../services/firebaseService';
 import { getAllLanguages, addLanguage } from '../../services/languageService';
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../context/AuthContext';
+import { getSongById, getSongTranslations, getArtists } from '../../lib/apiClient';
 import Notification from '../../components/Notification';
-import LoadingSpinner from '../../components/LoadingSpinner';
 import ArtistSearchSelect from '../../components/admin/ArtistSearchSelect';
+import { AdminFormPageSkeleton } from '../../components/PageSkeletons';
 import type { Song, Artist, Language } from '../../types';
 
 const EditSongPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { notification, showNotification, hideNotification } = useNotification();
-  const { user } = useAuth();
+  const { authFetch } = useAuth();
   
   const [song, setSong] = useState<Song | null>(null);
   const [artists, setArtists] = useState<Artist[]>([]);
@@ -47,12 +48,58 @@ const EditSongPage: React.FC = () => {
 
       setLoading(true);
       try {
-        const [fetchedSong, fetchedArtists, existingTranslation, fetchedLanguages] = await Promise.all([
-          getSong(id),
-          getAllArtists(),
-          getLatestTranslationForSong(id),
+        const [songResponse, artistsResponse, translationResponse, fetchedLanguages] = await Promise.all([
+          getSongById(id),
+          getArtists({ limit: 200 }),
+          getSongTranslations(id).catch(() => null),
           getAllLanguages()
         ]);
+
+        const fetchedSong: Song | null = songResponse
+          ? {
+              id: songResponse.id,
+              title: songResponse.title,
+              artist: songResponse.artist?.name || songResponse.artistName || '',
+              artistId: songResponse.artistId || songResponse.artist?.id || '',
+              image: songResponse.coverImageUrl || songResponse.imageUrl || songResponse.image || '',
+              genre: Array.isArray(songResponse.genres)
+                ? songResponse.genres[0]?.genre?.name || songResponse.genres[0] || ''
+                : songResponse.genre || '',
+              year: songResponse.releaseYear || songResponse.year,
+              language: songResponse.primaryLanguage || songResponse.language || '',
+              album: songResponse.albumName || songResponse.album || '',
+              releaseDate: songResponse.releaseDate || '',
+            }
+          : null;
+
+        const artistsData = Array.isArray(artistsResponse?.data)
+          ? artistsResponse.data
+          : Array.isArray(artistsResponse)
+          ? artistsResponse
+          : [];
+
+        const fetchedArtists: Artist[] = artistsData.map((artist: any) => ({
+          id: artist.id,
+          name: artist.name,
+          genre: Array.isArray(artist.genres) ? artist.genres[0] || '' : artist.genre || '',
+          image: artist.imageUrl || artist.image || '',
+          genres: artist.genres || [],
+          spotifyId: artist.spotifyId,
+          bio: artist.bio,
+          popularity: artist.popularity,
+          followers: artist.followers,
+          externalUrl: artist.externalUrl,
+        }));
+
+        const translationItems = Array.isArray(translationResponse?.translations)
+          ? translationResponse.translations
+          : translationResponse?.translations && typeof translationResponse.translations === 'object'
+          ? Object.values(translationResponse.translations).flatMap((group: any) =>
+              Array.isArray(group) ? group : []
+            )
+          : [];
+
+        const existingTranslation = translationItems[0] || null;
 
         if (!fetchedSong) {
           showNotification({
@@ -115,55 +162,25 @@ const EditSongPage: React.FC = () => {
         imageUrl = await uploadSongImage(imageFile, id);
       }
 
-      const updates: Partial<Song> = {
-        title: formData.title,
-        artist: formData.artist,
-        artistId: formData.artistId || '',
-        image: imageUrl || '',
-      };
-      
-      // Only include optional fields if they have values
-      if (formData.genre && formData.genre.trim()) {
-        updates.genre = formData.genre.trim();
-      }
-      if (formData.year && formData.year.trim()) {
-        updates.year = parseInt(formData.year);
-      }
-      if (formData.language && formData.language.trim()) {
-        updates.language = formData.language.trim();
-      }
-      if (formData.album && formData.album.trim()) {
-        updates.album = formData.album.trim();
-      }
-      if (formData.releaseDate && formData.releaseDate.trim()) {
-        updates.releaseDate = formData.releaseDate.trim();
-      }
-
-      await updateSong(id, updates);
-
-      // Update or create lyrics/translation
-      if (user) {
-        const existingTranslation = await getLatestTranslationForSong(id);
-        if (existingTranslation) {
-          // Update existing translation
-          await updateTranslation(existingTranslation.id!, {
-            originalLyrics: formData.lyrics.trim() || ''
-          });
-        } else if (formData.lyrics && formData.lyrics.trim().length > 0) {
-          // Create new translation if lyrics provided
-          await saveTranslation({
-            songId: id,
-            userId: user.uid,
-            originalLyrics: formData.lyrics.trim(),
-            translatedLyrics: '', // Will be translated later using AI
-            culturalContext: '',
-            sourceLang: formData.language || 'en',
-            targetLang: 'en',
-            source: 'manual',
-            status: 'approved'
-          });
-        }
-      }
+      await authFetch('/api/songs/' + id, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: formData.title,
+          artistId: formData.artistId || undefined,
+          albumName: formData.album || undefined,
+          releaseYear: formData.year ? parseInt(formData.year, 10) : undefined,
+          coverImageUrl: imageUrl || undefined,
+          primaryLanguage: formData.language || undefined,
+          genres: formData.genre ? [formData.genre] : undefined,
+          lyrics: formData.lyrics
+            ? {
+                rawText: formData.lyrics.trim(),
+                lineBreaks: []
+              }
+            : undefined,
+        }),
+      });
 
       showNotification({
         message: 'Song updated successfully!',
@@ -185,9 +202,7 @@ const EditSongPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <LoadingSpinner />
-      </div>
+      <AdminFormPageSkeleton />
     );
   }
 
@@ -482,10 +497,10 @@ const EditSongPage: React.FC = () => {
               className="w-full sm:w-auto min-h-[44px] bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-semibold py-2.5 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 text-base"
             >
               {saving ? (
-                <>
-                  <LoadingSpinner />
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-4 w-4 rounded-full border-2 border-white/60 border-t-transparent animate-pulse" />
                   Saving...
-                </>
+                </span>
               ) : (
                 <>
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
