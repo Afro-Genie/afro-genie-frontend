@@ -108,6 +108,7 @@ export default defineConfig(({ mode }) => {
       define: {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
         'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+        'import.meta.env.VITE_SPOTIFY_CLIENT_ID': JSON.stringify(env.VITE_SPOTIFY_CLIENT_ID || env.SPOTIFY_CLIENT_ID || ''),
         'import.meta.env.VITE_LYRICFIND_API_KEY': JSON.stringify(env.LYRICFIND_API_KEY || ''),
         'import.meta.env.VITE_LYRICFIND_USERNAME': JSON.stringify(env.LYRICFIND_USERNAME || ''),
         'import.meta.env.VITE_GENIUS_ACCESS_TOKEN': JSON.stringify(env.GENIUS_ACCESS_TOKEN || '')
