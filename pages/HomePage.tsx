@@ -93,7 +93,7 @@ const HomePage: React.FC = () => {
                     }
                 });
 
-            void apiFetch('/api/community/topics?sortBy=mostLiked&limit=5')
+            void apiFetch('/api/community/topics?sort=top&limit=5')
                 .then((data: any) => {
                     if (!cancelled) {
                         setTrendingTopics(Array.isArray(data) ? data : data?.topics ?? []);
