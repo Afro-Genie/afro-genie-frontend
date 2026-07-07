@@ -35,7 +35,7 @@ class SpotifyAuthService {
    */
   private assertConfigured(): void {
     if (!this.clientId) {
-      throw new Error('Spotify Client ID not found. Please set VITE_SPOTIFY_CLIENT_ID in your .env.local file');
+      throw new Error('Spotify Client ID not found. Please set VITE_SPOTIFY_CLIENT_ID in your environment configuration.');
     }
   }
 
@@ -79,15 +79,18 @@ class SpotifyAuthService {
     ].join(' ');
 
     const { codeVerifier, codeChallenge } = await this.generatePKCE();
+    const state = this.generateRandomString(32);
     
     // Store code verifier for later use
     sessionStorage.setItem('spotify_code_verifier', codeVerifier);
+    sessionStorage.setItem('spotify_oauth_state', state);
 
     const params = new URLSearchParams({
       client_id: this.clientId,
       response_type: 'code',
       redirect_uri: this.redirectUri,
       scope: scopes,
+      state,
       code_challenge_method: 'S256',
       code_challenge: codeChallenge,
       show_dialog: 'false'
@@ -99,13 +102,18 @@ class SpotifyAuthService {
   /**
    * Exchange authorization code for access token using PKCE
    */
-  async exchangeCodeForToken(code: string): Promise<SpotifyTokenResponse> {
+  async exchangeCodeForToken(code: string, stateFromCallback?: string | null): Promise<SpotifyTokenResponse> {
     try {
       this.assertConfigured();
 
       const codeVerifier = sessionStorage.getItem('spotify_code_verifier');
       if (!codeVerifier) {
         throw new Error('Code verifier not found. Please try again.');
+      }
+
+      const storedState = sessionStorage.getItem('spotify_oauth_state');
+      if (!storedState || !stateFromCallback || storedState !== stateFromCallback) {
+        throw new Error('Invalid Spotify OAuth state. Please try signing in again.');
       }
 
       const response = await fetch(this.TOKEN_URL, {
@@ -129,6 +137,7 @@ class SpotifyAuthService {
 
       // Clear code verifier after use
       sessionStorage.removeItem('spotify_code_verifier');
+      sessionStorage.removeItem('spotify_oauth_state');
 
       return await response.json();
     } catch (error) {

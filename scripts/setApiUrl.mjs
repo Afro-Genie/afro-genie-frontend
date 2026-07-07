@@ -7,7 +7,7 @@ const explicitUrl = process.argv[3];
 
 const defaults = {
   staging: 'https://afro-genie-backend-staging-production.up.railway.app/api',
-  production: 'https://afro-genie-backend-production.up.railway.app/api',
+  production: 'https://afro-genie-backend-staging-production.up.railway.app/api',
 };
 
 const apiUrl = (explicitUrl || defaults[targetEnv] || '').trim();

@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { getAllArtists, createSongRequest } from '../services/firebaseService';
+import { useParams, Link } from 'react-router-dom';
+import { createSongRequest } from '../services/firebaseService';
 import { useAuth } from '../context/AuthContext';
-import SearchBar from '../components/SearchBar';
 import { SearchResultsSkeleton } from '../components/PageSkeletons';
 import { featureFlags } from '../config/featureFlags';
 import { trackEvent } from '../services/telemetryService';
@@ -81,10 +80,8 @@ function ResultCard({
 
 const SearchResultsPage: React.FC = () => {
   const { query } = useParams<{ query: string }>();
-  const navigate = useNavigate();
   const { user } = useAuth();
   const decodedQuery = query ? decodeURIComponent(query) : '';
-  const [searchInput, setSearchInput] = useState(decodedQuery);
 
   const [searchResponse, setSearchResponse] = useState<UnifiedSearchResponse | null>(null);
   const [artists, setArtists] = useState<Artist[]>([]);
@@ -95,18 +92,12 @@ const SearchResultsPage: React.FC = () => {
   const [requestFeedbackOpen, setRequestFeedbackOpen] = useState(false);
 
   useEffect(() => {
-    setSearchInput(decodedQuery);
-  }, [decodedQuery]);
-
-  useEffect(() => {
     const runSearch = async () => {
       setLoading(true);
       setError(null);
       setSearchResponse(null);
       try {
         if (!decodedQuery.trim()) {
-          const [fetchedArtists] = await Promise.all([getAllArtists()]);
-          setArtists(fetchedArtists);
           setSearchResponse({
             query: '',
             localResults: [],
@@ -154,13 +145,6 @@ const SearchResultsPage: React.FC = () => {
       trackEvent('search_no_result_view', { query: decodedQuery });
     }
   }, [decodedQuery, hasResults, loading]);
-
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchInput.trim()) {
-      navigate(`/search/${encodeURIComponent(searchInput.trim())}`);
-    }
-  };
 
   const handleRequestSong = async (songTitleOverride?: string, artistOverride?: string) => {
     const songTitle = songTitleOverride ?? decodedQuery.split(/[-–—]/).map((s) => s.trim())[0] ?? decodedQuery;
@@ -244,59 +228,24 @@ const SearchResultsPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#122118]">
-      {/* Search Header Section */}
-      <section className="bg-gradient-to-br from-[#122118] via-[#1a2b22] to-[#122118] py-12 border-b border-gray-800">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="max-w-4xl mx-auto">
-            <form onSubmit={handleSearchSubmit} className="mb-6">
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-6 flex items-center pointer-events-none">
-                  <svg className="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </div>
-                <input
-                  type="text"
-                  placeholder="Search for Songs, Artists & Albums"
-                  className="w-full min-h-[44px] bg-white/10 backdrop-blur-md text-white placeholder-gray-300 text-base sm:text-lg rounded-full py-4 pl-16 pr-14 sm:pr-24 focus:outline-none focus:ring-2 focus:ring-green-400 border border-white/20"
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                />
-                <button
-                  type="submit"
-                  className="absolute inset-y-0 right-0 pr-2 flex items-center min-h-[44px] min-w-[44px]"
-                >
-                  <div className="bg-green-500 hover:bg-green-600 text-white rounded-full p-2 transition-colors">
-                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                  </div>
-                </button>
-              </div>
-            </form>
-
-            {decodedQuery && (
-              <div className="text-center">
-                <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">
-                  {hasResults ? (
-                    <>
-                      {totalResults} {totalResults === 1 ? 'Result' : 'Results'} for{' '}
-                      <span className="text-green-400">"{decodedQuery}"</span>
-                    </>
-                  ) : (
-                    <>
-                      No results for <span className="text-green-400">"{decodedQuery}"</span>
-                    </>
-                  )}
-      </h1>
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-
       {/* Results Section */}
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {decodedQuery && (
+          <div className="text-center mb-8">
+            <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">
+              {hasResults ? (
+                <>
+                  {totalResults} {totalResults === 1 ? 'Result' : 'Results'} for{' '}
+                  <span className="text-green-400">"{decodedQuery}"</span>
+                </>
+              ) : (
+                <>
+                  No results for <span className="text-green-400">"{decodedQuery}"</span>
+                </>
+              )}
+            </h1>
+          </div>
+        )}
         {!decodedQuery ? (
           <div className="text-center py-20">
             <svg className="mx-auto h-24 w-24 text-gray-600 mb-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -308,36 +257,6 @@ const SearchResultsPage: React.FC = () => {
             <p className="text-gray-400 text-lg mb-12 max-w-2xl mx-auto">
               Discover African music across languages, genres, and artists
             </p>
-            
-            {/* Prominent Search Bar in Center */}
-            <div className="max-w-3xl mx-auto mb-8">
-              <form onSubmit={handleSearchSubmit}>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-6 flex items-center pointer-events-none">
-                    <svg className="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                        </div>
-                  <input
-                    type="text"
-                    placeholder="Search for Songs, Artists & Albums"
-                    className="w-full min-h-[44px] bg-white/10 backdrop-blur-md text-white placeholder-gray-300 text-base sm:text-xl rounded-full py-4 sm:py-5 pl-16 pr-24 focus:outline-none focus:ring-2 focus:ring-green-400 border-2 border-white/20 hover:border-green-400/50 transition-colors"
-                    value={searchInput}
-                    onChange={(e) => setSearchInput(e.target.value)}
-                    autoFocus
-                  />
-                  <button
-                    type="submit"
-                    className="absolute inset-y-0 right-0 pr-2 flex items-center min-h-[44px] min-w-[44px] sm:min-w-0"
-                  >
-                    <div className="bg-green-500 hover:bg-green-600 text-white rounded-full px-6 py-3 min-h-[44px] flex items-center transition-colors font-semibold">
-                      Search
-                    </div>
-                  </button>
-                </div>
-              </form>
-            </div>
-
             {/* Quick Search Suggestions */}
             <div className="max-w-4xl mx-auto mt-12">
               <p className="text-gray-400 mb-4 text-sm">Popular Searches:</p>

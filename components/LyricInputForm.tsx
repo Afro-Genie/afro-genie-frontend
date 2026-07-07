@@ -9,24 +9,10 @@ interface LyricInputFormProps {
 }
 
 const LyricInputForm: React.FC<LyricInputFormProps> = ({ onTranslate, isLoading }) => {
-  const [artist, setArtist] = useState('Burna Boy');
-  const [title, setTitle] = useState('Last Last');
-  // Add state for lyrics, including placeholder content. The Gemini service requires lyrics.
-  const [lyrics, setLyrics] = useState(`I put my life into my job and I know I'm in trouble
-She manipulate my love ooooo
-I don't know how to show my love ooooo
-So I'm getting drunk on love ooooo
-
-I dey smoke Igbo, I dey look like bolo
-And I don't know what to do
-'Cause my feelings getting bigger
-And my wallet getting bigger
-And the girls are getting bigger
-
-E don cast, last last
-Na everybody go chop breakfast
-E don cast, last last
-Na everybody go chop breakfast`);
+  const [artist, setArtist] = useState('');
+  const [title, setTitle] = useState('');
+  // Add state for lyrics. The Gemini service requires lyrics.
+  const [lyrics, setLyrics] = useState('');
   const [sourceLang, setSourceLang] = useState('en');
   const [targetLang, setTargetLang] = useState('fr');
   const [error, setError] = useState('');

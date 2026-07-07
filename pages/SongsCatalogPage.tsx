@@ -9,22 +9,25 @@ type FilterType = 'all' | 'artist' | 'genre' | 'year' | 'language';
 
 const SongsCatalogPage: React.FC = () => {
   const [songs, setSongs] = useState<Song[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [artists, setArtists] = useState<Artist[]>([]);
   const [genres, setGenres] = useState<Genre[]>([]);
+  const [availableYears, setAvailableYears] = useState<number[]>([]);
+  const [availableLanguages, setAvailableLanguages] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Search and filters
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('popularity');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  
+
   // Filter states
   const [selectedArtist, setSelectedArtist] = useState<string>('all');
   const [selectedGenre, setSelectedGenre] = useState<string>('all');
   const [selectedYear, setSelectedYear] = useState<string>('all');
   const [selectedLanguage, setSelectedLanguage] = useState<string>('all');
-  
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
@@ -40,22 +43,57 @@ const SongsCatalogPage: React.FC = () => {
     return () => window.removeEventListener('resize', updateItemsPerPage);
   }, []);
 
+  // Fetch artists, genres, and filter metadata once
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchMetadata = async () => {
+      try {
+        const [artistsData, genresData, songsData] = await Promise.all([
+          apiFetch('/api/catalog/artists?limit=200'),
+          apiFetch('/api/catalog/home'),
+          apiFetch('/api/catalog/songs?limit=500'),
+        ]);
+        setArtists(artistsData?.artists || []);
+        setGenres(genresData?.genres || []);
+
+        const allSongs: Song[] = (songsData?.songs || []).map((s: any) => ({ ...s, image: s.image || '' }));
+        const years = [...new Set<number>(allSongs.filter(s => s.year).map(s => s.year!))].sort((a, b) => b - a);
+        setAvailableYears(years);
+        const languages = [...new Set<string>(allSongs.filter(s => s.language).map(s => s.language!))].sort();
+        setAvailableLanguages(languages);
+      } catch (err: any) {
+        console.error('Failed to load filter data:', err);
+      }
+    };
+    fetchMetadata();
+  }, []);
+
+  // Fetch songs with server-side filtering and pagination
+  useEffect(() => {
+    const fetchSongs = async () => {
       setLoading(true);
       setError(null);
       try {
-        const [songsData, artistsData, genresData] = await Promise.all([
-          apiFetch('/api/catalog/songs?limit=500'),
-          apiFetch('/api/catalog/artists?limit=200'),
-          apiFetch('/api/catalog/home'),
-        ]);
-        setSongs((songsData?.songs || []).map((s: any) => ({
-          ...s,
-          image: s.image || '',
-        })));
-        setArtists(artistsData?.artists || []);
-        setGenres(genresData?.genres || []);
+        const params: Record<string, string | number | undefined> = {
+          limit: itemsPerPage,
+          page: currentPage,
+          sortBy,
+          sortOrder,
+        };
+        if (searchQuery.trim()) params.search = searchQuery.trim();
+        if (selectedArtist !== 'all') params.artistId = selectedArtist;
+        if (selectedGenre !== 'all') params.genre = selectedGenre;
+        if (selectedYear !== 'all') params.year = parseInt(selectedYear);
+        if (selectedLanguage !== 'all') params.language = selectedLanguage;
+
+        const query = Object.entries(params)
+          .filter(([, v]) => v !== undefined && v !== '')
+          .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
+          .join('&');
+
+        const data = await apiFetch('/api/catalog/songs?' + query);
+        const fetchedSongs = (data?.songs || []).map((s: any) => ({ ...s, image: s.image || '' }));
+        setSongs(fetchedSongs);
+        setTotalCount(data?.total ?? fetchedSongs.length);
       } catch (err: any) {
         setError(err.message || 'Failed to load songs');
       } finally {
@@ -63,122 +101,12 @@ const SongsCatalogPage: React.FC = () => {
       }
     };
 
-    fetchData();
-  }, []);
+    fetchSongs();
+  }, [currentPage, itemsPerPage, searchQuery, selectedArtist, selectedGenre, selectedYear, selectedLanguage, sortBy, sortOrder]);
 
-  // Get unique years from songs
-  const availableYears = useMemo(() => {
-    const years = new Set<number>();
-    songs.forEach(song => {
-      if (song.year) {
-        years.add(song.year);
-      }
-    });
-    return Array.from(years).sort((a, b) => b - a);
-  }, [songs]);
-
-  // Get unique languages from songs (if available)
-  const availableLanguages = useMemo(() => {
-    const languages = new Set<string>();
-    songs.forEach(song => {
-      if (song.language) {
-        languages.add(song.language);
-      }
-    });
-    return Array.from(languages).sort();
-  }, [songs]);
-
-  // Filter and sort songs
-  const filteredAndSortedSongs = useMemo(() => {
-    let filtered = [...songs];
-
-    // Search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(song =>
-        song.title.toLowerCase().includes(query) ||
-        song.artist.toLowerCase().includes(query) ||
-        (song.genre && song.genre.toLowerCase().includes(query))
-      );
-    }
-
-    // Artist filter
-    if (selectedArtist !== 'all') {
-      filtered = filtered.filter(song => song.artistId === selectedArtist);
-    }
-
-    // Genre filter
-    if (selectedGenre !== 'all') {
-      filtered = filtered.filter(song => song.genre === selectedGenre);
-    }
-
-    // Year filter
-    if (selectedYear !== 'all') {
-      const year = parseInt(selectedYear);
-      filtered = filtered.filter(song => song.year === year);
-    }
-
-    // Language filter
-    if (selectedLanguage !== 'all') {
-      filtered = filtered.filter(song => song.language === selectedLanguage);
-    }
-
-    // Sort
-    filtered.sort((a, b) => {
-      let aValue: any;
-      let bValue: any;
-
-      switch (sortBy) {
-        case 'popularity':
-          aValue = (a.views || 0) + (a.requestCount || 0) * 2;
-          bValue = (b.views || 0) + (b.requestCount || 0) * 2;
-          break;
-        case 'title':
-          aValue = a.title.toLowerCase();
-          bValue = b.title.toLowerCase();
-          break;
-        case 'artist':
-          aValue = a.artist.toLowerCase();
-          bValue = b.artist.toLowerCase();
-          break;
-        case 'year':
-          aValue = a.year || 0;
-          bValue = b.year || 0;
-          break;
-        case 'genre':
-          aValue = (a.genre || '').toLowerCase();
-          bValue = (b.genre || '').toLowerCase();
-          break;
-        case 'language':
-          aValue = (a.language || '').toLowerCase();
-          bValue = (b.language || '').toLowerCase();
-          break;
-        case 'views':
-          aValue = a.views || 0;
-          bValue = b.views || 0;
-          break;
-        case 'requests':
-          aValue = a.requestCount || 0;
-          bValue = b.requestCount || 0;
-          break;
-        default:
-          return 0;
-      }
-
-      if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
-      if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
-      return 0;
-    });
-
-    return filtered;
-  }, [songs, searchQuery, selectedArtist, selectedGenre, selectedYear, selectedLanguage, sortBy, sortOrder]);
-
-  // Pagination
-  const totalPages = Math.ceil(filteredAndSortedSongs.length / itemsPerPage);
-  const paginatedSongs = filteredAndSortedSongs.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  // Songs are already paginated from server
+  const paginatedSongs = songs;
+  const totalPages = Math.ceil(totalCount / itemsPerPage);
 
   const resetFilters = () => {
     setSearchQuery('');
@@ -399,7 +327,7 @@ const SongsCatalogPage: React.FC = () => {
         {/* Results Count */}
         <div className="mb-4 flex items-center justify-between">
           <p className="text-sm sm:text-base text-gray-400">
-            Showing {paginatedSongs.length} of {filteredAndSortedSongs.length} songs
+            Showing {paginatedSongs.length} of {totalCount} songs
           </p>
         </div>
 

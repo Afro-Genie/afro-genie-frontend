@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getGenieSettings, getTopics } from '../services/firebaseService';
-import SearchBar from '../components/SearchBar';
 import { apiFetch } from '../lib/apiClient';
 import { SearchResultsSkeleton, SongListSkeleton, SquareGridSkeleton } from '../components/PageSkeletons';
 import type { Artist, Genre, Song, GenieSettings, Topic } from '../types';
@@ -55,14 +53,6 @@ const HomePage: React.FC = () => {
             setSongsError(null);
             setTopicsError(null);
 
-            void getGenieSettings()
-                .then((fetchedGenieSettings) => {
-                    if (!cancelled && fetchedGenieSettings) {
-                        setGenieSettings(fetchedGenieSettings);
-                    }
-                })
-                .catch(() => undefined);
-
             void apiFetch('/api/catalog/home')
                 .then((data: any) => {
                     if (cancelled) return;
@@ -103,10 +93,10 @@ const HomePage: React.FC = () => {
                     }
                 });
 
-            void getTopics(undefined, 'mostLiked', 5)
-                .then((topics) => {
+            void apiFetch('/api/community/topics?sort=top&limit=5')
+                .then((data: any) => {
                     if (!cancelled) {
-                        setTrendingTopics(topics);
+                        setTrendingTopics(Array.isArray(data) ? data : data?.topics ?? []);
                     }
                 })
                 .catch((err: any) => {
@@ -172,11 +162,6 @@ const HomePage: React.FC = () => {
                             Discover, translate, and explore African music with cultural context
                         </p>
                         
-                        {/* Search Bar */}
-                        <div className="mb-8">
-                            <SearchBar variant="homepage" />
-                        </div>
-
                         {/* Quick Action Buttons */}
                         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 px-4">
                             <Link 

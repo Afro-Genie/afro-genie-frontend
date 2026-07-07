@@ -151,11 +151,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         const spotifyCode = params.get('code');
+        const spotifyState = params.get('state');
         if (spotifyCode) {
           try {
-            const spotifyTokens = await spotifyAuthService.exchangeCodeForToken(spotifyCode);
+            const spotifyTokens = await spotifyAuthService.exchangeCodeForToken(spotifyCode, spotifyState);
             const authResult = await authApi.signInWithSpotify(spotifyTokens.access_token);
             initFromAuthResult(authResult);
+
+            const redirectAfterAuth = sessionStorage.getItem('spotify_redirect_after_auth');
+            sessionStorage.removeItem('spotify_redirect_after_auth');
+
+            if (redirectAfterAuth) {
+              const targetUrl = new URL(redirectAfterAuth, window.location.origin);
+              if (targetUrl.origin === window.location.origin) {
+                window.location.replace(targetUrl.toString());
+                return;
+              }
+            }
           } catch (err) {
             console.error('Spotify auth callback error:', err);
           }

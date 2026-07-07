@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { getAllArtists, getAllSongs, getAllGenres, searchLyrics } from '../services/firebaseService';
 import useClickOutside from '../hooks/useClickOutside';
 import SearchIcon from './icons/SearchIcon';
 import MusicNoteIcon from './icons/MusicNoteIcon';
@@ -8,8 +7,6 @@ import MicIcon from './icons/MicIcon';
 import TagIcon from './icons/TagIcon';
 import TranslateIcon from './icons/TranslateIcon';
 import { SearchResultsSkeleton } from './PageSkeletons';
-import { spotifyService } from '../services/spotifyService';
-import { trackEvent } from '../services/telemetryService';
 import { searchSuggest } from '../lib/apiClient';
 import type { Suggestion, Artist, Song, Genre } from '../types';
 
@@ -21,33 +18,10 @@ const SearchBar: React.FC<SearchBarProps> = ({ variant = 'header' }) => {
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(false);
-  const [allData, setAllData] = useState<{ artists: Artist[]; songs: Song[]; genres: Genre[] }>({
-    artists: [],
-    songs: [],
-    genres: []
-  });
   const navigate = useNavigate();
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
   useClickOutside(searchContainerRef, () => setSuggestions([]));
-
-  // Fetch all data on component mount
-  useEffect(() => {
-    const fetchAllData = async () => {
-      try {
-        const [artists, songs, genres] = await Promise.all([
-          getAllArtists(),
-          getAllSongs(),
-          getAllGenres()
-        ]);
-        setAllData({ artists, songs, genres });
-      } catch (error) {
-        console.error('Error fetching search data:', error);
-      }
-    };
-
-    fetchAllData();
-  }, []);
 
   useEffect(() => {
     if (query.length < 2) {
@@ -57,9 +31,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ variant = 'header' }) => {
 
     const performSearch = async () => {
       setLoading(true);
-      const lowerCaseQuery = query.toLowerCase();
 
-      // Primary fast path: backend suggest endpoint
       try {
         const suggestResult = await searchSuggest(query);
         const items = Array.isArray(suggestResult)
@@ -112,101 +84,17 @@ const SearchBar: React.FC<SearchBarProps> = ({ variant = 'header' }) => {
           })
           .filter(Boolean) as Suggestion[];
 
-        if (apiSuggestions.length > 0) {
-          setSuggestions(apiSuggestions.slice(0, 10));
-          setLoading(false);
-          return;
-        }
+        setSuggestions(apiSuggestions.slice(0, 10));
       } catch {
-        // Fall back to existing local+Spotify search below.
+        setSuggestions([]);
+      } finally {
+        setLoading(false);
       }
-      
-      // Search artists, songs, and genres (synchronous - already loaded)
-      const filteredArtists = allData.artists
-        .filter(a => a.name.toLowerCase().includes(lowerCaseQuery))
-        .map(data => ({ type: 'artist' as const, data }));
-
-      const filteredSongs = allData.songs
-        .filter(s => s.title.toLowerCase().includes(lowerCaseQuery) || s.artist.toLowerCase().includes(lowerCaseQuery))
-        .map(data => ({ type: 'song' as const, data }));
-
-      const filteredGenres = allData.genres
-        .filter(g => g.name.toLowerCase().includes(lowerCaseQuery))
-        .map(data => ({ type: 'genre' as const, data }));
-
-      // Search lyrics (async - from database)
-      let lyricsSuggestions: Suggestion[] = [];
-      let spotifyArtistSuggestions: Suggestion[] = [];
-      let spotifyTrackSuggestions: Suggestion[] = [];
-      try {
-        if (query.length >= 3) { // Only search lyrics for longer queries to avoid too many results
-          const matchingLyrics = await searchLyrics(query, 5);
-          lyricsSuggestions = matchingLyrics.map(lyric => ({
-            type: 'lyrics' as const,
-            data: {
-              id: lyric.id || '',
-              songId: lyric.songId,
-              songTitle: lyric.songTitle,
-              artistName: lyric.artistName,
-              preview: lyric.originalLyrics?.substring(0, 100) || lyric.translatedLyrics?.substring(0, 100) || ''
-            }
-          }));
-        }
-
-        // Backend-proxied Spotify fallbacks (for missing local data)
-        const [spotifyArtists, spotifyTracks] = await Promise.all([
-          spotifyService.searchArtist(query, 3).catch(() => []),
-          spotifyService.searchTracks(query, 3).catch(() => [])
-        ]);
-
-        spotifyArtistSuggestions = spotifyArtists
-          .filter((a) => !filteredArtists.some((existing) => existing.data.name.toLowerCase() === a.name.toLowerCase()))
-          .map((a) => ({
-            type: 'artist' as const,
-            data: {
-              id: `spotify-artist-${a.id}`,
-              name: a.name,
-              genre: a.genres?.[0] || '',
-              image: a.images?.[0]?.url || '',
-            } as Artist
-          }));
-
-        spotifyTrackSuggestions = spotifyTracks
-          .filter((t) => !filteredSongs.some((existing) => existing.data.title.toLowerCase() === t.name.toLowerCase()))
-          .map((t) => ({
-            type: 'song' as const,
-            data: {
-              id: `spotify-track-${t.id}`,
-              title: t.name,
-              artist: t.artists?.[0]?.name || 'Unknown',
-              artistId: '',
-              image: t.album?.images?.[0]?.url || '',
-            } as Song
-          }));
-        trackEvent('spotify_search_success', { query });
-      } catch (error) {
-        console.error('Error searching lyrics:', error);
-        trackEvent('spotify_search_error', { query });
-      }
-
-      // Combine and prioritize: artists first, then songs, then genres, then lyrics
-      const allSuggestions = [
-        ...filteredArtists.slice(0, 3),
-        ...filteredSongs.slice(0, 3),
-        ...filteredGenres.slice(0, 2),
-        ...lyricsSuggestions.slice(0, 3),
-        ...spotifyArtistSuggestions.slice(0, 2),
-        ...spotifyTrackSuggestions.slice(0, 2),
-      ].slice(0, 10);
-
-      setSuggestions(allSuggestions);
-      setLoading(false);
     };
 
-    // Debounce the search slightly for lyrics
-    const timeoutId = setTimeout(performSearch, query.length >= 3 ? 300 : 0);
+    const timeoutId = setTimeout(performSearch, 300);
     return () => clearTimeout(timeoutId);
-  }, [query, allData]);
+  }, [query]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
