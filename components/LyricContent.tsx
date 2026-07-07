@@ -1,17 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import {
-    getSong,
-    addToFavorites,
-    removeFromFavorites,
-    getUserFavorites,
-    addToHistory,
-    createTranslationRequest,
-    updateTranslation,
-    submitTranslationCorrection
-} from '../services/firebaseService';
-import { getAllLanguages, detectLanguageWithAI, getLanguageByCode } from '../services/languageService';
-import { spotifyService } from '../services/spotifyService';
 import { useAuth } from '../context/AuthContext';
 import { getSongById, getSongTranslations } from '../lib/apiClient';
 import HeartIcon from './icons/HeartIcon';
@@ -105,28 +93,27 @@ const LyricContent: React.FC = () => {
     useEffect(() => {
         const loadLanguages = async () => {
             try {
-                const fetchedLanguages = await getAllLanguages();
+                const fetchedLanguages = await authFetch('/api/languages').catch(() => []);
 
-                // Deduplicate by Name (case-insensitive) to prevent "Igbo" and "Igbo" appearing twice
+                const rawLangs = Array.isArray(fetchedLanguages) ? fetchedLanguages : fetchedLanguages?.languages ?? [];
                 const nameMap = new Map();
-                fetchedLanguages.forEach(lang => {
-                    const normalizedName = lang.name.trim().toLowerCase();
+                rawLangs.forEach((lang: any) => {
+                    const normalizedName = (lang.name || '').trim().toLowerCase();
                     if (!nameMap.has(normalizedName)) {
                         nameMap.set(normalizedName, lang);
                     }
                 });
 
-                // Then deduplicate by Code (case-insensitive) just to be safe
                 const codeMap = new Map();
-                Array.from(nameMap.values()).forEach(lang => {
-                    const normalizedCode = lang.code.trim().toLowerCase();
+                Array.from(nameMap.values()).forEach((lang: any) => {
+                    const normalizedCode = (lang.code || '').trim().toLowerCase();
                     if (!codeMap.has(normalizedCode)) {
                         codeMap.set(normalizedCode, lang);
                     }
                 });
 
-                const uniqueLanguages = Array.from(codeMap.values()).sort((a, b) => a.name.localeCompare(b.name));
-                setLanguages(uniqueLanguages.map(lang => ({ code: lang.code.toLowerCase(), name: lang.name })));
+                const uniqueLanguages = Array.from(codeMap.values()).sort((a: any, b: any) => a.name.localeCompare(b.name));
+                setLanguages(uniqueLanguages.map((lang: any) => ({ code: lang.code.toLowerCase(), name: lang.name })));
             } catch (error) {
                 console.error('Error loading languages:', error);
                 // Fallback to default languages
@@ -194,9 +181,9 @@ const LyricContent: React.FC = () => {
 
                     if (!normalizedSong.image || isBrokenHostImage(normalizedSong.image)) {
                         try {
-                            const summary = await spotifyService.searchBestTrackSummary(normalizedSong.artist, normalizedSong.title);
-                            if (summary?.imageUrl && !cancelled) {
-                                setSong({ ...normalizedSong, image: summary.imageUrl });
+                            const searchData = await authFetch('/api/search/spotify-image?artist=' + encodeURIComponent(normalizedSong.artist) + '&track=' + encodeURIComponent(normalizedSong.title)).catch(() => null);
+                            if (searchData?.imageUrl && !cancelled) {
+                                setSong({ ...normalizedSong, image: searchData.imageUrl });
                             } else {
                                 setSong(normalizedSong);
                             }
@@ -241,13 +228,18 @@ const LyricContent: React.FC = () => {
 
                 // Add to history if user is logged in
                 if (currentUser && songId) {
-                    await addToHistory(currentUser.uid, songId);
+                    await authFetch('/api/users/history', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ songId }),
+                    }).catch(() => undefined);
                 }
 
                 // Check if song is in favorites
                 if (currentUser) {
-                    const favorites = await getUserFavorites(currentUser.uid);
-                    const fav = favorites.find(f => f.songId === songId);
+                    const favoritesData = await authFetch('/api/users/favorites').catch(() => []);
+                    const favs = Array.isArray(favoritesData) ? favoritesData : favoritesData?.favorites ?? [];
+                    const fav = favs.find((f: any) => f.songId === songId);
                     if (fav && !cancelled) {
                         setIsFavorite(true);
                         setFavoriteId(fav.id || null);
@@ -274,13 +266,18 @@ const LyricContent: React.FC = () => {
         setFavoriteLoading(true);
         try {
             if (isFavorite && favoriteId) {
-                await removeFromFavorites(favoriteId);
+                await authFetch('/api/users/favorites/' + favoriteId, { method: 'DELETE' });
                 setIsFavorite(false);
                 setFavoriteId(null);
                 setNotification({ message: 'Removed from favorites', type: 'success' });
                 setTimeout(() => setNotification(null), 3000);
             } else {
-                const newFavId = await addToFavorites(currentUser.uid, songId);
+                const result = await authFetch('/api/users/favorites', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ songId }),
+                });
+                const newFavId = result?.id || result?.favoriteId || songId;
                 setIsFavorite(true);
                 setFavoriteId(newFavId);
                 setNotification({ message: 'Added to favorites', type: 'success' });
@@ -314,12 +311,10 @@ const LyricContent: React.FC = () => {
 
         setRequestLoading(true);
         try {
-            await createTranslationRequest({
-                songId,
-                songTitle: title,
-                artist,
-                userId: currentUser?.uid || 'anonymous',
-                userEmail: currentUser?.email || 'anonymous@example.com'
+            await authFetch('/api/translations/request', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ songId, songTitle: title, artist }),
             });
             setNotification({
                 message: 'Request received. Estimated turnaround: 5-10 minutes.\nThanks for contributing to AfroGenie.',
@@ -366,12 +361,17 @@ const LyricContent: React.FC = () => {
             // ALWAYS auto-detect source language - user doesn't need to select it
             setDetectingLanguage(true);
             try {
-                detectedSourceLang = await detectLanguageWithAI(originalLyrics);
+                const detectResult = await authFetch('/api/translations/detect-language', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: originalLyrics }),
+                });
+                detectedSourceLang = detectResult?.language || detectResult?.langCode || 'en';
                 setSourceLang(detectedSourceLang);
 
                 // Get language name for notification
-                const detectedLang = await getLanguageByCode(detectedSourceLang);
-                const langName = detectedLang?.name || detectedSourceLang;
+                const langData = await authFetch('/api/languages/' + detectedSourceLang).catch(() => null);
+                const langName = langData?.name || detectedSourceLang;
 
                 setNotification({
                     message: `Detected source language: ${langName}`,
@@ -554,12 +554,14 @@ const LyricContent: React.FC = () => {
         }
 
         try {
-            await submitTranslationCorrection({
-                translationId: existingTranslationId,
-                userId: currentUser.uid,
-                originalText: translatedLyrics,
-                suggestedText: correctionText,
-                reason: correctionReason || undefined
+            await authFetch('/api/translations/' + existingTranslationId + '/correction', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    originalText: translatedLyrics,
+                    suggestedText: correctionText,
+                    reason: correctionReason || undefined,
+                }),
             });
             setNotification({ message: 'Correction submitted! Thank you for your contribution.', type: 'success' });
             setTimeout(() => setNotification(null), 4000);
@@ -584,8 +586,10 @@ const LyricContent: React.FC = () => {
         }
 
         try {
-            await updateTranslation(existingTranslationId, {
-                translatedLyrics: ''
+            await authFetch('/api/translations/' + existingTranslationId, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ translatedLyrics: '' }),
             });
 
             setTranslatedLyrics('No translation available yet. Use "Reveal the Meaning" to generate one.');
