@@ -12,11 +12,6 @@ const resolveFallbackApiBase = (): string => {
   if (host === 'afro-genie-staging.vercel.app') {
     return 'https://afro-genie-backend-staging-production.up.railway.app/api';
   }
-
-  if (host === 'afro-genie.vercel.app') {
-    return 'https://afro-genie-backend-staging-production.up.railway.app/api';
-  }
-
   return '/api';
 };
 
