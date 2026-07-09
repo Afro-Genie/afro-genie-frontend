@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { getTopics, likeTopic, shareTopic, isTopicLiked, searchTopics } from '../../services/firebaseService';
-import { Topic } from '../../types';
+import { apiRequest } from '../../services/api';
+import type { CommunityTopic, CommunityCategory } from '../../types';
 import TopicCard from './TopicCard';
 import CategoryFilter from './CategoryFilter';
-import { getCategories } from '../../services/firebaseService';
-import { ForumCategory } from '../../types';
 
 interface TopicListProps {
   categoryId?: string;
@@ -13,11 +11,11 @@ interface TopicListProps {
 }
 
 const TopicList: React.FC<TopicListProps> = ({ categoryId, searchTerm }) => {
-  const { user } = useAuth();
-  const [topics, setTopics] = useState<Topic[]>([]);
-  const [categories, setCategories] = useState<ForumCategory[]>([]);
+  const { user, authFetch } = useAuth();
+  const [topics, setTopics] = useState<CommunityTopic[]>([]);
+  const [categories, setCategories] = useState<CommunityCategory[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>(categoryId);
-  const [sortBy, setSortBy] = useState<'latest' | 'mostLiked' | 'mostCommented'>('latest');
+  const [sortBy, setSortBy] = useState<'hot' | 'new' | 'top'>('hot');
   const [loading, setLoading] = useState(true);
   const [likedTopics, setLikedTopics] = useState<Set<string>>(new Set());
 
@@ -31,7 +29,8 @@ const TopicList: React.FC<TopicListProps> = ({ categoryId, searchTerm }) => {
 
   const loadCategories = async () => {
     try {
-      const cats = await getCategories();
+      const data = await apiRequest<CommunityCategory[]>('/community/categories');
+      const cats = Array.isArray(data) ? data : (data as any).categories || (data as any).data || [];
       setCategories(cats);
     } catch (error) {
       console.error('Error loading categories:', error);
@@ -41,23 +40,27 @@ const TopicList: React.FC<TopicListProps> = ({ categoryId, searchTerm }) => {
   const loadTopics = async () => {
     setLoading(true);
     try {
-      let topicsData: Topic[];
-      
+      let topicsData: CommunityTopic[];
+
       if (searchTerm && searchTerm.trim()) {
-        topicsData = await searchTopics(searchTerm);
+        const data = await apiRequest<any>(`/community/topics?search=${encodeURIComponent(searchTerm)}&sort=${sortBy}&limit=50`);
+        topicsData = data.topics || data.data || [];
       } else {
-        topicsData = await getTopics(selectedCategory, sortBy, 50);
+        const params = new URLSearchParams();
+        if (selectedCategory) params.set('categoryId', selectedCategory);
+        params.set('sort', sortBy);
+        params.set('limit', '50');
+        const data = await apiRequest<any>(`/community/topics?${params.toString()}`);
+        topicsData = data.topics || data.data || [];
       }
-      
+
       setTopics(topicsData);
 
-      // Load liked status
       if (user) {
         const liked = new Set<string>();
         for (const topic of topicsData) {
-          if (topic.id) {
-            const isLiked = await isTopicLiked(topic.id, user.uid);
-            if (isLiked) liked.add(topic.id);
+          if (topic.userVote === 'UPVOTE' || (topic as any).userVote === 'UPVOTE') {
+            liked.add(topic.id);
           }
         }
         setLikedTopics(liked);
@@ -74,7 +77,7 @@ const TopicList: React.FC<TopicListProps> = ({ categoryId, searchTerm }) => {
 
     const wasLiked = likedTopics.has(topicId);
     const newLiked = new Set(likedTopics);
-    
+
     if (wasLiked) {
       newLiked.delete(topicId);
     } else {
@@ -83,71 +86,80 @@ const TopicList: React.FC<TopicListProps> = ({ categoryId, searchTerm }) => {
     setLikedTopics(newLiked);
 
     try {
-      await likeTopic(topicId, user.uid);
-      loadTopics(); // Reload to get updated like count
+      await authFetch(`/api/community/vote/topic`, {
+        method: 'POST',
+        body: JSON.stringify({ topicId, voteType: 'UPVOTE' }),
+      });
+      loadTopics();
     } catch (error) {
       console.error('Error liking topic:', error);
-      // Revert on error
       setLikedTopics(likedTopics);
     }
   };
 
   const handleShare = async (topicId: string) => {
     if (!user) {
-      // Just copy link if not logged in
       const url = `${window.location.origin}/#/community/topic/${topicId}`;
       navigator.clipboard.writeText(url);
       return;
     }
-
-    try {
-      await shareTopic(topicId, user.uid);
-      loadTopics(); // Reload to get updated share count
-    } catch (error) {
-      console.error('Error sharing topic:', error);
-    }
+    console.warn('shareTopic: Not available via API yet');
   };
+
+  const mapTopicForCard = (topic: CommunityTopic) => ({
+    id: topic.id,
+    title: topic.title,
+    content: topic.content,
+    authorId: topic.author?.id || topic.authorId,
+    authorName: topic.author?.displayName || topic.authorName,
+    authorAvatar: topic.author?.photoUrl || topic.authorAvatar,
+    category: topic.forumCategory?.name || topic.category,
+    likes: topic.likes,
+    shares: 0,
+    commentCount: topic.commentCount,
+    createdAt: topic.createdAt,
+    isPinned: topic.isPinned,
+    isLocked: topic.isLocked,
+  });
 
   return (
     <div className="space-y-6">
-      {/* Filters and Sort */}
       <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
         <div className="flex gap-2">
           <button
-            onClick={() => setSortBy('latest')}
+            onClick={() => setSortBy('hot')}
             className={`px-4 py-2 rounded-lg transition-colors ${
-              sortBy === 'latest'
+              sortBy === 'hot'
                 ? 'bg-amber-500 text-gray-900 font-semibold'
                 : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
             }`}
           >
-            Latest
+            Hot
           </button>
           <button
-            onClick={() => setSortBy('mostLiked')}
+            onClick={() => setSortBy('new')}
             className={`px-4 py-2 rounded-lg transition-colors ${
-              sortBy === 'mostLiked'
+              sortBy === 'new'
                 ? 'bg-amber-500 text-gray-900 font-semibold'
                 : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
             }`}
           >
-            Most Liked
+            New
           </button>
           <button
-            onClick={() => setSortBy('mostCommented')}
+            onClick={() => setSortBy('top')}
             className={`px-4 py-2 rounded-lg transition-colors ${
-              sortBy === 'mostCommented'
+              sortBy === 'top'
                 ? 'bg-amber-500 text-gray-900 font-semibold'
                 : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
             }`}
           >
-            Most Discussed
+            Top
           </button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Sidebar with Categories */}
         <div className="lg:col-span-1">
           <CategoryFilter
             categories={categories}
@@ -156,7 +168,6 @@ const TopicList: React.FC<TopicListProps> = ({ categoryId, searchTerm }) => {
           />
         </div>
 
-        {/* Topics List */}
         <div className="lg:col-span-3">
           {loading ? (
             <div className="space-y-4">
@@ -180,7 +191,7 @@ const TopicList: React.FC<TopicListProps> = ({ categoryId, searchTerm }) => {
               {topics.map((topic) => (
                 <TopicCard
                   key={topic.id}
-                  topic={topic}
+                  topic={mapTopicForCard(topic) as any}
                   onLike={handleLike}
                   onShare={handleShare}
                   isLiked={topic.id ? likedTopics.has(topic.id) : false}
@@ -195,4 +206,3 @@ const TopicList: React.FC<TopicListProps> = ({ categoryId, searchTerm }) => {
 };
 
 export default TopicList;
-

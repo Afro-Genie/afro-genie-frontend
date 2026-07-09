@@ -1,39 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { getUserStats } from '../../services/firebaseService';
 import UserIcon from '../icons/UserIcon';
 import UserBadges from './UserBadges';
 
+interface UserStats {
+  postCount: number;
+  commentCount: number;
+  reputation: number;
+  badges: any[];
+}
+
 const UserProfileCard: React.FC = () => {
     const { user, isAdmin, userProfile } = useAuth();
-    const [stats, setStats] = useState({ postCount: 0, commentCount: 0, reputation: 0, badges: [] });
-    const [loading, setLoading] = useState(true);
+    const [stats, setStats] = useState<UserStats>({ postCount: 0, commentCount: 0, reputation: 0, badges: [] });
+    const [loading] = useState(false);
 
     useEffect(() => {
-        if (user) {
-            loadStats();
-        }
+      if (user) {
+        setStats({ postCount: 0, commentCount: 0, reputation: 0, badges: [] });
+      }
     }, [user]);
-
-    const loadStats = async () => {
-        if (!user) return;
-        setLoading(true);
-        try {
-            const userStats = await getUserStats(user.uid);
-            setStats(userStats);
-        } catch (error) {
-            console.error('Error loading user stats:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
 
     if (!user) return null;
 
     return (
         <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700 shadow-lg space-y-6">
-            {/* User Profile Header */}
             <div className="text-center">
                 {user.photoURL ? (
                     <img
@@ -64,7 +56,6 @@ const UserProfileCard: React.FC = () => {
                 )}
             </div>
 
-            {/* Stats Section */}
             <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-700">
                 <div className="text-center">
                     <div className="text-2xl font-bold text-amber-400">
@@ -80,7 +71,6 @@ const UserProfileCard: React.FC = () => {
                 </div>
             </div>
 
-            {/* Quick Actions */}
             <div className="space-y-3 pt-4 border-t border-gray-700">
                 <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Quick Actions</h3>
                 
@@ -133,7 +123,6 @@ const UserProfileCard: React.FC = () => {
                 )}
             </div>
 
-            {/* Member Since */}
             <div className="pt-4 border-t border-gray-700 text-center">
                 <p className="text-xs text-gray-500">
                     Member since {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
@@ -144,5 +133,3 @@ const UserProfileCard: React.FC = () => {
 };
 
 export default UserProfileCard;
-
-

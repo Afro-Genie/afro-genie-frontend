@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getCategories, getTopics } from '../../services/firebaseService';
-import { ForumCategory, Topic } from '../../types';
+import { apiRequest } from '../../services/api';
+import type { CommunityCategory, CommunityTopic } from '../../types';
 import BookOpenIcon from '../icons/BookOpenIcon';
 import ChatBubbleIcon from '../icons/ChatBubbleIcon';
 import TranslateIcon from '../icons/TranslateIcon';
@@ -15,8 +15,8 @@ const ICON_MAP: { [key: string]: React.ComponentType<{ className?: string }> } =
 };
 
 const ForumSection: React.FC = () => {
-  const [categories, setCategories] = useState<ForumCategory[]>([]);
-  const [latestTopics, setLatestTopics] = useState<{ [categoryId: string]: Topic }>({});
+  const [categories, setCategories] = useState<CommunityCategory[]>([]);
+  const [latestTopics, setLatestTopics] = useState<{ [categoryId: string]: CommunityTopic }>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -26,14 +26,15 @@ const ForumSection: React.FC = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const cats = await getCategories();
+      const catsData = await apiRequest<CommunityCategory[]>('/community/categories');
+      const cats = Array.isArray(catsData) ? catsData : (catsData as any).categories || (catsData as any).data || [];
       setCategories(cats);
 
-      // Load latest topic for each category
-      const topicsMap: { [categoryId: string]: Topic } = {};
+      const topicsMap: { [categoryId: string]: CommunityTopic } = {};
       for (const cat of cats) {
         if (cat.id) {
-          const topics = await getTopics(cat.id, 'latest', 1);
+          const topicsData = await apiRequest<any>(`/community/topics?categoryId=${cat.id}&sort=hot&limit=1`);
+          const topics = topicsData.topics || topicsData.data || [];
           if (topics.length > 0) {
             topicsMap[cat.id] = topics[0];
           }
@@ -87,7 +88,7 @@ const ForumSection: React.FC = () => {
       ) : (
         <div className="space-y-4">
           {categories.map((category) => {
-            const IconComponent = getIcon(category.icon);
+            const IconComponent = getIcon(category.icon || 'chat');
             const latestTopic = category.id ? latestTopics[category.id] : null;
             
             return (
@@ -105,7 +106,7 @@ const ForumSection: React.FC = () => {
                     <p className="text-sm text-gray-400 mt-1">{category.description}</p>
                     {latestTopic && (
                       <div className="text-xs text-gray-500 mt-2">
-                        <span>Latest: "{latestTopic.title}" by <strong>{latestTopic.authorName}</strong></span>
+                        <span>Latest: "{latestTopic.title}" by <strong>{latestTopic.author?.displayName || latestTopic.authorName}</strong></span>
                       </div>
                     )}
                   </div>

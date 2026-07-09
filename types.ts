@@ -138,15 +138,15 @@ export interface DuplicateCheckResult {
   confidence?: number;
 }
 
-// Forum Types
+// Forum Types (unified: supports both flat legacy and nested API shapes)
 export interface Topic {
-  id?: string;
+  id: string;
   title: string;
   content: string;
   authorId: string;
-  authorName: string;
+  authorName?: string;
   authorAvatar?: string;
-  category: string;
+  category: string | { id: string; name: string };
   songId?: string;
   artistId?: string;
   likes: number;
@@ -157,28 +157,36 @@ export interface Topic {
   isPinned: boolean;
   isLocked: boolean;
   imageUrl?: string;
+  author?: { id: string; displayName: string; photoUrl?: string; role?: string };
+  forumCategory?: { id: string; name: string };
+  userVote?: 'UPVOTE' | 'DOWNVOTE' | null;
 }
 
 export interface TopicComment {
-  id?: string;
+  id: string;
   topicId: string;
   userId: string;
-  userName: string;
+  userName?: string;
   userAvatar?: string;
   content: string;
   likes: number;
   createdAt?: any;
   updatedAt?: any;
-  parentCommentId?: string; // For nested replies
+  parentCommentId?: string;
+  user?: { id: string; displayName: string; photoUrl?: string; role?: string };
+  replies?: TopicComment[];
+  _count?: { replies: number };
 }
 
 export interface ForumCategory {
-  id?: string;
+  id: string;
   name: string;
-  description: string;
-  icon: string;
-  order: number;
+  description?: string;
+  icon?: string;
+  order?: number;
   topicCount: number;
+  memberCount?: number;
+  isMember?: boolean;
 }
 
 export interface UserBadge {
@@ -217,6 +225,56 @@ export interface UserProfileExtended {
     verified: boolean;
     verifiedAt?: any;
   };
+}
+
+// Community (new API-based types)
+export interface CommunityCategory {
+  id: string;
+  name: string;
+  description?: string;
+  icon?: string;
+  order?: number;
+  memberCount: number;
+  topicCount: number;
+  isMember?: boolean;
+}
+
+export interface CommunityTopic {
+  id: string;
+  title: string;
+  content: string;
+  forumCategoryId: string;
+  authorId: string;
+  authorName: string;
+  authorAvatar?: string;
+  category: string;
+  likes: number;
+  shares: number;
+  commentCount: number;
+  isPinned: boolean;
+  isLocked: boolean;
+  createdAt: string;
+  updatedAt?: string;
+  songId?: string;
+  artistId?: string;
+  imageUrl?: string;
+  userVote?: 'UPVOTE' | 'DOWNVOTE' | null;
+  author?: { id: string; displayName: string; photoUrl?: string; role?: string };
+  forumCategory?: { id: string; name: string };
+}
+
+export interface CommunityComment {
+  id: string;
+  topicId: string;
+  userId: string;
+  parentCommentId?: string;
+  content: string;
+  likes: number;
+  createdAt: string;
+  updatedAt?: string;
+  user: { id: string; displayName: string; photoUrl?: string; role?: string };
+  _count?: { replies: number };
+  replies?: CommunityComment[];
 }
 
 export type TranslationViewMode =

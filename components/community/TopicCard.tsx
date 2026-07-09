@@ -10,24 +10,40 @@ interface TopicCardProps {
   isLiked?: boolean;
 }
 
-const TopicCard: React.FC<TopicCardProps> = ({ topic, onLike, onShare, isLiked }) => {
-  const formatTimeAgo = (timestamp: any) => {
-    if (!timestamp) return 'Unknown';
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    const now = new Date();
-    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-    
-    if (diffInSeconds < 60) return 'Just now';
-    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
-    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
-    if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`;
-    return date.toLocaleDateString();
-  };
+const getAuthorName = (topic: Topic) =>
+  topic.author?.displayName || topic.authorName || 'Unknown';
 
-  const truncateContent = (content: string, maxLength: number = 150) => {
-    if (content.length <= maxLength) return content;
-    return content.substring(0, maxLength) + '...';
-  };
+const getAuthorAvatar = (topic: Topic) =>
+  topic.author?.photoUrl || topic.authorAvatar || '';
+
+const getCategoryName = (topic: Topic) => {
+  if (topic.forumCategory?.name) return topic.forumCategory.name;
+  if (typeof topic.category === 'object') return topic.category.name;
+  return topic.category || '';
+};
+
+const formatTimeAgo = (timestamp: any) => {
+  if (!timestamp) return 'Unknown';
+  const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+  const now = new Date();
+  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+  if (diffInSeconds < 60) return 'Just now';
+  if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+  if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+  if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`;
+  return date.toLocaleDateString();
+};
+
+const truncateContent = (content: string, maxLength: number = 150) => {
+  if (content.length <= maxLength) return content;
+  return content.substring(0, maxLength) + '...';
+};
+
+const TopicCard: React.FC<TopicCardProps> = ({ topic, onLike, onShare, isLiked }) => {
+  const authorName = getAuthorName(topic);
+  const authorAvatar = getAuthorAvatar(topic);
+  const categoryName = getCategoryName(topic);
 
   return (
     <div className={`bg-gray-800/50 hover:bg-gray-700/50 transition-colors duration-200 rounded-lg border ${topic.isPinned ? 'border-amber-400/50' : 'border-gray-700'} p-5`}>
@@ -39,27 +55,25 @@ const TopicCard: React.FC<TopicCardProps> = ({ topic, onLike, onShare, isLiked }
           <span>Pinned</span>
         </div>
       )}
-      
+
       <div className="flex items-start gap-4">
-        {/* Author Avatar */}
         <div className="flex-shrink-0">
-          {topic.authorAvatar ? (
+          {authorAvatar ? (
             <img
-              src={topic.authorAvatar}
-              alt={topic.authorName}
+              src={authorAvatar}
+              alt={authorName}
               className="h-10 w-10 rounded-full"
             />
           ) : (
             <div className="h-10 w-10 rounded-full bg-gradient-to-br from-green-600 to-green-800 flex items-center justify-center">
               <span className="text-white font-bold text-sm">
-                {topic.authorName?.[0]?.toUpperCase() || 'U'}
+                {authorName[0]?.toUpperCase() || 'U'}
               </span>
             </div>
           )}
         </div>
 
         <div className="flex-1 min-w-0">
-          {/* Title and Category */}
           <div className="flex items-start justify-between gap-2 mb-2">
             <Link
               to={`/community/topic/${topic.id}`}
@@ -76,29 +90,26 @@ const TopicCard: React.FC<TopicCardProps> = ({ topic, onLike, onShare, isLiked }
             )}
           </div>
 
-          {/* Content Preview */}
           <p className="text-gray-400 text-sm mb-3 line-clamp-3">
             {truncateContent(topic.content)}
           </p>
 
-          {/* Meta Info */}
           <div className="flex items-center gap-4 text-xs text-gray-500 mb-3">
             <span className="flex items-center gap-1">
-              <span className="font-semibold text-gray-400">{topic.authorName}</span>
+              <span className="font-semibold text-gray-400">{authorName}</span>
             </span>
             <span>•</span>
             <span>{formatTimeAgo(topic.createdAt)}</span>
-            {topic.category && (
+            {categoryName && (
               <>
                 <span>•</span>
                 <span className="px-2 py-0.5 bg-gray-700 rounded text-gray-300">
-                  {topic.category}
+                  {categoryName}
                 </span>
               </>
             )}
           </div>
 
-          {/* Actions */}
           <TopicActions
             topic={topic}
             onLike={onLike}
