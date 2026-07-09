@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { createTopic, getCategories, getAllSongs, getAllArtists, uploadTopicImage } from '../../services/firebaseService';
-import { ForumCategory, Song, Artist } from '../../types';
+import { apiRequest } from '../../services/api';
+import { uploadImage } from '../../services/uploadService';
+import type { CommunityCategory } from '../../types';
 
 interface CreateTopicFormProps {
   initialCategory?: string;
@@ -11,7 +12,7 @@ interface CreateTopicFormProps {
 }
 
 const CreateTopicForm: React.FC<CreateTopicFormProps> = ({ initialCategory, initialSongId, initialArtistId }) => {
-  const { user, userProfile } = useAuth();
+  const { user, userProfile, authFetch } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [title, setTitle] = useState('');
@@ -21,9 +22,7 @@ const CreateTopicForm: React.FC<CreateTopicFormProps> = ({ initialCategory, init
   const [artistId, setArtistId] = useState(initialArtistId || searchParams.get('artistId') || '');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [categories, setCategories] = useState<ForumCategory[]>([]);
-  const [songs, setSongs] = useState<Song[]>([]);
-  const [artists, setArtists] = useState<Artist[]>([]);
+  const [categories, setCategories] = useState<CommunityCategory[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -32,16 +31,11 @@ const CreateTopicForm: React.FC<CreateTopicFormProps> = ({ initialCategory, init
     const loadData = async () => {
       setLoading(true);
       try {
-        const [cats, songsData, artistsData] = await Promise.all([
-          getCategories(),
-          getAllSongs(),
-          getAllArtists()
-        ]);
+        const data = await apiRequest<CommunityCategory[]>('/community/categories');
+        const cats = Array.isArray(data) ? data : (data as any).categories || (data as any).data || [];
         setCategories(cats);
-        setSongs(songsData);
-        setArtists(artistsData);
       } catch (err) {
-        console.error('Error loading data:', err);
+        console.error('Error loading categories:', err);
       } finally {
         setLoading(false);
       }
@@ -83,24 +77,23 @@ const CreateTopicForm: React.FC<CreateTopicFormProps> = ({ initialCategory, init
     try {
       let imageUrl: string | undefined;
       if (imageFile) {
-        // Upload image first (we'll use a temporary ID)
         const tempId = 'temp_' + Date.now();
-        imageUrl = await uploadTopicImage(imageFile, tempId);
+        imageUrl = await uploadImage(imageFile, `topics/${tempId}/${imageFile.name}`);
       }
 
-      const topicId = await createTopic({
-        title: title.trim(),
-        content: content.trim(),
-        authorId: user.uid,
-        authorName: userProfile?.displayName || user.displayName || user.email || 'Anonymous',
-        authorAvatar: userProfile?.photoURL || user.photoURL || undefined,
-        category,
-        songId: songId || undefined,
-        artistId: artistId || undefined,
-        imageUrl: imageUrl || undefined
+      const result = await authFetch('/api/community/topics', {
+        method: 'POST',
+        body: JSON.stringify({
+          title: title.trim(),
+          content: content.trim(),
+          forumCategoryId: category,
+          songId: songId || undefined,
+          artistId: artistId || undefined,
+          imageUrl: imageUrl || undefined,
+        }),
       });
 
-      navigate(`/community/topic/${topicId}`);
+      navigate(`/community/topic/${result.id}`);
     } catch (err: any) {
       console.error('Error creating topic:', err);
       setError(err.message || 'Failed to create topic. Please try again.');
@@ -128,7 +121,6 @@ const CreateTopicForm: React.FC<CreateTopicFormProps> = ({ initialCategory, init
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Title */}
         <div>
           <label htmlFor="title" className="block text-sm font-medium text-gray-400 mb-1">
             Title *
@@ -146,7 +138,6 @@ const CreateTopicForm: React.FC<CreateTopicFormProps> = ({ initialCategory, init
           />
         </div>
 
-        {/* Category */}
         <div>
           <label htmlFor="category" className="block text-sm font-medium text-gray-400 mb-1">
             Category *
@@ -168,49 +159,6 @@ const CreateTopicForm: React.FC<CreateTopicFormProps> = ({ initialCategory, init
           </select>
         </div>
 
-        {/* Link to Song (Optional) */}
-        <div>
-          <label htmlFor="song" className="block text-sm font-medium text-gray-400 mb-1">
-            Link to Song (Optional)
-          </label>
-          <select
-            id="song"
-            value={songId}
-            onChange={(e) => setSongId(e.target.value)}
-            disabled={submitting || loading}
-            className="w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
-          >
-            <option value="">None</option>
-            {songs.map((song) => (
-              <option key={song.id} value={song.id}>
-                {song.title} by {song.artist}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Link to Artist (Optional) */}
-        <div>
-          <label htmlFor="artist" className="block text-sm font-medium text-gray-400 mb-1">
-            Link to Artist (Optional)
-          </label>
-          <select
-            id="artist"
-            value={artistId}
-            onChange={(e) => setArtistId(e.target.value)}
-            disabled={submitting || loading}
-            className="w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
-          >
-            <option value="">None</option>
-            {artists.map((artist) => (
-              <option key={artist.id} value={artist.id}>
-                {artist.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Content */}
         <div>
           <label htmlFor="content" className="block text-sm font-medium text-gray-400 mb-1">
             Content *
@@ -228,7 +176,6 @@ const CreateTopicForm: React.FC<CreateTopicFormProps> = ({ initialCategory, init
           <p className="text-xs text-gray-500 mt-1">You can use markdown for formatting</p>
         </div>
 
-        {/* Image Upload */}
         <div>
           <label htmlFor="image" className="block text-sm font-medium text-gray-400 mb-1">
             Image (Optional)
@@ -262,7 +209,6 @@ const CreateTopicForm: React.FC<CreateTopicFormProps> = ({ initialCategory, init
           )}
         </div>
 
-        {/* Submit Buttons */}
         <div className="flex gap-3 pt-4">
           <button
             type="submit"
@@ -286,4 +232,3 @@ const CreateTopicForm: React.FC<CreateTopicFormProps> = ({ initialCategory, init
 };
 
 export default CreateTopicForm;
-

@@ -1,20 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  getTopics,
-  getCategories,
-  deleteTopic,
-  pinTopic,
-  lockTopic,
-  updateTopic,
-  createCategory,
-  updateCategory,
-  deleteCategory,
-  getTopicComments,
-  deleteComment,
-  searchTopics,
-  getAllUsers
-} from '../../services/firebaseService';
+import { useAuth } from '../../context/AuthContext';
 import {
   DeleteIcon,
   EditIcon,
@@ -31,7 +17,14 @@ import type { Topic, ForumCategory, TopicComment } from '../../types';
 type ViewMode = 'topics' | 'categories' | 'comments';
 type SortBy = 'latest' | 'mostLiked' | 'mostCommented';
 
+const sortToApiParam: Record<SortBy, string> = {
+  latest: 'new',
+  mostLiked: 'top',
+  mostCommented: 'new',
+};
+
 const CommunityManager: React.FC = () => {
+  const { authFetch } = useAuth();
   const [viewMode, setViewMode] = useState<ViewMode>('topics');
   const [topics, setTopics] = useState<Topic[]>([]);
   const [categories, setCategories] = useState<ForumCategory[]>([]);
@@ -53,19 +46,19 @@ const CommunityManager: React.FC = () => {
     setLoading(true);
     try {
       if (viewMode === 'topics') {
-        let topicsData: Topic[];
-        if (searchTerm && searchTerm.trim()) {
-          topicsData = await searchTopics(searchTerm);
-        } else {
-          topicsData = await getTopics(selectedCategory, sortBy, 100);
-        }
-        setTopics(topicsData);
+        const params = new URLSearchParams();
+        if (selectedCategory) params.set('categoryId', selectedCategory);
+        if (searchTerm) params.set('search', searchTerm);
+        params.set('sort', sortToApiParam[sortBy]);
+        params.set('limit', '100');
+        const data = await authFetch(`/api/community/topics?${params.toString()}`);
+        setTopics(data.topics || data.data || []);
       } else if (viewMode === 'categories') {
-        const cats = await getCategories();
-        setCategories(cats);
+        const cats = await authFetch('/api/community/categories');
+        setCategories(Array.isArray(cats) ? cats : cats.categories || cats.data || []);
       } else if (viewMode === 'comments' && selectedTopicId) {
-        const comms = await getTopicComments(selectedTopicId);
-        setComments(comms);
+        const data = await authFetch(`/api/community/topics/${selectedTopicId}`);
+        setComments(data.comments || []);
       }
     } catch (error) {
       console.error('Error loading data:', error);
@@ -77,7 +70,7 @@ const CommunityManager: React.FC = () => {
   const handleDeleteTopic = async (topicId: string) => {
     if (window.confirm('Are you sure you want to delete this topic? This action cannot be undone.')) {
       try {
-        await deleteTopic(topicId);
+        await authFetch(`/api/community/topics/${topicId}`, { method: 'DELETE' });
         loadData();
       } catch (error) {
         console.error('Error deleting topic:', error);
@@ -88,7 +81,7 @@ const CommunityManager: React.FC = () => {
 
   const handlePinTopic = async (topicId: string, isPinned: boolean) => {
     try {
-      await pinTopic(topicId, !isPinned);
+      await authFetch(`/api/community/topics/${topicId}/pin`, { method: 'PATCH' });
       loadData();
     } catch (error) {
       console.error('Error pinning topic:', error);
@@ -97,7 +90,7 @@ const CommunityManager: React.FC = () => {
 
   const handleLockTopic = async (topicId: string, isLocked: boolean) => {
     try {
-      await lockTopic(topicId, !isLocked);
+      await authFetch(`/api/community/topics/${topicId}/lock`, { method: 'PATCH' });
       loadData();
     } catch (error) {
       console.error('Error locking topic:', error);
@@ -107,10 +100,12 @@ const CommunityManager: React.FC = () => {
   const handleSaveTopic = async () => {
     if (!editingTopic || !editingTopic.id) return;
     try {
-      await updateTopic(editingTopic.id, {
-        title: editingTopic.title,
-        content: editingTopic.content,
-        category: editingTopic.category
+      await authFetch(`/api/community/topics/${editingTopic.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          title: editingTopic.title,
+          content: editingTopic.content,
+        }),
       });
       setEditingTopic(null);
       loadData();
@@ -123,7 +118,7 @@ const CommunityManager: React.FC = () => {
   const handleDeleteCategory = async (categoryId: string) => {
     if (window.confirm('Are you sure you want to delete this category? Topics in this category will not be deleted.')) {
       try {
-        await deleteCategory(categoryId);
+        await authFetch(`/api/community/categories/${categoryId}`, { method: 'DELETE' });
         loadData();
       } catch (error) {
         console.error('Error deleting category:', error);
@@ -135,11 +130,14 @@ const CommunityManager: React.FC = () => {
   const handleSaveCategory = async () => {
     if (editingCategory && editingCategory.id) {
       try {
-        await updateCategory(editingCategory.id, {
-          name: editingCategory.name,
-          description: editingCategory.description,
-          icon: editingCategory.icon,
-          order: editingCategory.order
+        await authFetch(`/api/community/categories/${editingCategory.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            name: editingCategory.name,
+            description: editingCategory.description,
+            icon: editingCategory.icon,
+            order: editingCategory.order,
+          }),
         });
         setEditingCategory(null);
         loadData();
@@ -149,11 +147,14 @@ const CommunityManager: React.FC = () => {
       }
     } else {
       try {
-        await createCategory({
-          name: newCategory.name,
-          description: newCategory.description,
-          icon: newCategory.icon,
-          order: newCategory.order
+        await authFetch('/api/community/categories', {
+          method: 'POST',
+          body: JSON.stringify({
+            name: newCategory.name,
+            description: newCategory.description,
+            icon: newCategory.icon,
+            order: newCategory.order,
+          }),
         });
         setNewCategory({ name: '', description: '', icon: 'chat', order: 0 });
         loadData();
@@ -167,7 +168,7 @@ const CommunityManager: React.FC = () => {
   const handleDeleteComment = async (commentId: string, topicId: string) => {
     if (window.confirm('Are you sure you want to delete this comment?')) {
       try {
-        await deleteComment(commentId, topicId);
+        await authFetch(`/api/community/comments/${commentId}`, { method: 'DELETE' });
         loadData();
       } catch (error) {
         console.error('Error deleting comment:', error);
@@ -178,7 +179,7 @@ const CommunityManager: React.FC = () => {
 
   const formatDate = (timestamp: any) => {
     if (!timestamp) return 'Unknown';
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
@@ -376,17 +377,17 @@ const CommunityManager: React.FC = () => {
                             <span>{topic.likes || 0} likes</span>
                             <span>•</span>
                             <span>{topic.commentCount || 0} comments</span>
-                            {topic.category && (
+                            {(typeof topic.category === 'string' ? topic.category : topic.category?.name) && (
                               <>
                                 <span>•</span>
-                                <span className="px-2 py-0.5 bg-gray-700 rounded">{topic.category}</span>
+                                <span className="px-2 py-0.5 bg-gray-700 rounded">{typeof topic.category === 'string' ? topic.category : topic.category?.name}</span>
                               </>
                             )}
                           </div>
                         </div>
                         <div className="flex gap-2 ml-4">
                           <button
-                            onClick={() => handlePinTopic(topic.id!, topic.isPinned)}
+                            onClick={() => handlePinTopic(topic.id, topic.isPinned)}
                             className={`p-2 rounded-lg transition-colors ${
                               topic.isPinned
                                 ? 'bg-amber-500/20 text-amber-400'
@@ -397,7 +398,7 @@ const CommunityManager: React.FC = () => {
                             📌
                           </button>
                           <button
-                            onClick={() => handleLockTopic(topic.id!, topic.isLocked)}
+                            onClick={() => handleLockTopic(topic.id, topic.isLocked)}
                             className={`p-2 rounded-lg transition-colors ${
                               topic.isLocked
                                 ? 'bg-red-500/20 text-red-400'
@@ -415,7 +416,7 @@ const CommunityManager: React.FC = () => {
                             <EditIcon className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => handleDeleteTopic(topic.id!)}
+                            onClick={() => handleDeleteTopic(topic.id)}
                             className="p-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg transition-colors"
                             title="Delete"
                           >
@@ -423,7 +424,7 @@ const CommunityManager: React.FC = () => {
                           </button>
                           <button
                             onClick={() => {
-                              setSelectedTopicId(topic.id!);
+                              setSelectedTopicId(topic.id);
                               setViewMode('comments');
                             }}
                             className="p-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded-lg transition-colors"
@@ -552,7 +553,7 @@ const CommunityManager: React.FC = () => {
                             <EditIcon className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => handleDeleteCategory(category.id!)}
+                            onClick={() => handleDeleteCategory(category.id)}
                             className="p-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg transition-colors"
                           >
                             <DeleteIcon className="w-4 h-4" />
@@ -610,7 +611,7 @@ const CommunityManager: React.FC = () => {
                         </div>
                       </div>
                       <button
-                        onClick={() => handleDeleteComment(comment.id!, selectedTopicId)}
+                        onClick={() => handleDeleteComment(comment.id, selectedTopicId)}
                         className="p-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg transition-colors ml-4"
                       >
                         <DeleteIcon className="w-4 h-4" />

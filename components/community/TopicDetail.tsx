@@ -1,21 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { getTopic, getTopicComments, likeTopic, shareTopic, isTopicLiked, deleteTopic, pinTopic, lockTopic, getSong, getArtist } from '../../services/firebaseService';
-import { Topic, TopicComment, Song, Artist } from '../../types';
+import { apiRequest } from '../../services/api';
+import CommentThread from './CommentThread';
 import TopicActions from './TopicActions';
-import CommentSection from './CommentSection';
+import type { CommunityTopic, CommunityComment } from '../../types';
 
 const TopicDetail: React.FC = () => {
   const { topicId } = useParams<{ topicId: string }>();
   const navigate = useNavigate();
-  const { user, userProfile, isAdmin } = useAuth();
-  const [topic, setTopic] = useState<Topic | null>(null);
-  const [comments, setComments] = useState<TopicComment[]>([]);
+  const { user, authFetch } = useAuth();
+  const [topic, setTopic] = useState<CommunityTopic | null>(null);
+  const [comments, setComments] = useState<CommunityComment[]>([]);
   const [loading, setLoading] = useState(true);
   const [isLiked, setIsLiked] = useState(false);
-  const [linkedSong, setLinkedSong] = useState<Song | null>(null);
-  const [linkedArtist, setLinkedArtist] = useState<Artist | null>(null);
+
+  const isModOrAdmin = user && (user.role === 'MODERATOR' || user.role === 'ADMIN');
 
   useEffect(() => {
     if (topicId) {
@@ -23,81 +23,18 @@ const TopicDetail: React.FC = () => {
     }
   }, [topicId]);
 
-  useEffect(() => {
-    if (topic?.id) {
-      loadComments();
-      if (user) {
-        checkLikedStatus();
-      }
-    }
-  }, [topic?.id, user]);
-
-  useEffect(() => {
-    if (topic) {
-      if (topic.songId) {
-        loadLinkedSong();
-      }
-      if (topic.artistId) {
-        loadLinkedArtist();
-      }
-    }
-  }, [topic]);
-
   const loadTopic = async () => {
     if (!topicId) return;
     setLoading(true);
     try {
-      const topicData = await getTopic(topicId);
-      if (topicData) {
-        setTopic(topicData);
-      } else {
-        navigate('/community');
-      }
+      const data = await apiRequest<any>(`/community/topics/${topicId}`);
+      setTopic(data);
+      setComments(data.comments || []);
     } catch (error) {
       console.error('Error loading topic:', error);
       navigate('/community');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const loadComments = async () => {
-    if (!topic?.id) return;
-    try {
-      const commentsData = await getTopicComments(topic.id);
-      setComments(commentsData);
-    } catch (error) {
-      console.error('Error loading comments:', error);
-    }
-  };
-
-  const checkLikedStatus = async () => {
-    if (!topic?.id || !user) return;
-    try {
-      const liked = await isTopicLiked(topic.id, user.uid);
-      setIsLiked(liked);
-    } catch (error) {
-      console.error('Error checking like status:', error);
-    }
-  };
-
-  const loadLinkedSong = async () => {
-    if (!topic?.songId) return;
-    try {
-      const song = await getSong(topic.songId);
-      setLinkedSong(song);
-    } catch (error) {
-      console.error('Error loading linked song:', error);
-    }
-  };
-
-  const loadLinkedArtist = async () => {
-    if (!topic?.artistId) return;
-    try {
-      const artist = await getArtist(topic.artistId);
-      setLinkedArtist(artist);
-    } catch (error) {
-      console.error('Error loading linked artist:', error);
     }
   };
 
@@ -108,38 +45,29 @@ const TopicDetail: React.FC = () => {
     setIsLiked(!wasLiked);
 
     try {
-      const newLiked = await likeTopic(topic.id, user.uid);
-      setIsLiked(newLiked);
-      loadTopic(); // Reload to get updated like count
+      await authFetch('/api/community/vote/topic', {
+        method: 'POST',
+        body: JSON.stringify({ topicId: topic.id, voteType: 'UPVOTE' }),
+      });
+      loadTopic();
     } catch (error) {
       console.error('Error liking topic:', error);
-      setIsLiked(wasLiked); // Revert on error
+      setIsLiked(wasLiked);
     }
   };
 
   const handleShare = async () => {
     if (!topic?.id) return;
-
-    if (user) {
-      try {
-        await shareTopic(topic.id, user.uid);
-        loadTopic(); // Reload to get updated share count
-      } catch (error) {
-        console.error('Error sharing topic:', error);
-      }
-    } else {
-      // Just copy link if not logged in
-      const url = `${window.location.origin}/#/community/topic/${topic.id}`;
-      navigator.clipboard.writeText(url);
-    }
+    const url = `${window.location.origin}/#/community/topic/${topic.id}`;
+    navigator.clipboard.writeText(url);
   };
 
   const handleDelete = async () => {
-    if (!topic?.id || !isAdmin) return;
+    if (!topic?.id || !isModOrAdmin) return;
     if (!window.confirm('Are you sure you want to delete this topic?')) return;
 
     try {
-      await deleteTopic(topic.id);
+      await authFetch(`/api/community/topics/${topic.id}`, { method: 'DELETE' });
       navigate('/community');
     } catch (error) {
       console.error('Error deleting topic:', error);
@@ -147,9 +75,9 @@ const TopicDetail: React.FC = () => {
   };
 
   const handlePin = async () => {
-    if (!topic?.id || !isAdmin) return;
+    if (!topic?.id || !isModOrAdmin) return;
     try {
-      await pinTopic(topic.id, !topic.isPinned);
+      await authFetch(`/api/community/topics/${topic.id}/pin`, { method: 'PATCH' });
       loadTopic();
     } catch (error) {
       console.error('Error pinning topic:', error);
@@ -157,27 +85,47 @@ const TopicDetail: React.FC = () => {
   };
 
   const handleLock = async () => {
-    if (!topic?.id || !isAdmin) return;
+    if (!topic?.id || !isModOrAdmin) return;
     try {
-      await lockTopic(topic.id, !topic.isLocked);
+      await authFetch(`/api/community/topics/${topic.id}/lock`, { method: 'PATCH' });
       loadTopic();
     } catch (error) {
       console.error('Error locking topic:', error);
     }
   };
 
+  const handleVoteComment = async (commentId: string, voteType: 1 | -1) => {
+    await authFetch('/api/community/vote/comment', {
+      method: 'POST',
+      body: JSON.stringify({ commentId, voteType: voteType === 1 ? 'UPVOTE' : 'DOWNVOTE' }),
+    });
+    loadTopic();
+  };
+
+  const handleReply = async (parentCommentId: string, content: string) => {
+    if (!topicId) return;
+    await authFetch(`/api/community/topics/${topicId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ content, parentCommentId }),
+    });
+    loadTopic();
+  };
+
   const formatTimeAgo = (timestamp: any) => {
     if (!timestamp) return 'Unknown';
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    const date = new Date(timestamp);
     const now = new Date();
     const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-    
+
     if (diffInSeconds < 60) return 'Just now';
     if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
     if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
     if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`;
     return date.toLocaleDateString();
   };
+
+  const authorName = topic?.author?.displayName || topic?.authorName;
+  const authorAvatar = topic?.author?.photoUrl || topic?.authorAvatar;
 
   if (loading) {
     return (
@@ -206,7 +154,6 @@ const TopicDetail: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
-      {/* Back Button */}
       <Link
         to="/community"
         className="inline-flex items-center gap-2 text-gray-400 hover:text-amber-400 transition-colors"
@@ -217,9 +164,7 @@ const TopicDetail: React.FC = () => {
         Back to Community
       </Link>
 
-      {/* Topic Card */}
       <div className="bg-gray-800/50 rounded-xl border border-gray-700 p-6">
-        {/* Header */}
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
             {topic.isPinned && (
@@ -233,36 +178,35 @@ const TopicDetail: React.FC = () => {
             <h1 className="text-3xl font-bold text-gray-100 mb-2">{topic.title}</h1>
             <div className="flex items-center gap-4 text-sm text-gray-400">
               <div className="flex items-center gap-2">
-                {topic.authorAvatar ? (
+                {authorAvatar ? (
                   <img
-                    src={topic.authorAvatar}
-                    alt={topic.authorName}
+                    src={authorAvatar}
+                    alt={authorName}
                     className="h-6 w-6 rounded-full"
                   />
                 ) : (
                   <div className="h-6 w-6 rounded-full bg-gradient-to-br from-green-600 to-green-800 flex items-center justify-center">
                     <span className="text-white font-bold text-xs">
-                      {topic.authorName?.[0]?.toUpperCase() || 'U'}
+                      {authorName?.[0]?.toUpperCase() || 'U'}
                     </span>
                   </div>
                 )}
-                <span className="font-semibold text-gray-300">{topic.authorName}</span>
+                <span className="font-semibold text-gray-300">{authorName}</span>
               </div>
               <span>•</span>
               <span>{formatTimeAgo(topic.createdAt)}</span>
-              {topic.category && (
+              {topic.forumCategory && (
                 <>
                   <span>•</span>
                   <span className="px-2 py-0.5 bg-gray-700 rounded text-gray-300">
-                    {topic.category}
+                    {topic.forumCategory.name}
                   </span>
                 </>
               )}
             </div>
           </div>
 
-          {/* Admin Actions */}
-          {isAdmin && (
+          {isModOrAdmin && (
             <div className="flex gap-2">
               <button
                 onClick={handlePin}
@@ -303,41 +247,6 @@ const TopicDetail: React.FC = () => {
           )}
         </div>
 
-        {/* Linked Content */}
-        {(linkedSong || linkedArtist) && (
-          <div className="mb-4 p-3 bg-gray-700/50 rounded-lg border border-gray-600">
-            {linkedSong && (
-              <Link
-                to={`/songs/${linkedSong.id}`}
-                className="flex items-center gap-3 hover:opacity-80 transition-opacity"
-              >
-                {linkedSong.image && (
-                  <img src={linkedSong.image} alt={linkedSong.title} className="h-12 w-12 rounded object-cover" />
-                )}
-                <div>
-                  <p className="text-sm text-gray-400">Related Song</p>
-                  <p className="text-gray-200 font-semibold">{linkedSong.title}</p>
-                </div>
-              </Link>
-            )}
-            {linkedArtist && (
-              <Link
-                to={`/artist/${linkedArtist.id}`}
-                className="flex items-center gap-3 hover:opacity-80 transition-opacity"
-              >
-                {linkedArtist.image && (
-                  <img src={linkedArtist.image} alt={linkedArtist.name} className="h-12 w-12 rounded-full object-cover" />
-                )}
-                <div>
-                  <p className="text-sm text-gray-400">Related Artist</p>
-                  <p className="text-gray-200 font-semibold">{linkedArtist.name}</p>
-                </div>
-              </Link>
-            )}
-          </div>
-        )}
-
-        {/* Image */}
         {topic.imageUrl && (
           <div className="mb-4">
             <img
@@ -348,17 +257,15 @@ const TopicDetail: React.FC = () => {
           </div>
         )}
 
-        {/* Content */}
         <div className="prose prose-invert max-w-none mb-6">
           <div className="text-gray-300 whitespace-pre-wrap leading-relaxed">
             {topic.content}
           </div>
         </div>
 
-        {/* Actions */}
         {!topic.isLocked && (
           <TopicActions
-            topic={topic}
+            topic={topic as any}
             onLike={handleLike}
             onShare={handleShare}
             isLiked={isLiked}
@@ -372,12 +279,12 @@ const TopicDetail: React.FC = () => {
         )}
       </div>
 
-      {/* Comments Section */}
       {!topic.isLocked && (
-        <CommentSection
-          topicId={topic.id!}
+        <CommentThread
           comments={comments}
-          onCommentsUpdate={loadComments}
+          topicId={topic.id!}
+          onVoteComment={handleVoteComment}
+          onReply={handleReply}
         />
       )}
     </div>
@@ -385,4 +292,3 @@ const TopicDetail: React.FC = () => {
 };
 
 export default TopicDetail;
-

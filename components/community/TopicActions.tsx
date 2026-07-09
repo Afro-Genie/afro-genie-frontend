@@ -14,9 +14,8 @@ const TopicActions: React.FC<TopicActionsProps> = ({ topic, onLike, onShare, isL
 
   const handleShare = () => {
     if (onShare) {
-      onShare(topic.id!);
+      onShare(topic.id);
     } else {
-      // Default share behavior - copy link
       const url = `${window.location.origin}/#/community/topic/${topic.id}`;
       navigator.clipboard.writeText(url).then(() => {
         setCopied(true);

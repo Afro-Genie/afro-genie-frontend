@@ -8,7 +8,8 @@ import TranslationPage from './pages/TranslationPage';
 import SearchResultsPage from './pages/SearchResultsPage';
 import RequestTranslationPage from './pages/RequestTranslationPage';
 import CommunityPage from './pages/CommunityPage';
-import TopicDetail from './components/community/TopicDetail';
+import CommunityFeedPage from './pages/CommunityFeedPage';
+import TopicDetailPage from './pages/TopicDetailPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminLayout from './components/admin/AdminLayout';
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -54,8 +55,8 @@ function App() {
               <Route path="/search/:query" element={<SearchResultsPage />} />
               <Route path="/request-translation" element={<RequestTranslationPage />} />
               <Route path="/community" element={<CommunityPage />} />
-              <Route path="/community/create" element={<CommunityPage />} />
-              <Route path="/community/topic/:topicId" element={<TopicDetail />} />
+              <Route path="/community/topic/:topicId" element={<TopicDetailPage />} />
+              <Route path="/community/:categoryId" element={<CommunityFeedPage />} />
               <Route path="/artist/signup" element={<ArtistSignupPage />} />
               <Route
                 path="/artist/dashboard"

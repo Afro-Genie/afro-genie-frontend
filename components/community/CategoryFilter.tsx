@@ -25,7 +25,7 @@ const CategoryFilter: React.FC<CategoryFilterProps> = ({ categories, selectedCat
         {categories.map((category) => (
           <button
             key={category.id}
-            onClick={() => onSelectCategory(category.id!)}
+            onClick={() => onSelectCategory(category.id)}
             className={`w-full text-left px-3 py-2 rounded-lg transition-colors flex items-center justify-between ${
               selectedCategory === category.id
                 ? 'bg-amber-500/20 text-amber-400 border border-amber-500/50'
