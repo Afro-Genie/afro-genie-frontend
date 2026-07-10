@@ -5,7 +5,7 @@ import { useNotification } from '../hooks/useNotification';
 import Notification from '../components/Notification';
 import TopicCard from '../components/community/TopicCard';
 import CreateTopicModal from '../components/community/CreateTopicModal';
-import type { CommunityTopic, Topic } from '../types';
+import type { CommunityTopic } from '../types';
 
 type SortBy = 'hot' | 'new' | 'top';
 
@@ -20,7 +20,7 @@ const CommunityFeedPage: React.FC = () => {
   const [hasMore, setHasMore] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
-  const canCreate = user && (user.role === 'MODERATOR' || userProfile?.role === 'moderator' || user.role === 'ADMIN' || userProfile?.role === 'admin');
+  const canCreate = !!user;
 
   const fetchTopics = useCallback(async (pageNum: number, append: boolean = false) => {
     setLoading(true);
@@ -141,7 +141,7 @@ const CommunityFeedPage: React.FC = () => {
               {topics.map(topic => (
                 <TopicCard
                   key={topic.id}
-                  topic={topic as Topic}
+                  topic={topic}
                 />
               ))}
               {hasMore && (

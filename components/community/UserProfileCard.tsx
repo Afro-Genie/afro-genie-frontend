@@ -1,26 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import UserIcon from '../icons/UserIcon';
-import UserBadges from './UserBadges';
-
-interface UserStats {
-  postCount: number;
-  commentCount: number;
-  reputation: number;
-  badges: any[];
-}
 
 const UserProfileCard: React.FC = () => {
     const { user, isAdmin, userProfile } = useAuth();
-    const [stats, setStats] = useState<UserStats>({ postCount: 0, commentCount: 0, reputation: 0, badges: [] });
-    const [loading] = useState(false);
-
-    useEffect(() => {
-      if (user) {
-        setStats({ postCount: 0, commentCount: 0, reputation: 0, badges: [] });
-      }
-    }, [user]);
 
     if (!user) return null;
 
@@ -49,26 +33,6 @@ const UserProfileCard: React.FC = () => {
                         ⭐ Administrator
                     </span>
                 )}
-                {stats.badges && stats.badges.length > 0 && (
-                    <div className="mt-3 flex justify-center">
-                        <UserBadges badges={stats.badges} />
-                    </div>
-                )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-700">
-                <div className="text-center">
-                    <div className="text-2xl font-bold text-amber-400">
-                        {loading ? '...' : stats.postCount || 0}
-                    </div>
-                    <div className="text-xs text-gray-400">Posts</div>
-                </div>
-                <div className="text-center">
-                    <div className="text-2xl font-bold text-amber-400">
-                        {loading ? '...' : stats.commentCount || 0}
-                    </div>
-                    <div className="text-xs text-gray-400">Comments</div>
-                </div>
             </div>
 
             <div className="space-y-3 pt-4 border-t border-gray-700">

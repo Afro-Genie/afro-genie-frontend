@@ -1,30 +1,27 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Topic } from '../../types';
+import { CommunityTopic } from '../../types';
 import TopicActions from './TopicActions';
 
 interface TopicCardProps {
-  topic: Topic;
+  topic: CommunityTopic;
   onLike?: (topicId: string) => void;
   onShare?: (topicId: string) => void;
   isLiked?: boolean;
 }
 
-const getAuthorName = (topic: Topic) =>
+const getAuthorName = (topic: CommunityTopic) =>
   topic.author?.displayName || topic.authorName || 'Unknown';
 
-const getAuthorAvatar = (topic: Topic) =>
+const getAuthorAvatar = (topic: CommunityTopic) =>
   topic.author?.photoUrl || topic.authorAvatar || '';
 
-const getCategoryName = (topic: Topic) => {
-  if (topic.forumCategory?.name) return topic.forumCategory.name;
-  if (typeof topic.category === 'object') return topic.category.name;
-  return topic.category || '';
-};
+const getCategoryName = (topic: CommunityTopic) =>
+  topic.forumCategory?.name || (typeof topic.category === 'object' ? topic.category.name : topic.category) || '';
 
-const formatTimeAgo = (timestamp: any) => {
+const formatTimeAgo = (timestamp: string) => {
   if (!timestamp) return 'Unknown';
-  const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+  const date = new Date(timestamp);
   const now = new Date();
   const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
