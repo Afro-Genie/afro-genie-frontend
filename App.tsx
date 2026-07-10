@@ -55,6 +55,7 @@ function App() {
               <Route path="/search/:query" element={<SearchResultsPage />} />
               <Route path="/request-translation" element={<RequestTranslationPage />} />
               <Route path="/community" element={<CommunityPage />} />
+              <Route path="/community/create" element={<CommunityPage />} />
               <Route path="/community/topic/:topicId" element={<TopicDetailPage />} />
               <Route path="/community/:categoryId" element={<CommunityFeedPage />} />
               <Route path="/artist/signup" element={<ArtistSignupPage />} />

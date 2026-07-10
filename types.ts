@@ -247,7 +247,7 @@ export interface CommunityTopic {
   authorId: string;
   authorName: string;
   authorAvatar?: string;
-  category: string;
+  category: string | { id: string; name: string };
   likes: number;
   shares: number;
   commentCount: number;
