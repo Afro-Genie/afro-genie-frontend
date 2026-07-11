@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { saveTranslation } from '../services/firebaseService';
-import { getAiAnalysis } from '../services/geminiService';
 import UserProfileCard from '../components/community/UserProfileCard';
 import RegistrationForm from '../components/community/RegistrationForm';
 import { useNotification } from '../hooks/useNotification';
@@ -48,19 +47,9 @@ const RequestTranslationPage: React.FC = () => {
     setSaved(false);
 
     try {
-      // If no lyrics provided, use a placeholder
-      const lyricsToAnalyze = lyrics.trim() ||
-        `Provide cultural context and meaning analysis for "${title}" by ${artist}`;
-
-      const analysisResult = await getAiAnalysis(
-        artist,
-        title,
-        lyricsToAnalyze,
-        sourceLang,
-        targetLang
-      );
-
-      setResult(analysisResult);
+      // Translation requests now go through the backend API via song pages.
+      // This deprecated page redirects to homepage automatically.
+      setError('This page is deprecated. Please use the translation button on any song page instead.');
     } catch (err: any) {
       setError(err.message || 'Failed to get translation. Please try again.');
     } finally {
