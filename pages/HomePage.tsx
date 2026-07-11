@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { apiFetch } from '../lib/apiClient';
+import { spotifyService } from '../services/spotifyService';
+// import { spotifyService } from '../services/spotifyService';
 import { SearchResultsSkeleton, SongListSkeleton, SquareGridSkeleton } from '../components/PageSkeletons';
 import type { Artist, Genre, Song, GenieSettings, Topic } from '../types';
 
@@ -57,12 +59,18 @@ const HomePage: React.FC = () => {
                 .then((data: any) => {
                     if (cancelled) return;
 
+                    console.log('[HomePage] /api/catalog/home raw response:', data);
+                    console.log('[HomePage] songs:', data.songs);
+                    console.log('[HomePage] artists:', data.artists);
+                    console.log('[HomePage] genres:', data.genres);
+
                     const fetchedSongs = (data.songs || []).map((s: any) => ({
                         id: s.id,
                         title: s.title,
                         artist: s.artistName,
                         artistId: s.artistId,
                         image: s.imageUrl || '',
+                        imageUrl: s.imageUrl || '',
                         views: 0,
                         year: null,
                         genre: '',
@@ -112,6 +120,40 @@ const HomePage: React.FC = () => {
         };
 
         fetchData();
+
+        // TEMP: Log raw Spotify API data on page load
+        const logSpotifyData = async () => {
+            try {
+                console.log('[Spotify Debug] --- Calling /api/spotify/search (raw backend response) ---');
+                const rawArtistSearch = await apiFetch('/api/spotify/search?q=Burna%20Boy&type=artist');
+                console.log('[Spotify Debug] RAW artist search response:', JSON.stringify(rawArtistSearch, null, 2));
+
+                const rawTrackSearch = await apiFetch('/api/spotify/search?q=Last%20Last&type=track');
+                console.log('[Spotify Debug] RAW track search response:', JSON.stringify(rawTrackSearch, null, 2));
+
+                const rawTracks = (rawTrackSearch as any)?.tracks?.items;
+                if (rawTracks && rawTracks.length > 0 && rawTracks[0].id) {
+                    console.log('[Spotify Debug] Getting track detail for:', rawTracks[0].id);
+                    const rawTrackDetail = await apiFetch(`/api/spotify/track/${rawTracks[0].id}`);
+                    console.log('[Spotify Debug] RAW track detail response:', JSON.stringify(rawTrackDetail, null, 2));
+                }
+
+                console.log('[Spotify Debug] --- Now via spotifyService (filtered) ---');
+                const artists = await spotifyService.searchArtist('Burna Boy', 2);
+                console.log('[Spotify Debug] Filtered artists:', JSON.stringify(artists, null, 2));
+
+                const tracks = await spotifyService.searchTracks('Last Last', 2);
+                console.log('[Spotify Debug] Filtered tracks:', JSON.stringify(tracks, null, 2));
+
+                if (tracks.length > 0 && tracks[0].id) {
+                    const track = await spotifyService.getTrack(tracks[0].id);
+                    console.log('[Spotify Debug] Filtered track detail:', JSON.stringify(track, null, 2));
+                }
+            } catch (err) {
+                console.error('[Spotify Debug] Error:', err);
+            }
+        };
+        logSpotifyData();
 
         return () => {
             cancelled = true;
@@ -307,6 +349,24 @@ const HomePage: React.FC = () => {
                                                 <span className="text-sm font-semibold text-gray-500 group-hover:text-green-400 transition-colors">
                                                     {index + 1}.
                                                 </span>
+                                            </div>
+                                            <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded overflow-hidden bg-gray-700/50">
+                                                {song.image ? (
+                                                    <img
+                                                        src={song.image}
+                                                        alt={song.title}
+                                                        className="w-full h-full object-cover"
+                                                        onError={(e) => {
+                                                            (e.target as HTMLImageElement).style.display = 'none';
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center">
+                                                        <svg className="w-4 h-4 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
+                                                        </svg>
+                                                    </div>
+                                                )}
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <h3 className="text-sm font-medium text-white group-hover:text-green-400 transition-colors line-clamp-1">

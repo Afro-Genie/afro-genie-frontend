@@ -1,6 +1,7 @@
 import React from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { AudioProvider } from './context/AudioContext';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import HomePage from './pages/HomePage';
@@ -37,10 +38,11 @@ import ResetPasswordPage from './pages/ResetPasswordPage';
 function App() {
   return (
     <AuthProvider>
-      <HashRouter future={{ v7_startTransition: true }}>
-        <div className="text-white font-sans bg-[#122118] min-h-screen flex flex-col">
-          <Header />
-          <main className="flex-grow">
+      <AudioProvider>
+        <HashRouter future={{ v7_startTransition: true }}>
+          <div className="text-white font-sans bg-[#122118] min-h-screen flex flex-col">
+            <Header />
+            <main className="flex-grow">
             <Routes>
               <Route path="/terms" element={<TermsOfUsePage />} />
               <Route path="/privacy" element={<PrivacyPolicyPage />} />
@@ -92,8 +94,9 @@ function App() {
             </Routes>
           </main>
           <Footer />
-        </div>
-      </HashRouter>
+          </div>
+        </HashRouter>
+      </AudioProvider>
     </AuthProvider>
   );
 }

@@ -70,7 +70,7 @@ class SpotifyService {
   /**
    * Search for an artist by name
    */
-  async searchArtist(name: string, limit: number = 20): Promise<SpotifyArtist[]> {
+  async searchArtist(name: string, limit: number = 10): Promise<SpotifyArtist[]> {
     try {
       const response = await this.spotifyGet<SpotifySearchResponse>('/spotify/search', {
         q: name,
@@ -78,9 +78,9 @@ class SpotifyService {
         limit
       });
       
+      
       return response.artists?.items || [];
     } catch (error) {
-      console.error('Error searching for artist:', error);
       throw error;
     }
   }
@@ -96,6 +96,7 @@ class SpotifyService {
         limit: 1
       });
 
+      
       const artist = response.artists?.items?.[0];
       if (!artist) {
         throw new Error('Artist not found on Spotify');
@@ -103,7 +104,6 @@ class SpotifyService {
 
       return artist;
     } catch (error) {
-      console.error('Error getting artist:', error);
       throw error;
     }
   }
@@ -131,9 +131,9 @@ class SpotifyService {
    */
   async getTrack(trackId: string): Promise<SpotifyTrackSummary> {
     try {
-      return await this.spotifyGet<SpotifyTrackSummary>(`/spotify/track/${encodeURIComponent(trackId)}`);
+      const track = await this.spotifyGet<SpotifyTrackSummary>(`/spotify/track/${encodeURIComponent(trackId)}`);
+      return track;
     } catch (error) {
-      console.error('Error getting track:', error);
       throw error;
     }
   }
@@ -141,7 +141,7 @@ class SpotifyService {
   /**
    * Search for tracks
    */
-  async searchTracks(query: string, limit: number = 20): Promise<SpotifyTrack[]> {
+  async searchTracks(query: string, limit: number = 10): Promise<SpotifyTrack[]> {
     try {
       const response = await this.spotifyGet<SpotifySearchResponse>('/spotify/search', {
         q: query,
@@ -149,9 +149,9 @@ class SpotifyService {
         limit
       });
       
+      
       return response.tracks?.items || [];
     } catch (error) {
-      console.error('Error searching for tracks:', error);
       throw error;
     }
   }
@@ -177,11 +177,13 @@ class SpotifyService {
 
       try {
         const track = await this.getTrack(trackId);
+        // console.log('[Spotify] getBestTrackSummary fetched track:', track);
         if (!firstResolved) {
           firstResolved = track;
         }
 
         if (track.previewUrl) {
+          // console.log('[Spotify] getBestTrackSummary found preview, returning:', track);
           return track;
         }
       } catch {
@@ -189,6 +191,7 @@ class SpotifyService {
       }
     }
 
+    // console.log('[Spotify] getBestTrackSummary no preview found, returning:', requirePreview ? null : firstResolved);
     return requirePreview ? null : firstResolved;
   }
 
@@ -204,11 +207,16 @@ class SpotifyService {
       title
     ];
 
+    // console.log('[Spotify] searchBestTrackSummary called with:', { artist, title, requirePreview });
+
     for (const query of queries) {
+      // console.log('[Spotify] searchBestTrackSummary trying query:', query);
       const tracks = await this.searchTracks(query, 10);
       const candidateIds = tracks
         .map((track) => track.id)
         .filter((id): id is string => Boolean(id));
+
+      // console.log('[Spotify] searchBestTrackSummary candidate IDs:', candidateIds);
 
       if (candidateIds.length === 0) {
         continue;
@@ -216,19 +224,17 @@ class SpotifyService {
 
       const best = await this.getBestTrackSummary(candidateIds, requirePreview);
       if (best) {
+        // console.log('[Spotify] searchBestTrackSummary found best track:', best);
         return best;
       }
     }
 
+    // console.log('[Spotify] searchBestTrackSummary no result found');
     if (!requirePreview) {
       return null;
     }
 
-    try {
-      return await this.getTrack('mock-track-30s');
-    } catch {
-      return null;
-    }
+    return null;
   }
 }
 

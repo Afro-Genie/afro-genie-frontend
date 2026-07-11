@@ -2,8 +2,6 @@
 // until the backend API provides language management endpoints.
 
 import type { Language } from '../types';
-import { detectLanguage } from './geminiService';
-import { translationsApi } from './api';
 
 const defaultLanguages: Language[] = [
   { code: 'en', name: 'English', isActive: true },
@@ -50,38 +48,7 @@ export const deleteLanguage = async (id: string): Promise<void> => {
   await updateLanguage(id, { isActive: false });
 };
 
-export const detectLanguageWithAI = async (lyrics: string): Promise<string> => {
-  try {
-    const detectedCode = await detectLanguage(lyrics);
 
-    if (detectedCode === 'en') {
-      const lowerLyrics = lyrics.toLowerCase();
-      if (/\b(dey|na|una|wey|abeg|wetin|pikin|sabi|don|komot)\b/.test(lowerLyrics)) {
-        return 'pidgin';
-      }
-    }
-
-    return detectedCode;
-  } catch (error) {
-    console.error('Error detecting language with AI:', error);
-    const lowerLyrics = lyrics.toLowerCase();
-
-    if (lowerLyrics.includes('ọ') || lowerLyrics.includes('ṣ') || lowerLyrics.includes('ẹ')) {
-      return 'yo';
-    }
-    if (lowerLyrics.includes('ị') || lowerLyrics.includes('ụ')) {
-      return 'ig';
-    }
-    if (lowerLyrics.includes('kw') && lowerLyrics.includes('na')) {
-      return 'ha';
-    }
-    if (lowerLyrics.includes('dey') || lowerLyrics.includes('na so')) {
-      return 'pidgin';
-    }
-
-    throw error;
-  }
-};
 
 export const getDefaultLanguages = (): Language[] => [...defaultLanguages];
 

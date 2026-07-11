@@ -45,15 +45,13 @@ const LyricContent: React.FC = () => {
     const [showCorrectionForm, setShowCorrectionForm] = useState(false);
     const [correctionText, setCorrectionText] = useState('');
     const [correctionReason, setCorrectionReason] = useState('');
+    const [sourceProvider, setSourceProvider] = useState<string | null>(null);
 
-    const isBrokenHostImage = (url?: string) => {
-        if (!url) {
-            return false;
-        }
-
+    const isSpotifyImageUrl = (url?: string): boolean => {
+        if (!url || typeof url !== 'string') return false;
         try {
             const parsed = new URL(url);
-            return parsed.hostname.toLowerCase() === 'images.afrogenie.dev';
+            return parsed.hostname === 'i.scdn.co';
         } catch {
             return false;
         }
@@ -179,16 +177,16 @@ const LyricContent: React.FC = () => {
                     setTitle(normalizedSong.title);
                     setArtist(normalizedSong.artist);
 
-                    if (!normalizedSong.image || isBrokenHostImage(normalizedSong.image)) {
+                    if (!normalizedSong.image || !isSpotifyImageUrl(normalizedSong.image)) {
                         try {
                             const searchData = await authFetch('/api/search/spotify-image?artist=' + encodeURIComponent(normalizedSong.artist) + '&track=' + encodeURIComponent(normalizedSong.title)).catch(() => null);
                             if (searchData?.imageUrl && !cancelled) {
                                 setSong({ ...normalizedSong, image: searchData.imageUrl });
                             } else {
-                                setSong(normalizedSong);
+                                setSong({ ...normalizedSong, image: '' });
                             }
                         } catch {
-                            setSong(normalizedSong);
+                            setSong({ ...normalizedSong, image: '' });
                         }
                     } else {
                         setSong(normalizedSong);
@@ -196,6 +194,10 @@ const LyricContent: React.FC = () => {
                 }
 
                 const songLyrics = songResponse?.lyrics?.rawText || '';
+                const lyricsSource = songResponse?.lyrics?.[0]?.sourceProvider || null;
+                if (lyricsSource && !cancelled) {
+                    setSourceProvider(lyricsSource);
+                }
                 const translationResponse = await getSongTranslations(songId).catch(() => null);
                 const availableTranslations = extractTranslations(translationResponse);
                 const latest = availableTranslations[0] || null;
@@ -1254,6 +1256,16 @@ const LyricContent: React.FC = () => {
                                     Translation
                                 </span>
                             )}
+                            {sourceProvider && (
+                                <span className="px-2 py-0.5 bg-gray-700/80 border border-gray-600 rounded-full text-gray-300 font-medium">
+                                    {sourceProvider === 'MANUAL' && 'Manual'}
+                                    {sourceProvider === 'MUSICMATCH' && 'Musixmatch'}
+                                    {sourceProvider === 'LYRICFIND' && 'LyricFind'}
+                                    {sourceProvider === 'GENIUS' && 'Genius'}
+                                    {sourceProvider === 'ARTIST' && 'Artist'}
+                                    {!['MANUAL', 'MUSICMATCH', 'LYRICFIND', 'GENIUS', 'ARTIST'].includes(sourceProvider) && sourceProvider}
+                                </span>
+                            )}
                         </div>
                     )}
                 </div>
@@ -1273,7 +1285,7 @@ const LyricContent: React.FC = () => {
                                 <div className="flex items-center gap-3 mb-2">
                                     <h3 className="text-xl md:text-2xl font-bold text-white">Cultural Context</h3>
                                     <span className="text-xs px-3 py-1 bg-green-600/30 border border-green-500/50 rounded-full text-green-300 font-medium">
-                                        Human-Added
+                                        AI-Generated
                                     </span>
                                 </div>
                                 <p className="text-gray-300 text-sm mb-4">

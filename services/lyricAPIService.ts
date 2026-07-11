@@ -233,13 +233,54 @@ class LyricAPIService {
     }
   }
 
-  // Genius API - Get Lyrics (via URL scraping - placeholder)
+  // Genius API - Get Lyrics via song page extraction
   private async getGeniusLyrics(songId: string): Promise<string> {
-    // Note: Genius API doesn't provide lyrics directly
-    // This would require web scraping or using the URL
-    // For now, return empty and let the processor handle it
-    console.warn('Genius lyrics fetching requires web scraping - not implemented');
-    return '';
+    try {
+      // Fetch the Genius song page to extract lyrics
+      const response = await fetch(`/proxy/genius/songs/${songId}`, {
+        headers: { 'User-Agent': 'AfroGenie/1.0' }
+      });
+
+      if (!response.ok) {
+        return '';
+      }
+
+      const data = await response.json();
+      const songUrl = data?.response?.song?.url;
+      if (!songUrl) {
+        return '';
+      }
+
+      // Fetch the song page HTML and extract lyrics
+      const pageResponse = await fetch(songUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; AfroGenie/1.0)' }
+      });
+
+      if (!pageResponse.ok) {
+        return '';
+      }
+
+      const html = await pageResponse.text();
+      const lyricsMatch = html.match(/data-lyrics-container="true"[^>]*>([\s\S]*?)<\/div>/);
+      if (lyricsMatch) {
+        return lyricsMatch[1]
+          .replace(/<br\s*\/?>/g, '\n')
+          .replace(/<[^>]+>/g, '')
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/&#x27;/g, "'")
+          .replace(/&#39;/g, "'")
+          .replace(/&nbsp;/g, ' ')
+          .trim();
+      }
+
+      return '';
+    } catch (error) {
+      console.warn('Genius lyrics fetch failed:', error);
+      return '';
+    }
   }
 
   // Unified search with fallback

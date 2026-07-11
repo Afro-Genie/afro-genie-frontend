@@ -9,7 +9,7 @@ const ConfidenceScore: React.FC = () => {
         <RobotIcon className="h-6 w-6 text-amber-400" />
         <div>
           <h4 className="font-semibold text-gray-200">AI-Generated Analysis</h4>
-          <p className="text-sm text-gray-400">Analysis provided by Gemini. Please verify critical information.</p>
+          <p className="text-sm text-gray-400">AI-generated analysis. Please verify critical information.</p>
         </div>
       </div>
       <div className="flex items-center gap-2 text-green-400">
