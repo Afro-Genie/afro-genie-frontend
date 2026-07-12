@@ -180,12 +180,13 @@ const UnifiedManager: React.FC = () => {
   const handleImageUpload = async (file: File, type: ContentType) => {
     try {
       let downloadURL = '';
+      const itemId = editingItem?.id || 'new';
       if (type === 'artists') {
-        downloadURL = await uploadArtistImage(file);
+        downloadURL = await uploadArtistImage(file, itemId);
       } else if (type === 'songs') {
-        downloadURL = await uploadSongImage(file);
+        downloadURL = await uploadSongImage(file, itemId);
       } else if (type === 'genres') {
-        downloadURL = await uploadGenreImage(file);
+        downloadURL = await uploadGenreImage(file, itemId);
       }
       setFormData(prev => ({ ...prev, image: downloadURL }));
     } catch (error) {
@@ -256,14 +257,10 @@ const UnifiedManager: React.FC = () => {
     const data = activeTab === 'artists' ? artists : activeTab === 'songs' ? songs : genres;
     return data.filter(item => {
       const searchTerm = searchQuery.toLowerCase();
-      if (activeTab === 'artists') {
-        return item.name.toLowerCase().includes(searchTerm);
-      } else if (activeTab === 'songs') {
+      if ('title' in item) {
         return item.title.toLowerCase().includes(searchTerm) || item.artist.toLowerCase().includes(searchTerm);
-      } else if (activeTab === 'genres') {
-        return item.name.toLowerCase().includes(searchTerm);
       }
-      return false;
+      return item.name.toLowerCase().includes(searchTerm);
     });
   };
 

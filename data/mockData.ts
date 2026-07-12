@@ -17,14 +17,14 @@ export const songs: Song[] = [
 ];
 
 export const genres: Genre[] = [
-    { name: 'Afrobeat', image: '' },
-    { name: 'Highlife', image: '' },
-    { name: 'Mbalax', image: '' },
-    { name: 'Benga', image: '' },
-    { name: 'Kwaito', image: '' },
-    { name: 'Amapiano', image: '' },
-    { name: 'Afro-fusion', image: '' },
-    { name: 'Alt-R&B', image: '' },
+    { id: '1', name: 'Afrobeat', image: '' },
+    { id: '2', name: 'Highlife', image: '' },
+    { id: '3', name: 'Mbalax', image: '' },
+    { id: '4', name: 'Benga', image: '' },
+    { id: '5', name: 'Kwaito', image: '' },
+    { id: '6', name: 'Amapiano', image: '' },
+    { id: '7', name: 'Afro-fusion', image: '' },
+    { id: '8', name: 'Alt-R&B', image: '' },
 ];
 
 export const allData = { artists, songs, genres };

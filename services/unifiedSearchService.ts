@@ -107,7 +107,7 @@ class UnifiedSearchService {
       .map((artist) => ({
         id: `local-artist-${artist.id}`,
         source: 'local',
-        entityType: 'artist',
+      entityType: 'artist' as UnifiedSearchEntityType,
         title: artist.name,
         subtitle: artist.genre || undefined,
         image: artist.image || undefined,
@@ -126,7 +126,7 @@ class UnifiedSearchService {
       .map((song) => ({
         id: `local-song-${song.id}`,
         source: 'local',
-        entityType: 'song',
+      entityType: 'song' as UnifiedSearchEntityType,
         title: song.title,
         subtitle: song.artist,
         image: song.image || undefined,
@@ -164,7 +164,7 @@ class UnifiedSearchService {
 
     const localKeys = new Set(localResults.map((result) => this.resultKey(result)));
 
-    const artistResults: UnifiedSearchResult[] = artists.map((artist) => ({
+    const artistResults: UnifiedSearchResult[] = artists.map((artist): UnifiedSearchResult => ({
       id: `spotify-artist-${artist.id}`,
       source: 'spotify',
       entityType: 'artist',
@@ -176,7 +176,7 @@ class UnifiedSearchService {
       popularity: artist.popularity,
     }));
 
-    const trackResults: UnifiedSearchResult[] = tracks.map((track) => ({
+    const trackResults: UnifiedSearchResult[] = tracks.map((track): UnifiedSearchResult => ({
       id: `spotify-song-${track.id}`,
       source: 'spotify',
       entityType: 'song',

@@ -56,6 +56,8 @@ export interface Song {
   releaseDate?: string; // Release date
   popularity?: number; // Popularity score
   requestCount?: number; // Number of translation requests
+  lyrics?: string;
+  spotifyUrl?: string;
 }
 
 export interface Genre {

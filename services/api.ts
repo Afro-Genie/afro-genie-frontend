@@ -102,29 +102,24 @@ export async function apiRequest<T>(
 }
 
 // Auth API
+type AuthUserResponse = { id: string; email: string; displayName: string; role: string; spotifyId?: string | null; spotifyProduct?: string | null };
+type AuthResultResponse = { user: AuthUserResponse; accessToken: string; refreshToken: string };
+
 export const authApi = {
   login: (email: string, password: string) =>
-    apiRequest<{
-      user: { id: string; email: string; displayName: string; role: string };
-      accessToken: string;
-      refreshToken: string;
-    }>('/auth/login', {
+    apiRequest<AuthResultResponse>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     }),
 
   register: (email: string, password: string, displayName: string) =>
-    apiRequest<{
-      user: { id: string; email: string; displayName: string; role: string };
-      accessToken: string;
-      refreshToken: string;
-    }>('/auth/register', {
+    apiRequest<AuthResultResponse>('/auth/register', {
       method: 'POST',
       body: JSON.stringify({ email, password, displayName }),
     }),
 
   refresh: (token: string) =>
-    apiRequest<{ accessToken: string; refreshToken: string; user: { id: string; email: string; displayName: string; role: string } }>(
+    apiRequest<AuthResultResponse>(
       '/auth/refresh',
       { method: 'POST', body: JSON.stringify({ refreshToken: token }) }
     ),
@@ -146,11 +141,7 @@ export const authApi = {
     socialLinks?: Record<string, string | undefined>;
     photoURL?: string;
   }) =>
-    apiRequest<{
-      user: { id: string; email: string; displayName: string; role: string };
-      accessToken: string;
-      refreshToken: string;
-    }>('/auth/register-artist', {
+    apiRequest<AuthResultResponse>('/auth/register-artist', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
@@ -158,13 +149,21 @@ export const authApi = {
   getGoogleUrl: () => `${API_BASE}/auth/google`,
 
   signInWithSpotify: (accessToken: string) =>
-    apiRequest<{
-      user: { id: string; email: string; displayName: string; role: string };
-      accessToken: string;
-      refreshToken: string;
-    }>('/auth/spotify', {
+    apiRequest<AuthResultResponse>('/auth/spotify', {
       method: 'POST',
       body: JSON.stringify({ accessToken }),
+    }),
+
+  syncSpotifyProduct: (spotifyAccessToken: string) =>
+    apiRequest<{ spotifyProduct: string | null }>('/auth/spotify/sync-product', {
+      method: 'POST',
+      body: JSON.stringify({ spotifyAccessToken }),
+    }),
+
+  linkSpotify: (spotifyAccessToken: string) =>
+    apiRequest<{ spotifyProduct: string | null; linked: boolean }>('/auth/spotify/link', {
+      method: 'POST',
+      body: JSON.stringify({ spotifyAccessToken }),
     }),
 
   forgotPassword: (email: string) =>

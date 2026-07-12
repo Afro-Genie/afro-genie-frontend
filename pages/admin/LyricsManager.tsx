@@ -126,7 +126,7 @@ const LyricsManager: React.FC = () => {
       t.originalLyrics.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || t.status === statusFilter || (!t.status && statusFilter === 'pending');
-    const matchesSource = sourceFilter === 'all' || t.source === sourceFilter || (!t.source && sourceFilter === 'all');
+    const matchesSource = sourceFilter === 'all' || t.source === (sourceFilter as typeof t.source);
     
     return matchesSearch && matchesStatus && matchesSource;
   });

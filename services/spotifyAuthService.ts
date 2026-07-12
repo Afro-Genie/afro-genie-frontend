@@ -9,11 +9,16 @@ interface SpotifyTokenResponse {
   scope: string;
 }
 
+interface SpotifyAuthResult extends SpotifyTokenResponse {
+  stateData?: Record<string, any>;
+}
+
 interface SpotifyUserProfile {
   id: string;
   display_name: string;
   email: string;
   country: string;
+  product?: string;
   images: Array<{ url: string }>;
   external_urls: { spotify: string };
 }
@@ -68,9 +73,11 @@ class SpotifyAuthService {
   }
 
   /**
-   * Generate the authorization URL for Spotify OAuth with PKCE
+   * Generate the authorization URL for Spotify OAuth with PKCE.
+   * Optionally encodes stateData (e.g. { action: 'link' }) into the OAuth state parameter
+   * so it survives the redirect and can be read back after callback.
    */
-  async getAuthorizationUrl(): Promise<{ url: string; codeVerifier: string }> {
+  async getAuthorizationUrl(stateData?: Record<string, any>): Promise<{ url: string; codeVerifier: string }> {
     this.assertConfigured();
 
     const scopes = [
@@ -79,11 +86,16 @@ class SpotifyAuthService {
     ].join(' ');
 
     const { codeVerifier, codeChallenge } = await this.generatePKCE();
-    const state = this.generateRandomString(32);
-    
-    // Store code verifier for later use
+    const nonce = this.generateRandomString(32);
+
+    // Encode stateData into the state parameter so it round-trips through the OAuth redirect
+    const state = stateData
+      ? btoa(JSON.stringify({ n: nonce, ...stateData }))
+      : nonce;
+
+    // Store code verifier and nonce for later verification
     sessionStorage.setItem('spotify_code_verifier', codeVerifier);
-    sessionStorage.setItem('spotify_oauth_state', state);
+    sessionStorage.setItem('spotify_oauth_state', nonce);
 
     const params = new URLSearchParams({
       client_id: this.clientId,
@@ -100,9 +112,10 @@ class SpotifyAuthService {
   }
 
   /**
-   * Exchange authorization code for access token using PKCE
+   * Exchange authorization code for access token using PKCE.
+   * Decodes the state parameter to recover any stateData passed through the OAuth redirect.
    */
-  async exchangeCodeForToken(code: string, stateFromCallback?: string | null): Promise<SpotifyTokenResponse> {
+  async exchangeCodeForToken(code: string, stateFromCallback?: string | null): Promise<SpotifyAuthResult> {
     try {
       this.assertConfigured();
 
@@ -111,8 +124,28 @@ class SpotifyAuthService {
         throw new Error('Code verifier not found. Please try again.');
       }
 
-      const storedState = sessionStorage.getItem('spotify_oauth_state');
-      if (!storedState || !stateFromCallback || storedState !== stateFromCallback) {
+      // Decode the state parameter to recover the nonce and any embedded stateData
+      const storedNonce = sessionStorage.getItem('spotify_oauth_state');
+      let verifiedNonce: string | null = null;
+      let stateData: Record<string, any> | undefined;
+
+      if (stateFromCallback) {
+        try {
+          const decoded = JSON.parse(atob(stateFromCallback));
+          if (decoded && typeof decoded.n === 'string') {
+            verifiedNonce = decoded.n;
+            const { n, ...rest } = decoded;
+            if (Object.keys(rest).length > 0) {
+              stateData = rest;
+            }
+          }
+        } catch {
+          // Not a JSON-encoded state — treat as plain nonce (backward compatible)
+          verifiedNonce = stateFromCallback;
+        }
+      }
+
+      if (!storedNonce || !verifiedNonce || storedNonce !== verifiedNonce) {
         throw new Error('Invalid Spotify OAuth state. Please try signing in again.');
       }
 
@@ -139,7 +172,8 @@ class SpotifyAuthService {
       sessionStorage.removeItem('spotify_code_verifier');
       sessionStorage.removeItem('spotify_oauth_state');
 
-      return await response.json();
+      const tokenResponse: SpotifyTokenResponse = await response.json();
+      return { ...tokenResponse, stateData };
     } catch (error) {
       console.error('Error exchanging code for token:', error);
       throw error;
@@ -243,8 +277,33 @@ class SpotifyAuthService {
     localStorage.removeItem('spotify_refresh_token');
     localStorage.removeItem('spotify_token_expiry');
   }
+
+  /**
+   * Refresh the Spotify access token and fetch the user's product (subscription tier) status.
+   * Returns the new access token and the Spotify product string (e.g. "premium", "free", "open").
+   * Useful for keeping the backend in sync with the user's current Premium status.
+   */
+  async refreshAndFetchProduct(): Promise<{ accessToken: string; product: string | null }> {
+    const storedRefresh = this.getStoredRefreshToken();
+    if (!storedRefresh) {
+      throw new Error('No Spotify refresh token available');
+    }
+
+    const tokenResponse = await this.refreshAccessToken(storedRefresh);
+    this.storeTokens(tokenResponse);
+
+    let product: string | null = null;
+    try {
+      const profile = await this.getUserProfile(tokenResponse.access_token);
+      product = profile.product ?? null;
+    } catch {
+      // Non-fatal: product status will be re-checked on next login
+    }
+
+    return { accessToken: tokenResponse.access_token, product };
+  }
 }
 
 export const spotifyAuthService = new SpotifyAuthService();
-export type { SpotifyUserProfile, SpotifyTokenResponse };
+export type { SpotifyUserProfile, SpotifyTokenResponse, SpotifyAuthResult };
 
