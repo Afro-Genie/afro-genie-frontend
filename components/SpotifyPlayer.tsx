@@ -93,6 +93,9 @@ const SpotifyPlayer: React.FC<SpotifyPlayerProps> = ({ title, artist, compact = 
               Listen on Spotify
             </a>
           )}
+          <p className="text-[11px] text-gray-500 leading-tight">
+            Preview not available &mdash; full playback requires Spotify Premium
+          </p>
         </div>
       ) : (
         <>

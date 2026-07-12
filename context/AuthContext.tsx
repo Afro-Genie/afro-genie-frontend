@@ -10,6 +10,8 @@ interface AuthUser {
   displayName: string | null;
   photoURL: string | null;
   role: string;
+  spotifyId?: string | null;
+  spotifyProduct?: string | null;
 }
 
 interface UserProfile {
@@ -19,9 +21,10 @@ interface UserProfile {
   displayName: string | null;
   photoURL: string | null;
   role: 'user' | 'admin' | 'moderator' | 'artist';
+  spotifyId?: string | null;
+  spotifyProduct?: string | null;
   createdAt?: any;
   lastLogin?: any;
-  spotifyId?: string;
   spotifyTokens?: {
     accessToken: string;
     refreshToken: string;
@@ -83,6 +86,8 @@ interface AuthContextType {
   authFetch: (url: string, options?: RequestInit) => Promise<any>;
   isAdmin: boolean;
   isArtist: boolean;
+  isSpotifyPremium: boolean;
+  refreshSpotifyProduct: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -95,22 +100,26 @@ export const useAuth = () => {
   return context;
 };
 
-const buildUser = (data: { id: string; email: string; displayName: string; role: string }): AuthUser => ({
+const buildUser = (data: { id: string; email: string; displayName: string; role: string; spotifyId?: string | null; spotifyProduct?: string | null }): AuthUser => ({
   uid: data.id,
   id: data.id,
   email: data.email,
   displayName: data.displayName,
   photoURL: null,
   role: data.role,
+  spotifyId: data.spotifyId ?? null,
+  spotifyProduct: data.spotifyProduct ?? null,
 });
 
-const buildProfile = (data: { id: string; email: string; displayName: string; role: string }): UserProfile => ({
+const buildProfile = (data: { id: string; email: string; displayName: string; role: string; spotifyId?: string | null; spotifyProduct?: string | null }): UserProfile => ({
   uid: data.id,
   id: data.id,
   email: data.email,
   displayName: data.displayName,
   photoURL: null,
   role: mapRole(data.role),
+  spotifyId: data.spotifyId ?? null,
+  spotifyProduct: data.spotifyProduct ?? null,
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -119,7 +128,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   const initFromAuthResult = useCallback((authResult: {
-    user: { id: string; email: string; displayName: string; role: string };
+    user: { id: string; email: string; displayName: string; role: string; spotifyProduct?: string | null };
     accessToken: string;
     refreshToken: string;
   }) => {
@@ -154,9 +163,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const spotifyState = params.get('state');
         if (spotifyCode) {
           try {
-            const spotifyTokens = await spotifyAuthService.exchangeCodeForToken(spotifyCode, spotifyState);
-            const authResult = await authApi.signInWithSpotify(spotifyTokens.access_token);
-            initFromAuthResult(authResult);
+            const spotifyAuthResult = await spotifyAuthService.exchangeCodeForToken(spotifyCode, spotifyState);
+            spotifyAuthService.storeTokens(spotifyAuthResult);
+
+            const isLinkAction = spotifyAuthResult.stateData?.action === 'link';
+
+            if (isLinkAction) {
+              // Link flow: user is already logged in, just link the Spotify account
+              try {
+                const linkResult = await authApi.linkSpotify(spotifyAuthResult.access_token);
+                setUser((prev) => prev ? { ...prev, spotifyId: 'linked', spotifyProduct: linkResult.spotifyProduct } : prev);
+                setUserProfile((prev) => prev ? { ...prev, spotifyId: 'linked', spotifyProduct: linkResult.spotifyProduct } : prev);
+              } catch (linkErr) {
+                console.error('Spotify link error:', linkErr);
+              }
+            } else {
+              // Normal sign-in flow
+              const authResult = await authApi.signInWithSpotify(spotifyAuthResult.access_token);
+              initFromAuthResult(authResult);
+            }
 
             const redirectAfterAuth = sessionStorage.getItem('spotify_redirect_after_auth');
             sessionStorage.removeItem('spotify_redirect_after_auth');
@@ -193,6 +218,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     init();
   }, [initFromAuthResult]);
+
+  // Sync Spotify premium status on mount and when token refreshes
+  useEffect(() => {
+    if (!userProfile?.id) return;
+
+    const syncSpotify = async () => {
+      const spotifyToken = spotifyAuthService.getStoredAccessToken();
+      if (!spotifyToken) return;
+
+      // If Spotify token is expired or about to expire, refresh and re-check product
+      if (spotifyAuthService.isTokenExpired()) {
+        try {
+          const result = await spotifyAuthService.refreshAndFetchProduct();
+          await authApi.syncSpotifyProduct(result.accessToken).catch(() => {});
+          if (result.product !== undefined) {
+            setUserProfile((prev) => prev ? { ...prev, spotifyProduct: result.product } : prev);
+            setUser((prev) => prev ? { ...prev, spotifyProduct: result.product } : prev);
+          }
+        } catch {
+          // Non-fatal: premium status will be re-checked on next login
+        }
+      } else {
+        // Token is still valid — just sync current product status to backend
+        try {
+          await authApi.syncSpotifyProduct(spotifyToken);
+        } catch {
+          // Non-fatal
+        }
+      }
+    };
+
+    syncSpotify();
+  }, [userProfile?.id]);
 
   const signIn = async (email: string, password: string) => {
     const result = await authApi.login(email, password);
@@ -334,6 +392,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const isAdmin = userProfile?.role === 'admin';
   const isArtist = userProfile?.role === 'artist';
+  const isSpotifyPremium = userProfile?.spotifyProduct === 'premium';
+
+  const refreshSpotifyProduct = useCallback(async () => {
+    const spotifyToken = spotifyAuthService.getStoredAccessToken();
+    if (!spotifyToken || !userProfile?.id) return;
+
+    try {
+      const result = await authApi.syncSpotifyProduct(spotifyToken);
+      setUserProfile((prev) => prev ? { ...prev, spotifyProduct: result.spotifyProduct } : prev);
+      setUser((prev) => prev ? { ...prev, spotifyProduct: result.spotifyProduct } : prev);
+    } catch {
+      // Non-fatal: premium status will be re-checked on next login
+    }
+  }, [userProfile?.id]);
 
   const value = {
     user,
@@ -349,6 +421,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     authFetch,
     isAdmin,
     isArtist,
+    isSpotifyPremium,
+    refreshSpotifyProduct,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

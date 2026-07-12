@@ -326,7 +326,7 @@ const SearchResultsPage: React.FC = () => {
 
                   {/* Button */}
                   <button
-                    onClick={handleRequestSong}
+                    onClick={() => handleRequestSong()}
                     disabled={requestLoading}
                     className="w-full md:w-auto min-h-[44px] group relative overflow-hidden bg-gradient-to-r from-gray-700 to-gray-600 hover:from-gray-600 hover:to-gray-500 disabled:from-gray-800 disabled:to-gray-800 text-white font-semibold py-3 px-6 md:px-8 rounded-xl transition-all duration-300 flex items-center justify-center gap-3 shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed mx-auto"
                   >

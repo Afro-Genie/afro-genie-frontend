@@ -34,6 +34,8 @@ import TermsOfUsePage from './pages/TermsOfUsePage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import AccountPage from './pages/AccountPage';
+import SpotifyLinkDialog from './components/SpotifyLinkDialog';
 
 function App() {
   return (
@@ -48,6 +50,7 @@ function App() {
               <Route path="/privacy" element={<PrivacyPolicyPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/account" element={<AccountPage />} />
               <Route path="/" element={<HomePage />} />
               <Route path="/song/:id" element={<TranslationPage />} />
               <Route path="/songs/:id" element={<TranslationPage />} />
@@ -92,6 +95,7 @@ function App() {
                 <Route path="translation-requests" element={<TranslationRequestsPage />} />
               </Route>
             </Routes>
+            <SpotifyLinkDialog />
           </main>
           <Footer />
           </div>

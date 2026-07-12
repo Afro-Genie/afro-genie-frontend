@@ -2,9 +2,10 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import UserIcon from '../icons/UserIcon';
+import PremiumBadge from '../PremiumBadge';
 
 const UserProfileCard: React.FC = () => {
-    const { user, isAdmin, userProfile } = useAuth();
+    const { user, isAdmin, isSpotifyPremium, userProfile } = useAuth();
 
     if (!user) return null;
 
@@ -32,6 +33,18 @@ const UserProfileCard: React.FC = () => {
                     <span className="inline-block px-3 py-1 text-xs font-semibold bg-green-900/50 text-green-300 rounded-full">
                         ⭐ Administrator
                     </span>
+                )}
+                {isSpotifyPremium && (
+                    <div className="mt-2">
+                        <PremiumBadge variant="full" />
+                    </div>
+                )}
+                {!isSpotifyPremium && user.spotifyId && (
+                    <div className="mt-2">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-gray-700/50 text-gray-400 rounded-full">
+                            Spotify Free
+                        </span>
+                    </div>
                 )}
             </div>
 

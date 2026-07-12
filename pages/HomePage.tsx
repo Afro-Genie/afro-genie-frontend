@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { apiFetch } from '../lib/apiClient';
-import { spotifyService } from '../services/spotifyService';
-// import { spotifyService } from '../services/spotifyService';
 import { SearchResultsSkeleton, SongListSkeleton, SquareGridSkeleton } from '../components/PageSkeletons';
 import type { Artist, Genre, Song, GenieSettings, Topic } from '../types';
 
@@ -120,40 +118,6 @@ const HomePage: React.FC = () => {
         };
 
         fetchData();
-
-        // TEMP: Log raw Spotify API data on page load
-        const logSpotifyData = async () => {
-            try {
-                console.log('[Spotify Debug] --- Calling /api/spotify/search (raw backend response) ---');
-                const rawArtistSearch = await apiFetch('/api/spotify/search?q=Burna%20Boy&type=artist');
-                console.log('[Spotify Debug] RAW artist search response:', JSON.stringify(rawArtistSearch, null, 2));
-
-                const rawTrackSearch = await apiFetch('/api/spotify/search?q=Last%20Last&type=track');
-                console.log('[Spotify Debug] RAW track search response:', JSON.stringify(rawTrackSearch, null, 2));
-
-                const rawTracks = (rawTrackSearch as any)?.tracks?.items;
-                if (rawTracks && rawTracks.length > 0 && rawTracks[0].id) {
-                    console.log('[Spotify Debug] Getting track detail for:', rawTracks[0].id);
-                    const rawTrackDetail = await apiFetch(`/api/spotify/track/${rawTracks[0].id}`);
-                    console.log('[Spotify Debug] RAW track detail response:', JSON.stringify(rawTrackDetail, null, 2));
-                }
-
-                console.log('[Spotify Debug] --- Now via spotifyService (filtered) ---');
-                const artists = await spotifyService.searchArtist('Burna Boy', 2);
-                console.log('[Spotify Debug] Filtered artists:', JSON.stringify(artists, null, 2));
-
-                const tracks = await spotifyService.searchTracks('Last Last', 2);
-                console.log('[Spotify Debug] Filtered tracks:', JSON.stringify(tracks, null, 2));
-
-                if (tracks.length > 0 && tracks[0].id) {
-                    const track = await spotifyService.getTrack(tracks[0].id);
-                    console.log('[Spotify Debug] Filtered track detail:', JSON.stringify(track, null, 2));
-                }
-            } catch (err) {
-                console.error('[Spotify Debug] Error:', err);
-            }
-        };
-        logSpotifyData();
 
         return () => {
             cancelled = true;
