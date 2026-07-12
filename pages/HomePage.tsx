@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { apiFetch } from '../lib/apiClient';
+import { useAudioPlayer } from '../context/AudioContext';
+import { useAuth } from '../context/AuthContext';
 import { SearchResultsSkeleton, SongListSkeleton, SquareGridSkeleton } from '../components/PageSkeletons';
 import type { Artist, Genre, Song, GenieSettings, Topic } from '../types';
 
@@ -26,6 +28,9 @@ const HomePage: React.FC = () => {
         opacity: 20,
         size: 'large'
     });
+
+    const { isSpotifyPremium } = useAuth();
+    const { loadTrackById, currentTrack, isPlaying, togglePlayPause } = useAudioPlayer();
 
     // Languages supported
     const languages = [
@@ -57,11 +62,6 @@ const HomePage: React.FC = () => {
                 .then((data: any) => {
                     if (cancelled) return;
 
-                    console.log('[HomePage] /api/catalog/home raw response:', data);
-                    console.log('[HomePage] songs:', data.songs);
-                    console.log('[HomePage] artists:', data.artists);
-                    console.log('[HomePage] genres:', data.genres);
-
                     const fetchedSongs = (data.songs || []).map((s: any) => ({
                         id: s.id,
                         title: s.title,
@@ -74,6 +74,7 @@ const HomePage: React.FC = () => {
                         genre: '',
                         album: s.albumName,
                         requestCount: 0,
+                        spotifyId: s.spotifyId || null,
                     }));
                     const sortedSongs = fetchedSongs.sort((a: any, b: any) => {
                         const aScore = (a.views || 0) + (a.requestCount || 0) * 2;
@@ -302,47 +303,78 @@ const HomePage: React.FC = () => {
                                 <div className="flex md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-1 max-h-[600px] overflow-x-auto md:overflow-y-auto pr-2 pb-2">
                                     {songs.slice(0, 100).map((song, index) => {
                                         const artistName = song.artist || '';
+                                        const isThisPlaying = currentTrack?.id === song.spotifyId && isPlaying;
 
                                         return (
-                                        <Link 
-                                            to={`/songs/${song.id}`} 
-                                            key={song.id} 
+                                        <div
+                                            key={song.id}
                                             className="group min-w-[240px] md:min-w-0 flex items-center gap-2 py-2.5 sm:py-1.5 px-2 min-h-[44px] hover:bg-gray-700/50 rounded transition-colors"
                                         >
                                             <div className="flex-shrink-0 w-6 text-right">
-                                                <span className="text-sm font-semibold text-gray-500 group-hover:text-green-400 transition-colors">
-                                                    {index + 1}.
-                                                </span>
-                                            </div>
-                                            <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded overflow-hidden bg-gray-700/50">
-                                                {song.image ? (
-                                                    <img
-                                                        src={song.image}
-                                                        alt={song.title}
-                                                        className="w-full h-full object-cover"
-                                                        onError={(e) => {
-                                                            (e.target as HTMLImageElement).style.display = 'none';
+                                                {song.spotifyId ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            if (isThisPlaying) {
+                                                                togglePlayPause();
+                                                            } else {
+                                                                loadTrackById(song.spotifyId!, song.title, artistName);
+                                                            }
                                                         }}
-                                                    />
+                                                        className="text-sm font-semibold text-gray-500 hover:text-green-400 transition-colors w-6 h-6 flex items-center justify-center"
+                                                        aria-label={isThisPlaying ? 'Pause' : `Play ${song.title}`}
+                                                    >
+                                                        {isThisPlaying ? (
+                                                            <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                                                                <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+                                                            </svg>
+                                                        ) : (
+                                                            <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                                                                <path d="M8 5v14l11-7z" />
+                                                            </svg>
+                                                        )}
+                                                    </button>
                                                 ) : (
-                                                    <div className="w-full h-full flex items-center justify-center">
-                                                        <svg className="w-4 h-4 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
-                                                            <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
-                                                        </svg>
-                                                    </div>
+                                                    <span className="text-sm font-semibold text-gray-500 group-hover:text-green-400 transition-colors">
+                                                        {index + 1}.
+                                                    </span>
                                                 )}
                                             </div>
-                                            <div className="flex-1 min-w-0">
-                                                <h3 className="text-sm font-medium text-white group-hover:text-green-400 transition-colors line-clamp-1">
-                                                    {song.title}
-                                                </h3>
-                                                {artistName && (
-                                                    <p className="text-xs text-gray-400 line-clamp-1">
-                                                        {artistName}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </Link>
+                                            <Link
+                                                to={`/songs/${song.id}`}
+                                                className="flex-1 min-w-0 flex items-center gap-2"
+                                            >
+                                                <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded overflow-hidden bg-gray-700/50">
+                                                    {song.image ? (
+                                                        <img
+                                                            src={song.image}
+                                                            alt={song.title}
+                                                            className="w-full h-full object-cover"
+                                                            onError={(e) => {
+                                                                (e.target as HTMLImageElement).style.display = 'none';
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center">
+                                                            <svg className="w-4 h-4 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                                                                <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
+                                                            </svg>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <h3 className="text-sm font-medium text-white group-hover:text-green-400 transition-colors line-clamp-1">
+                                                        {song.title}
+                                                    </h3>
+                                                    {artistName && (
+                                                        <p className="text-xs text-gray-400 line-clamp-1">
+                                                            {artistName}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </Link>
+                                        </div>
                                         );
                                     })}
                                 </div>

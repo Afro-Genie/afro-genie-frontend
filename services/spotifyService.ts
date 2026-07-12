@@ -38,6 +38,7 @@ export interface SpotifyTrackSummary {
   albumName: string | null;
   imageUrl: string | null;
   previewUrl: string | null;
+  spotifyUri: string | null;
   durationMs: number;
   externalUrl: string | null;
 }

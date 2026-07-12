@@ -2,6 +2,7 @@ import React from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { AudioProvider } from './context/AudioContext';
+import { WebPlaybackProvider } from './context/WebPlaybackContext';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import HomePage from './pages/HomePage';
@@ -36,15 +37,19 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import AccountPage from './pages/AccountPage';
 import SpotifyLinkDialog from './components/SpotifyLinkDialog';
+import NowPlayingBar from './components/NowPlayingBar';
+import ScrollToTop from './components/ScrollToTop';
 
 function App() {
   return (
     <AuthProvider>
-      <AudioProvider>
+      <WebPlaybackProvider>
+        <AudioProvider>
         <HashRouter future={{ v7_startTransition: true }}>
+          <ScrollToTop />
           <div className="text-white font-sans bg-[#122118] min-h-screen flex flex-col">
             <Header />
-            <main className="flex-grow">
+            <main className="flex-grow pb-16">
             <Routes>
               <Route path="/terms" element={<TermsOfUsePage />} />
               <Route path="/privacy" element={<PrivacyPolicyPage />} />
@@ -96,11 +101,13 @@ function App() {
               </Route>
             </Routes>
             <SpotifyLinkDialog />
+            <NowPlayingBar />
           </main>
           <Footer />
           </div>
         </HashRouter>
-      </AudioProvider>
+        </AudioProvider>
+      </WebPlaybackProvider>
     </AuthProvider>
   );
 }

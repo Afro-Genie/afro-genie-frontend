@@ -58,6 +58,7 @@ export interface Song {
   requestCount?: number; // Number of translation requests
   lyrics?: string;
   spotifyUrl?: string;
+  spotifyId?: string | null;
 }
 
 export interface Genre {
