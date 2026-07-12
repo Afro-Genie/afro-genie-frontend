@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { apiFetch } from '../lib/apiClient';
+import { useAudioPlayer } from '../context/AudioContext';
+import { useAuth } from '../context/AuthContext';
 import { SongListSkeleton } from '../components/PageSkeletons';
 import type { Song, Artist, Genre } from '../types';
 
@@ -16,6 +18,9 @@ const SongsCatalogPage: React.FC = () => {
   const [availableLanguages, setAvailableLanguages] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const { isSpotifyPremium } = useAuth();
+  const { loadTrackById, currentTrack, isPlaying, togglePlayPause } = useAudioPlayer();
 
   // Search and filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -91,7 +96,7 @@ const SongsCatalogPage: React.FC = () => {
           .join('&');
 
         const data = await apiFetch('/api/catalog/songs?' + query);
-        const fetchedSongs = (data?.songs || []).map((s: any) => ({ ...s, image: s.image || '' }));
+        const fetchedSongs = (data?.songs || []).map((s: any) => ({ ...s, image: s.image || '', spotifyId: s.spotifyId || null }));
         setSongs(fetchedSongs);
         setTotalCount(data?.total ?? fetchedSongs.length);
       } catch (err: any) {
@@ -352,71 +357,105 @@ const SongsCatalogPage: React.FC = () => {
         ) : (
           <>
             <div className="space-y-2 sm:space-y-3 mb-6">
-              {paginatedSongs.map((song, index) => (
-                <Link
+              {paginatedSongs.map((song, index) => {
+                const isThisPlaying = currentTrack?.id === song.spotifyId && isPlaying;
+
+                return (
+                <div
                   key={song.id}
-                  to={`/songs/${song.id}`}
                   className="group flex items-center gap-2 sm:gap-3 md:gap-4 p-3 sm:p-4 min-h-[48px] bg-gray-800/50 hover:bg-gray-700/50 rounded-lg sm:rounded-xl border border-gray-700 hover:border-green-400/50 transition-all duration-300 active:scale-[0.98]"
                 >
-                  {/* Mobile: Compact layout */}
+                  {/* Play button / Index */}
                   <div className="flex-shrink-0 w-8 sm:w-10 md:w-12 text-center">
-                    <span className="text-sm sm:text-base md:text-lg font-bold text-gray-500 group-hover:text-green-400 transition-colors">
-                      {(currentPage - 1) * itemsPerPage + index + 1}
-                    </span>
-                  </div>
-                  <div className="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 bg-gradient-to-br from-green-500/20 to-amber-500/20 rounded-lg overflow-hidden">
-                    {song.image ? (
-                      <img src={song.image} alt={song.title} className="w-full h-full object-cover" />
+                    {song.spotifyId ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (isThisPlaying) {
+                            togglePlayPause();
+                          } else {
+                            loadTrackById(song.spotifyId!, song.title, song.artist);
+                          }
+                        }}
+                        className="text-sm sm:text-base md:text-lg font-bold text-gray-500 hover:text-green-400 transition-colors w-full h-full flex items-center justify-center"
+                        aria-label={isThisPlaying ? 'Pause' : `Play ${song.title}`}
+                      >
+                        {isThisPlaying ? (
+                          <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+                          </svg>
+                        ) : (
+                          <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z" />
+                          </svg>
+                        )}
+                      </button>
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <svg className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
-                        </svg>
-                      </div>
+                      <span className="text-sm sm:text-base md:text-lg font-bold text-gray-500 group-hover:text-green-400 transition-colors">
+                        {(currentPage - 1) * itemsPerPage + index + 1}
+                      </span>
                     )}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-sm sm:text-base md:text-lg font-bold text-white group-hover:text-green-400 transition-colors line-clamp-1">
-                      {song.title}
-                    </h3>
-                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 md:gap-3 mt-0.5 sm:mt-1 text-xs sm:text-sm text-gray-400">
-                      <p className="line-clamp-1">{song.artist}</p>
-                      {song.genre && (
-                        <>
-                          <span className="hidden sm:inline">•</span>
-                          <span className="px-1.5 sm:px-0">{song.genre}</span>
-                        </>
-                      )}
-                      {song.year && (
-                        <>
-                          <span className="hidden sm:inline">•</span>
-                          <span className="px-1.5 sm:px-0">{song.year}</span>
-                        </>
+                  <Link
+                    to={`/songs/${song.id}`}
+                    className="flex-1 min-w-0 flex items-center gap-2 sm:gap-3 md:gap-4"
+                  >
+                    <div className="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 bg-gradient-to-br from-green-500/20 to-amber-500/20 rounded-lg overflow-hidden">
+                      {song.image ? (
+                        <img src={song.image} alt={song.title} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <svg className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
+                          </svg>
+                        </div>
                       )}
                     </div>
-                  </div>
-                  {/* Hide stats on very small screens */}
-                  <div className="hidden sm:flex flex-shrink-0 items-center gap-2 md:gap-4 text-xs sm:text-sm text-gray-400">
-                    {song.views && (
-                      <div className="flex items-center gap-1">
-                        <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                        </svg>
-                        <span className="hidden md:inline">{song.views.toLocaleString()}</span>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm sm:text-base md:text-lg font-bold text-white group-hover:text-green-400 transition-colors line-clamp-1">
+                        {song.title}
+                      </h3>
+                      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 md:gap-3 mt-0.5 sm:mt-1 text-xs sm:text-sm text-gray-400">
+                        <p className="line-clamp-1">{song.artist}</p>
+                        {song.genre && (
+                          <>
+                            <span className="hidden sm:inline">•</span>
+                            <span className="px-1.5 sm:px-0">{song.genre}</span>
+                          </>
+                        )}
+                        {song.year && (
+                          <>
+                            <span className="hidden sm:inline">•</span>
+                            <span className="px-1.5 sm:px-0">{song.year}</span>
+                          </>
+                        )}
                       </div>
-                    )}
-                    {song.requestCount && song.requestCount > 0 && (
-                      <div className="flex items-center gap-1 text-yellow-400">
-                        <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
-                        </svg>
-                        <span className="hidden md:inline">{song.requestCount}</span>
-                      </div>
-                    )}
-                  </div>
-                </Link>
-              ))}
+                    </div>
+                    {/* Hide stats on very small screens */}
+                    <div className="hidden sm:flex flex-shrink-0 items-center gap-2 md:gap-4 text-xs sm:text-sm text-gray-400">
+                      {song.views && (
+                        <div className="flex items-center gap-1">
+                          <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                          <span className="hidden md:inline">{song.views.toLocaleString()}</span>
+                        </div>
+                      )}
+                      {song.requestCount && song.requestCount > 0 && (
+                        <div className="flex items-center gap-1 text-yellow-400">
+                          <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+                          </svg>
+                          <span className="hidden md:inline">{song.requestCount}</span>
+                        </div>
+                      )}
+                    </div>
+                  </Link>
+                </div>
+                );
+              })}
             </div>
 
             {/* Pagination */}

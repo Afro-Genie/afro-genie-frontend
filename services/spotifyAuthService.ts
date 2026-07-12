@@ -82,7 +82,11 @@ class SpotifyAuthService {
 
     const scopes = [
       'user-read-email',
-      'user-read-private'
+      'user-read-private',
+      'streaming',
+      'user-read-playback-state',
+      'user-modify-playback-state',
+      'user-read-currently-playing',
     ].join(' ');
 
     const { codeVerifier, codeChallenge } = await this.generatePKCE();
