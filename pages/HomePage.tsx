@@ -75,6 +75,7 @@ const HomePage: React.FC = () => {
                         album: s.albumName,
                         requestCount: 0,
                         spotifyId: s.spotifyId || null,
+                        source: s.source || null,
                     }));
                     const sortedSongs = fetchedSongs.sort((a: any, b: any) => {
                         const aScore = (a.views || 0) + (a.requestCount || 0) * 2;
@@ -536,79 +537,81 @@ const HomePage: React.FC = () => {
             </section>
 
             {/* Trending Discussions Section */}
-            {(topicsLoading || trendingTopics.length > 0) && (
-                <section className="py-16 bg-[#122118]">
-                    <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
-                            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">
-                                Trending <span className="text-amber-400">Discussions</span>
-                            </h2>
-                            <Link 
-                                to="/community" 
-                                className="inline-flex items-center min-h-[44px] text-amber-400 hover:text-amber-300 font-semibold gap-2 self-start"
-                            >
-                                View All <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                </svg>
-                            </Link>
-                        </div>
-                        {topicsLoading ? (
-                            <SearchResultsSkeleton count={3} />
-                        ) : topicsError ? (
-                            <div className="text-red-400 text-center py-8">{topicsError}</div>
-                        ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {trendingTopics.map((topic) => (
-                                <Link
-                                    key={topic.id}
-                                    to={`/community/topic/${topic.id}`}
-                                    className="bg-gray-800/50 hover:bg-gray-700/50 transition-all duration-300 rounded-xl border border-gray-700 hover:border-amber-400/50 p-6"
-                                >
-                                    <div className="flex items-start gap-3 mb-3">
-                                        {topic.authorAvatar ? (
-                                            <img
-                                                src={topic.authorAvatar}
-                                                alt={topic.authorName}
-                                                className="h-10 w-10 rounded-full flex-shrink-0"
-                                            />
-                                        ) : (
-                                            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-green-600 to-green-800 flex items-center justify-center flex-shrink-0">
-                                                <span className="text-white font-bold text-sm">
-                                                    {topic.authorName?.[0]?.toUpperCase() || 'U'}
-                                                </span>
-                                            </div>
-                                        )}
-                                        <div className="flex-1 min-w-0">
-                                            <h3 className="font-bold text-white line-clamp-2 mb-1 hover:text-amber-400 transition-colors">
-                                                {topic.title}
-                                            </h3>
-                                            <p className="text-xs text-gray-400">{topic.authorName}</p>
-                                        </div>
-                                    </div>
-                                    <p className="text-sm text-gray-400 line-clamp-2 mb-4">
-                                        {topic.content}
-                                    </p>
-                                    <div className="flex items-center gap-4 text-xs text-gray-500">
-                                        <span className="flex items-center gap-1">
-                                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                                <path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.834a1.5 1.5 0 001.5 1.5h1a1.5 1.5 0 001.5-1.5v-5.834a1.5 1.5 0 011.5-1.5h1a1.5 1.5 0 011.5 1.5v5.834a1.5 1.5 0 001.5 1.5h1a1.5 1.5 0 001.5-1.5V10.5a1.5 1.5 0 011.5-1.5h1a1.5 1.5 0 011.5 1.5v6a7.5 7.5 0 01-7.5 7.5h-2A7.5 7.5 0 012 16.5v-6z" />
-                                            </svg>
-                                            {topic.likes || 0}
-                                        </span>
-                                        <span className="flex items-center gap-1">
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                                            </svg>
-                                            {topic.commentCount || 0}
-                                        </span>
-                                    </div>
-                                </Link>
-                            ))}
-                            </div>
-                        )}
+            <section className="py-16 bg-[#122118]">
+                <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
+                        <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">
+                            Trending <span className="text-amber-400">Discussions</span>
+                        </h2>
+                        <Link 
+                            to="/community" 
+                            className="inline-flex items-center min-h-[44px] text-amber-400 hover:text-amber-300 font-semibold gap-2 self-start"
+                        >
+                            View All <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                        </Link>
                     </div>
-                </section>
-            )}
+                    {topicsLoading ? (
+                        <SearchResultsSkeleton count={3} />
+                    ) : topicsError ? (
+                        <div className="text-red-400 text-center py-8">{topicsError}</div>
+                    ) : trendingTopics.length === 0 ? (
+                        <div className="text-gray-400 text-center py-8">
+                            No trending discussions yet. <Link to="/community" className="text-amber-400 hover:underline">Start a conversation!</Link>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {trendingTopics.map((topic) => (
+                            <Link
+                                key={topic.id}
+                                to={`/community/topic/${topic.id}`}
+                                className="bg-gray-800/50 hover:bg-gray-700/50 transition-all duration-300 rounded-xl border border-gray-700 hover:border-amber-400/50 p-6"
+                            >
+                                <div className="flex items-start gap-3 mb-3">
+                                    {topic.authorAvatar ? (
+                                        <img
+                                            src={topic.authorAvatar}
+                                            alt={topic.authorName}
+                                            className="h-10 w-10 rounded-full flex-shrink-0"
+                                        />
+                                    ) : (
+                                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-green-600 to-green-800 flex items-center justify-center flex-shrink-0">
+                                            <span className="text-white font-bold text-sm">
+                                                {topic.authorName?.[0]?.toUpperCase() || 'U'}
+                                            </span>
+                                        </div>
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                        <h3 className="font-bold text-white line-clamp-2 mb-1 hover:text-amber-400 transition-colors">
+                                            {topic.title}
+                                        </h3>
+                                        <p className="text-xs text-gray-400">{topic.authorName}</p>
+                                    </div>
+                                </div>
+                                <p className="text-sm text-gray-400 line-clamp-2 mb-4">
+                                    {topic.content}
+                                </p>
+                                <div className="flex items-center gap-4 text-xs text-gray-500">
+                                    <span className="flex items-center gap-1">
+                                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                            <path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.834a1.5 1.5 0 001.5 1.5h1a1.5 1.5 0 001.5-1.5v-5.834a1.5 1.5 0 011.5-1.5h1a1.5 1.5 0 011.5 1.5v5.834a1.5 1.5 0 001.5 1.5h1a1.5 1.5 0 001.5-1.5V10.5a1.5 1.5 0 011.5-1.5h1a1.5 1.5 0 011.5 1.5v6a7.5 7.5 0 01-7.5 7.5h-2A7.5 7.5 0 012 16.5v-6z" />
+                                        </svg>
+                                        {topic.likes || 0}
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                        </svg>
+                                        {topic.commentCount || 0}
+                                    </span>
+                                </div>
+                            </Link>
+                        ))}
+                        </div>
+                    )}
+                </div>
+            </section>
 
             {/* CSS Animation */}
             <style dangerouslySetInnerHTML={{__html: `

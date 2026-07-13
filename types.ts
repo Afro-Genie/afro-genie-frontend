@@ -59,6 +59,7 @@ export interface Song {
   lyrics?: string;
   spotifyUrl?: string;
   spotifyId?: string | null;
+  source?: 'DB' | 'SPOTIFY' | 'HYBRID';
 }
 
 export interface Genre {
@@ -70,8 +71,7 @@ export interface Genre {
 export type Suggestion =
   | { type: 'artist'; data: Artist }
   | { type: 'song'; data: Song }
-  | { type: 'genre'; data: Genre }
-  | { type: 'lyrics'; data: { id: string; songId: string; songTitle?: string; artistName?: string; preview: string } };
+  | { type: 'genre'; data: Genre };
 
 export interface GenieSettings {
   id?: string;

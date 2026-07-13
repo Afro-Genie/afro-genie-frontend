@@ -32,7 +32,7 @@ class SpotifyAuthService {
 
   constructor() {
     this.clientId = import.meta.env.VITE_SPOTIFY_CLIENT_ID || '';
-    this.redirectUri = `${window.location.origin}${window.location.pathname}`;
+    this.redirectUri = import.meta.env.VITE_SPOTIFY_REDIRECT_URI || window.location.origin;
   }
 
   /**
@@ -136,12 +136,15 @@ class SpotifyAuthService {
       if (stateFromCallback) {
         try {
           const decoded = JSON.parse(atob(stateFromCallback));
-          if (decoded && typeof decoded.n === 'string') {
+          if (decoded && typeof decoded === 'object' && typeof decoded.n === 'string' && decoded.n.length > 0) {
             verifiedNonce = decoded.n;
             const { n, ...rest } = decoded;
             if (Object.keys(rest).length > 0) {
               stateData = rest;
             }
+          } else {
+            // Invalid state structure — treat as plain nonce for backward compat
+            verifiedNonce = stateFromCallback;
           }
         } catch {
           // Not a JSON-encoded state — treat as plain nonce (backward compatible)
@@ -172,15 +175,14 @@ class SpotifyAuthService {
         throw new Error(`Token exchange failed: ${error}`);
       }
 
-      // Clear code verifier after use
-      sessionStorage.removeItem('spotify_code_verifier');
-      sessionStorage.removeItem('spotify_oauth_state');
-
       const tokenResponse: SpotifyTokenResponse = await response.json();
       return { ...tokenResponse, stateData };
     } catch (error) {
       console.error('Error exchanging code for token:', error);
       throw error;
+    } finally {
+      sessionStorage.removeItem('spotify_code_verifier');
+      sessionStorage.removeItem('spotify_oauth_state');
     }
   }
 
@@ -209,6 +211,8 @@ class SpotifyAuthService {
 
   /**
    * Refresh access token using refresh token
+   * Checks for scope downgrade — if Spotify returns fewer scopes than requested,
+   * the user must re-authorize.
    */
   async refreshAccessToken(refreshToken: string): Promise<SpotifyTokenResponse> {
     try {
@@ -231,7 +235,23 @@ class SpotifyAuthService {
         throw new Error(`Token refresh failed: ${error}`);
       }
 
-      return await response.json();
+      const data: SpotifyTokenResponse = await response.json();
+
+      const requiredScopes = [
+        'user-read-email', 'user-read-private', 'streaming',
+        'user-read-playback-state', 'user-modify-playback-state',
+        'user-read-currently-playing',
+      ];
+
+      const grantedScopes = (data.scope || '').split(' ');
+      const missingScopes = requiredScopes.filter(s => !grantedScopes.includes(s));
+
+      if (missingScopes.length > 0) {
+        console.warn('Spotify token refresh resulted in reduced scopes:', missingScopes);
+        throw new Error('Spotify permissions were reduced. Please sign in again.');
+      }
+
+      return data;
     } catch (error) {
       console.error('Error refreshing token:', error);
       throw error;

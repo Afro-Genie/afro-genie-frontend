@@ -38,30 +38,14 @@ class ApiError extends Error {
   }
 }
 
-async function refreshAccessToken(): Promise<boolean> {
-  const storedRefresh = getRefreshToken();
-  if (!storedRefresh) return false;
+// Auth refresh function injected by AuthContext on mount.
+// This is the single source of truth for token refresh — AuthContext owns
+// React state updates (user, userProfile) and token lifecycle.
+let authRefreshFn: (() => Promise<boolean>) | null = null;
 
-  try {
-    const res = await fetch(`${API_BASE}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken: storedRefresh }),
-    });
-
-    if (!res.ok) {
-      clearTokens();
-      return false;
-    }
-
-    const data = await res.json();
-    setTokens(data.accessToken, data.refreshToken);
-    return true;
-  } catch {
-    clearTokens();
-    return false;
-  }
-}
+export const setAuthRefreshFn = (fn: (() => Promise<boolean>) | null) => {
+  authRefreshFn = fn;
+};
 
 export async function apiRequest<T>(
   path: string,
@@ -81,8 +65,8 @@ export async function apiRequest<T>(
     headers,
   });
 
-  if (res.status === 401 && refreshToken) {
-    const refreshed = await refreshAccessToken();
+  if (res.status === 401 && refreshToken && authRefreshFn) {
+    const refreshed = await authRefreshFn();
     if (refreshed) {
       headers['Authorization'] = `Bearer ${accessToken}`;
       res = await fetch(`${API_BASE}${path}`, {
@@ -272,22 +256,7 @@ export const translationsApi = {
     }),
 };
 
-// Search API
-export const searchApi = {
-  search: (params: { q?: string; type?: string; lang?: string; genre?: string; page?: number; limit?: number }) => {
-    const q = new URLSearchParams();
-    if (params.q) q.set('q', params.q);
-    if (params.type) q.set('type', params.type);
-    if (params.lang) q.set('lang', params.lang);
-    if (params.genre) q.set('genre', params.genre);
-    if (params.page) q.set('page', String(params.page));
-    if (params.limit) q.set('limit', String(params.limit));
-    const qs = q.toString();
-    return apiRequest<any>(`/search${qs ? `?${qs}` : ''}`);
-  },
 
-  suggest: (q: string) => apiRequest<any>(`/search/suggest?q=${encodeURIComponent(q)}`),
-};
 
 // Health API
 export const healthApi = {

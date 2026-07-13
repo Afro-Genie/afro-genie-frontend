@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { authApi, setTokens, clearTokens, getAccessToken, getRefreshToken } from '../services/api';
+import { authApi, setTokens, clearTokens, getAccessToken, getRefreshToken, setAuthRefreshFn } from '../services/api';
 import { spotifyAuthService, SpotifyUserProfile, SpotifyTokenResponse } from '../services/spotifyAuthService';
 import { toApiUrl } from '../lib/apiBase';
 
@@ -137,6 +137,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUserProfile(buildProfile(authResult.user));
   }, []);
 
+  // Inject the token refresh function into api.ts so all API helpers
+  // (songsApi, artistsApi, etc.) use the same refresh logic as authFetch.
+  // This is the single source of truth for token refresh.
+  useEffect(() => {
+    setAuthRefreshFn(async () => {
+      try {
+        const storedRefresh = getRefreshToken();
+        if (!storedRefresh) return false;
+        const result = await authApi.refresh(storedRefresh);
+        initFromAuthResult(result);
+        return true;
+      } catch {
+        clearTokens();
+        setUser(null);
+        setUserProfile(null);
+        window.dispatchEvent(new Event('auth:expired'));
+        return false;
+      }
+    });
+
+    return () => setAuthRefreshFn(null);
+  }, [initFromAuthResult]);
+
   useEffect(() => {
     const init = async () => {
       try {
@@ -154,7 +177,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const authUser = { id: userId, email: email || '', displayName: displayName || email?.split('@')[0] || 'User', role: role || 'USER' };
           setUser(buildUser(authUser));
           setUserProfile(buildProfile(authUser));
-          window.history.replaceState({}, document.title, window.location.pathname);
+          window.history.replaceState({}, document.title, window.location.origin + '/');
           setLoading(false);
           return;
         }
@@ -196,7 +219,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           } catch (err) {
             console.error('Spotify auth callback error:', err);
           }
-          window.history.replaceState({}, document.title, window.location.pathname);
+          window.history.replaceState({}, document.title, window.location.origin + '/');
           setLoading(false);
           return;
         }
@@ -352,8 +375,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     if (res.status === 401) {
+      let refreshed = false;
       const storedRefresh = getRefreshToken();
-      if (!storedRefresh) {
+      if (storedRefresh) {
+        try {
+          const result = await authApi.refresh(storedRefresh);
+          initFromAuthResult(result);
+          refreshed = true;
+        } catch {
+          refreshed = false;
+        }
+      }
+
+      if (!refreshed) {
         clearTokens();
         setUser(null);
         setUserProfile(null);
@@ -361,21 +395,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error('Session expired. Please sign in again.');
       }
 
-      try {
-        const refreshed = await authApi.refresh(storedRefresh);
-        initFromAuthResult(refreshed);
-        headers = buildHeaders();
-        res = await fetch(toApiUrl(url), {
-          ...options,
-          headers,
-        });
-      } catch {
-        clearTokens();
-        setUser(null);
-        setUserProfile(null);
-        window.dispatchEvent(new Event('auth:expired'));
-        throw new Error('Session expired. Please sign in again.');
-      }
+      headers = buildHeaders();
+      res = await fetch(toApiUrl(url), {
+        ...options,
+        headers,
+      });
     }
 
     if (!res.ok) {

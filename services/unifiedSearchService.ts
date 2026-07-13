@@ -1,3 +1,11 @@
+/**
+ * @deprecated This module is no longer used by any active component.
+ * Search is now handled via the backend Typesense API:
+ *   - SearchBar: searchSuggest() from apiClient.ts
+ *   - SearchResultsPage: searchCatalog() from apiClient.ts
+ *   - /api/search route handles Spotify fallback server-side
+ * Safe to delete once confirmed no other code paths import from here.
+ */
 import { getAllArtists, getAllGenres, getAllSongs } from './firebaseService';
 import { spotifyService } from './spotifyService';
 import { featureFlags } from '../config/featureFlags';
