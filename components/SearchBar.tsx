@@ -5,9 +5,9 @@ import SearchIcon from './icons/SearchIcon';
 import MusicNoteIcon from './icons/MusicNoteIcon';
 import MicIcon from './icons/MicIcon';
 import TagIcon from './icons/TagIcon';
-import TranslateIcon from './icons/TranslateIcon';
 import { SearchResultsSkeleton } from './PageSkeletons';
 import { searchSuggest } from '../lib/apiClient';
+import { trackEvent } from '../services/telemetryService';
 import type { Suggestion, Artist, Song, Genre } from '../types';
 
 interface SearchBarProps {
@@ -18,22 +18,27 @@ const SearchBar: React.FC<SearchBarProps> = ({ variant = 'header' }) => {
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
 
   useClickOutside(searchContainerRef, () => setSuggestions([]));
 
   useEffect(() => {
     if (query.length < 2) {
       setSuggestions([]);
+      setError(null);
       return;
     }
 
     const performSearch = async () => {
       setLoading(true);
+      setError(null);
 
       try {
-        const suggestResult = await searchSuggest(query);
+        const suggestResult = await searchSuggest(query, true);
         const items = Array.isArray(suggestResult)
           ? suggestResult
           : Array.isArray(suggestResult?.suggestions)
@@ -43,16 +48,18 @@ const SearchBar: React.FC<SearchBarProps> = ({ variant = 'header' }) => {
         const apiSuggestions: Suggestion[] = items
           .map((item: any) => {
             const type = String(item.type || '').toLowerCase();
+            const doc = item.document || item;
 
             if (type === 'song') {
               return {
                 type: 'song' as const,
                 data: {
-                  id: item.id || item.songId || '',
-                  title: item.title || item.name || 'Untitled',
-                  artist: item.artist || item.artistName || 'Unknown',
-                  artistId: item.artistId || '',
-                  image: item.image || item.coverImageUrl || item.imageUrl || '',
+                  id: doc.id || doc.songId || '',
+                  title: doc.title || doc.name || 'Untitled',
+                  artist: doc.artistName || doc.artist || 'Unknown',
+                  artistId: doc.artistId || '',
+                  image: doc.imageUrl || doc.image || doc.coverImageUrl || '',
+                  spotifyUrl: doc.externalUrl || undefined,
                 } as Song,
               };
             }
@@ -61,10 +68,10 @@ const SearchBar: React.FC<SearchBarProps> = ({ variant = 'header' }) => {
               return {
                 type: 'artist' as const,
                 data: {
-                  id: item.id || '',
-                  name: item.name || item.artist || 'Unknown Artist',
-                  genre: item.genre || '',
-                  image: item.image || item.imageUrl || '',
+                  id: doc.id || '',
+                  name: doc.name || doc.artist || 'Unknown Artist',
+                  genre: doc.genre || (Array.isArray(doc.genres) ? doc.genres[0] : '') || '',
+                  image: doc.imageUrl || doc.image || '',
                 } as Artist,
               };
             }
@@ -73,9 +80,9 @@ const SearchBar: React.FC<SearchBarProps> = ({ variant = 'header' }) => {
               return {
                 type: 'genre' as const,
                 data: {
-                  id: item.id || item.name || 'genre',
-                  name: item.name || item.genre || 'Unknown Genre',
-                  image: '',
+                  id: doc.id || doc.name || 'genre',
+                  name: doc.name || doc.genre || 'Unknown Genre',
+                  image: doc.imageUrl || '',
                 } as Genre,
               };
             }
@@ -84,9 +91,12 @@ const SearchBar: React.FC<SearchBarProps> = ({ variant = 'header' }) => {
           })
           .filter(Boolean) as Suggestion[];
 
-        setSuggestions(apiSuggestions.slice(0, 10));
+        setSuggestions(apiSuggestions.slice(0, 8));
+        setSelectedIndex(-1);
       } catch {
         setSuggestions([]);
+        setError('Search unavailable. Please try again.');
+        setTimeout(() => setError(null), 4000);
       } finally {
         setLoading(false);
       }
@@ -98,17 +108,53 @@ const SearchBar: React.FC<SearchBarProps> = ({ variant = 'header' }) => {
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (selectedIndex >= 0 && selectedIndex < suggestions.length) {
+      trackEvent('search_suggestion_click', { query, type: suggestions[selectedIndex].type, position: selectedIndex, source: 'keyboard' });
+      navigate(getSuggestionLink(suggestions[selectedIndex]));
+      setSuggestions([]);
+      setSelectedIndex(-1);
+      setQuery('');
+      return;
+    }
     if (query.trim()) {
+      trackEvent('search_submitted', { query: query.trim(), source: 'bar' });
       navigate(`/search/${encodeURIComponent(query.trim())}`);
       setSuggestions([]);
-      // Don't clear query here - let the search page handle it
     }
   };
   
-  const handleSuggestionClick = () => {
+  const handleSuggestionClick = (item: Suggestion, index: number) => {
+      trackEvent('search_suggestion_click', { query, type: item.type, position: index });
       setSuggestions([]);
+      setSelectedIndex(-1);
       setQuery('');
   }
+
+  const getSuggestionLink = (item: Suggestion): string => {
+    if (item.type === 'song') {
+      const song = item.data as Song;
+      if (song.spotifyUrl) {
+        return `/search/${encodeURIComponent(`${song.title} ${song.artist}`)}`;
+      }
+      return `/songs/${song.id}`;
+    }
+    return `/search/${encodeURIComponent(item.data.name)}`;
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (suggestions.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedIndex((prev) => (prev < suggestions.length - 1 ? prev + 1 : 0));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedIndex((prev) => (prev > 0 ? prev - 1 : suggestions.length - 1));
+    } else if (e.key === 'Escape') {
+      setSuggestions([]);
+      setSelectedIndex(-1);
+    }
+  };
 
   const baseClasses = "relative";
   const variants = {
@@ -138,14 +184,20 @@ const SearchBar: React.FC<SearchBarProps> = ({ variant = 'header' }) => {
           <input
             data-testid="search-bar"
             type="text"
-            placeholder={variant === 'header' ? 'Search artists, songs, lyrics...' : 'Search for artist, song, lyrics, or genre'}
+            placeholder={variant === 'header' ? 'Search artists, songs, genres...' : 'Search for artist, song, or genre'}
             className={currentVariant.input}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={handleKeyDown}
             onFocus={() => { if (query.length > 1) setSuggestions(suggestions)}}
           />
         </div>
       </form>
+      {error && suggestions.length === 0 && !loading && (
+        <div className="absolute top-full mt-2 w-full bg-red-900/80 border border-red-500/30 rounded-lg px-4 py-2.5 text-sm text-red-200 z-50">
+          {error}
+        </div>
+      )}
       {(suggestions.length > 0 || loading) && (
         <div className="absolute top-full mt-2 w-full bg-[#2a3c30] border border-white/10 rounded-lg shadow-lg z-50 overflow-hidden">
           {loading ? (
@@ -153,57 +205,39 @@ const SearchBar: React.FC<SearchBarProps> = ({ variant = 'header' }) => {
               <SearchResultsSkeleton count={3} />
             </div>
           ) : suggestions.length > 0 ? (
-            <ul>
+            <ul ref={listRef}>
               {suggestions.map((item, index) => {
-                let linkTo = '';
-                if (item.type === 'song') {
-                  linkTo = item.data.id.startsWith('spotify-track-')
-                    ? `/search/${encodeURIComponent(`${item.data.title} ${item.data.artist}`)}`
-                    : `/songs/${item.data.id}`;
-                } else if (item.type === 'lyrics') {
-                  linkTo = `/songs/${item.data.songId}`;
-                } else {
-                  linkTo = `/search/${encodeURIComponent(item.data.name)}`;
-                }
+                const linkTo = getSuggestionLink(item);
+                const isActive = index === selectedIndex;
 
                 return (
                   <li key={index}>
                     <Link 
                       to={linkTo} 
-                      onClick={handleSuggestionClick} 
+                      onClick={() => handleSuggestionClick(item, index)} 
                       data-testid="search-suggestion"
-                      className="flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3 min-h-[60px] sm:min-h-[auto] hover:bg-green-500/10 active:bg-green-500/20 transition-colors border-b border-gray-700/50 last:border-b-0"
+                      ref={(el) => {
+                        if (isActive && el) {
+                          el.scrollIntoView({ block: 'nearest' });
+                        }
+                      }}
+                      className={`flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3 min-h-[60px] sm:min-h-[auto] transition-colors border-b border-gray-700/50 last:border-b-0 ${isActive ? 'bg-green-500/15' : 'hover:bg-green-500/10 active:bg-green-500/20'}`}
                     >
                       {item.type === 'artist' && <MicIcon className="h-5 w-5 text-gray-400 flex-shrink-0" />}
                       {item.type === 'song' && <MusicNoteIcon className="h-5 w-5 text-gray-400 flex-shrink-0" />}
                       {item.type === 'genre' && <TagIcon className="h-5 w-5 text-gray-400 flex-shrink-0" />}
-                      {item.type === 'lyrics' && <TranslateIcon className="h-5 w-5 text-amber-400 flex-shrink-0" />}
                       <div className="flex-grow min-w-0">
                         <p className="font-semibold text-white truncate">
                           {item.type === 'song' 
                             ? item.data.title 
-                            : item.type === 'lyrics'
-                            ? `${item.data.songTitle || 'Song'} - Lyrics`
                             : item.data.name}
                         </p>
                         {item.type === 'song' && (
                           <p className="text-sm text-gray-400 truncate">{item.data.artist}</p>
                         )}
-                        {item.type === 'lyrics' && (
-                          <>
-                            {item.data.artistName && (
-                              <p className="text-sm text-gray-400 truncate">{item.data.artistName}</p>
-                            )}
-                            {item.data.preview && (
-                              <p className="text-xs text-gray-500 mt-1 line-clamp-1 italic">
-                                "{item.data.preview}..."
-                              </p>
-                            )}
-                          </>
-                        )}
                       </div>
-                      <span className="text-xs font-medium text-gray-500 bg-gray-700 px-2 py-1 rounded flex-shrink-0">
-                        {item.type}
+                      <span className={`text-xs font-medium px-2 py-1 rounded flex-shrink-0 ${item.type === 'song' && (item.data as Song).spotifyUrl ? 'text-[#1DB954] bg-[#1DB954]/15 border border-[#1DB954]/30' : 'text-gray-500 bg-gray-700'}`}>
+                        {item.type === 'song' && (item.data as Song).spotifyUrl ? 'Spotify' : item.type}
                       </span>
                     </Link>
                   </li>

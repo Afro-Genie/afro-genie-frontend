@@ -62,7 +62,7 @@ const SpotifyPlayer: React.FC<SpotifyPlayerProps> = ({ title, artist, spotifyId,
   }
 
   const wrapperClass = compact
-    ? 'rounded-lg border border-gray-700 bg-gray-800/50 p-3 w-full md:w-[280px]'
+    ? 'rounded-lg border border-gray-700 bg-gray-800/50 p-3 w-full'
     : 'mb-6 rounded-xl border border-gray-700 bg-gray-800/50 p-4 md:p-6 shadow-lg';
 
   const trackName = currentTrack?.name ?? title;
@@ -133,11 +133,12 @@ const SpotifyPlayer: React.FC<SpotifyPlayerProps> = ({ title, artist, spotifyId,
               title={`Spotify preview: ${trackName}`}
               src={`https://open.spotify.com/embed/track/${spotifyId}?theme=0&comma=true`}
               width="100%"
-              height={compact ? 80 : 152}
+              height={152}
               frameBorder="0"
               allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
               loading="lazy"
-              className="rounded-md"
+              className="rounded-md block"
+              style={{ border: 0 }}
             />
           ) : (
             <a

@@ -48,13 +48,24 @@ export const getArtists = (params?: Record<string, string | number | undefined>)
 export const getArtistById = (id: string) => apiFetch('/api/artists/' + id);
 
 // Search
-export const searchCatalog = (q: string, type?: string, lang?: string) =>
-  apiFetch(
-    '/api/search?q=' +
-      encodeURIComponent(q) +
-      (type ? '&type=' + encodeURIComponent(type) : '') +
-      (lang ? '&lang=' + encodeURIComponent(lang) : '')
-  );
+export const searchCatalog = (
+  q: string,
+  type?: string,
+  lang?: string,
+  options?: { page?: number; limit?: number; spotifyFallback?: boolean }
+) => {
+  const params = new URLSearchParams();
+  params.set('q', q);
+  if (type) params.set('type', type);
+  if (lang) params.set('lang', lang);
+  if (options?.page) params.set('page', String(options.page));
+  if (options?.limit) params.set('limit', String(options.limit));
+  if (options?.spotifyFallback) params.set('spotifyFallback', 'true');
+  return apiFetch('/api/search?' + params.toString());
+};
 
-export const searchSuggest = (q: string) =>
-  apiFetch('/api/search/suggest?q=' + encodeURIComponent(q));
+export const searchSuggest = (q: string, spotifyFallback?: boolean) => {
+  const params = new URLSearchParams({ q });
+  if (spotifyFallback) params.set('spotifyFallback', 'true');
+  return apiFetch('/api/search/suggest?' + params.toString());
+};

@@ -1,89 +1,37 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { createSongRequest } from '../services/firebaseService';
 import { useAuth } from '../context/AuthContext';
 import { SearchResultsSkeleton } from '../components/PageSkeletons';
 import { featureFlags } from '../config/featureFlags';
 import { trackEvent } from '../services/telemetryService';
-import { unifiedSearchService, type UnifiedSearchResult, type UnifiedSearchResponse } from '../services/unifiedSearchService';
+import { searchCatalog } from '../lib/apiClient';
 import type { Artist } from '../types';
 
-function ResultCard({
-  result,
-  type,
-  onRequestSong,
-  requestLoading,
-}: {
-  result: UnifiedSearchResult;
-  type: 'song' | 'artist';
-  onRequestSong?: (songTitle: string, artist: string) => void;
-  requestLoading?: boolean;
-}) {
-  const isArtist = type === 'artist';
-  const imageEl = (
-    <div className={`flex-shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-green-500/20 to-amber-500/20 ${isArtist ? 'aspect-square w-full' : 'w-16 h-16'} flex items-center justify-center`}>
-      {result.image ? (
-        <img src={result.image} alt={result.title} className="w-full h-full object-cover" />
-      ) : (
-        <svg className={isArtist ? 'w-16 h-16 text-gray-500' : 'w-8 h-8 text-green-400'} fill="currentColor" viewBox="0 0 20 20">
-          {isArtist ? (
-            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clipRule="evenodd" />
-          ) : (
-            <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
-          )}
-        </svg>
-      )}
-    </div>
-  );
-  const textEl = (
-    <div className={`flex-1 min-w-0 ${isArtist ? 'text-center mt-3' : 'py-4 pr-4'}`}>
-      <h3 className="font-bold text-white group-hover:text-green-400 transition-colors line-clamp-2 mb-1">
-        {result.title}
-      </h3>
-      {result.subtitle && (
-        <p className="text-sm text-gray-400 line-clamp-1">{result.subtitle}</p>
-      )}
-      {!isArtist && onRequestSong && (
-        <button
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onRequestSong(result.title, result.subtitle || 'Unknown');
-          }}
-          disabled={requestLoading}
-          className="mt-2 text-xs text-green-400 hover:text-green-300 font-medium disabled:opacity-50"
-        >
-          {requestLoading ? 'Requesting...' : 'Request to add'}
-        </button>
-      )}
-    </div>
-  );
-
-  const cardClass = `group rounded-xl overflow-hidden border border-gray-700 hover:border-green-400/50 transition-all duration-300 bg-gray-800/50 hover:bg-gray-700/50 min-h-[48px] ${isArtist ? 'flex flex-col' : 'flex items-center gap-4 pl-4'}`;
-
-  if (result.externalUrl) {
-    return (
-      <a href={result.externalUrl} target="_blank" rel="noopener noreferrer" className={cardClass}>
-        {imageEl}
-        {textEl}
-      </a>
-    );
-  }
-
-  return (
-    <div className={cardClass}>
-      {imageEl}
-      {textEl}
-    </div>
-  );
+interface DisplayResult {
+  id: string;
+  title: string;
+  subtitle?: string;
+  image?: string;
+  linkTo: string;
+  externalUrl?: string;
 }
+
+const SONGS_PER_PAGE = 10;
 
 const SearchResultsPage: React.FC = () => {
   const { query } = useParams<{ query: string }>();
   const { user } = useAuth();
   const decodedQuery = query ? decodeURIComponent(query) : '';
 
-  const [searchResponse, setSearchResponse] = useState<UnifiedSearchResponse | null>(null);
+  const [songResults, setSongResults] = useState<DisplayResult[]>([]);
+  const [artistResults, setArtistResults] = useState<DisplayResult[]>([]);
+  const [genreResults, setGenreResults] = useState<DisplayResult[]>([]);
+  const [songFound, setSongFound] = useState(0);
+  const [artistFound, setArtistFound] = useState(0);
+  const [genreFound, setGenreFound] = useState(0);
+  const [songPage, setSongPage] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [artists, setArtists] = useState<Artist[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -91,33 +39,72 @@ const SearchResultsPage: React.FC = () => {
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [requestFeedbackOpen, setRequestFeedbackOpen] = useState(false);
 
+  const mapHitsToResults = useCallback((hits: any[], type: 'song' | 'artist' | 'genre'): DisplayResult[] => {
+    return hits.map((hit: any) => {
+      const doc = hit.document;
+      const externalUrl: string | undefined = doc.externalUrl ?? undefined;
+
+      if (type === 'song') {
+        return {
+          id: doc.id,
+          title: doc.title || 'Untitled',
+          subtitle: doc.artistName || '',
+          image: doc.imageUrl || '',
+          linkTo: externalUrl ? '' : `/songs/${doc.id}`,
+          externalUrl,
+        };
+      }
+      if (type === 'artist') {
+        return {
+          id: doc.id,
+          title: doc.name || 'Artist',
+          subtitle: Array.isArray(doc.genres) ? doc.genres[0] : doc.genres || '',
+          image: doc.imageUrl || '',
+          linkTo: externalUrl ? '' : `/artist/${doc.id}`,
+          externalUrl,
+        };
+      }
+      return {
+        id: doc.id,
+        title: doc.name || 'Genre',
+        image: doc.imageUrl || '',
+        linkTo: `/search/${encodeURIComponent(doc.name)}`,
+      };
+    });
+  }, []);
+
   useEffect(() => {
     const runSearch = async () => {
       setLoading(true);
       setError(null);
-      setSearchResponse(null);
+      setSongResults([]);
+      setArtistResults([]);
+      setGenreResults([]);
+      setSongFound(0);
+      setArtistFound(0);
+      setGenreFound(0);
+      setSongPage(1);
       try {
         if (!decodedQuery.trim()) {
-          setSearchResponse({
-            query: '',
-            localResults: [],
-            spotifyResults: [],
-            allResults: [],
-            usedSpotifyFallback: false,
-          });
           return;
         }
-        const response = await unifiedSearchService.search(decodedQuery, {
-          localLimit: 30,
-          spotifyArtistLimit: 5,
-          spotifyTrackLimit: 10,
-          maxResults: 40,
-          minLocalResultsWithoutFallback: 1,
+        const response: any = await searchCatalog(decodedQuery, 'all', undefined, {
+          page: 1,
+          limit: SONGS_PER_PAGE,
+          spotifyFallback: true,
         });
-        setSearchResponse(response);
-        if (response.usedSpotifyFallback && response.spotifyResults.length > 0) {
-          trackEvent('spotify_search_success', { query: decodedQuery, count: response.spotifyResults.length });
-        }
+
+        setSongResults(mapHitsToResults(response.songs?.hits ?? [], 'song'));
+        setArtistResults(mapHitsToResults(response.artists?.hits ?? [], 'artist'));
+        setGenreResults(mapHitsToResults(response.genres?.hits ?? [], 'genre'));
+        setSongFound(response.songs?.found ?? 0);
+        setArtistFound(response.artists?.found ?? 0);
+        setGenreFound(response.genres?.found ?? 0);
+
+        trackEvent('search_request_submitted', {
+          query: decodedQuery,
+          total: (response.songs?.found ?? 0) + (response.artists?.found ?? 0) + (response.genres?.found ?? 0),
+        });
       } catch (err: any) {
         setError(err.message || 'Failed to search');
         trackEvent('spotify_search_error', { query: decodedQuery });
@@ -127,18 +114,30 @@ const SearchResultsPage: React.FC = () => {
     };
 
     runSearch();
-  }, [decodedQuery]);
+  }, [decodedQuery, mapHitsToResults]);
 
-  const localSongs = searchResponse?.localResults.filter((r) => r.entityType === 'song') ?? [];
-  const localArtists = searchResponse?.localResults.filter((r) => r.entityType === 'artist') ?? [];
-  const localGenres = searchResponse?.localResults.filter((r) => r.entityType === 'genre') ?? [];
-  const spotifySongs = searchResponse?.spotifyResults.filter((r) => r.entityType === 'song') ?? [];
-  const spotifyArtists = searchResponse?.spotifyResults.filter((r) => r.entityType === 'artist') ?? [];
+  const loadMoreSongs = useCallback(async () => {
+    if (loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const nextPage = songPage + 1;
+      const response: any = await searchCatalog(decodedQuery, 'song', undefined, {
+        page: nextPage,
+        limit: SONGS_PER_PAGE,
+        spotifyFallback: true,
+      });
+      const moreSongs = mapHitsToResults(response.songs?.hits ?? [], 'song');
+      setSongResults((prev) => [...prev, ...moreSongs]);
+      setSongPage(nextPage);
+    } catch {
+      // silently fail on load more
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [decodedQuery, songPage, loadingMore, mapHitsToResults]);
 
-  const hasResults =
-    (searchResponse?.localResults.length ?? 0) > 0 || (searchResponse?.spotifyResults.length ?? 0) > 0;
-  const totalResults =
-    (searchResponse?.localResults.length ?? 0) + (searchResponse?.spotifyResults.length ?? 0);
+  const hasResults = (songFound + artistFound + genreFound) > 0;
+  const hasMoreSongs = songResults.length < songFound;
 
   useEffect(() => {
     if (decodedQuery && !loading && !hasResults) {
@@ -226,6 +225,8 @@ const SearchResultsPage: React.FC = () => {
     );
   }
 
+  const totalResults = songFound + artistFound + genreFound;
+
   return (
     <div className="min-h-screen bg-[#122118]">
       {/* Results Section */}
@@ -257,7 +258,6 @@ const SearchResultsPage: React.FC = () => {
             <p className="text-gray-400 text-lg mb-12 max-w-2xl mx-auto">
               Discover African music across languages, genres, and artists
             </p>
-            {/* Quick Search Suggestions */}
             <div className="max-w-4xl mx-auto mt-12">
               <p className="text-gray-400 mb-4 text-sm">Popular Searches:</p>
               <div className="flex flex-wrap gap-3 justify-center">
@@ -276,7 +276,6 @@ const SearchResultsPage: React.FC = () => {
         ) : !hasResults ? (
         <div className="text-center py-12 md:py-20 animate-fade-in-up" data-testid="search-no-results">
             <div className="max-w-2xl mx-auto">
-              {/* Icon with animation */}
               <div className="relative inline-block mb-6">
                 <div className="absolute inset-0 bg-gray-500/20 rounded-full animate-ping"></div>
                 <div className="relative bg-gray-800/50 p-4 rounded-full border border-gray-600">
@@ -291,15 +290,10 @@ const SearchResultsPage: React.FC = () => {
                 We couldn't find "{decodedQuery}" in our database. Would you like to request this song to be added?
               </p>
               
-              {/* Request Song Card */}
               <div className="relative overflow-hidden bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-sm border border-gray-600/50 rounded-2xl shadow-2xl p-6 md:p-8 mb-8 mx-4">
-                {/* Animated background gradient */}
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-purple-500/5 to-pink-500/5 animate-gradient-shift"></div>
-                
-                {/* Content */}
                 <div className="relative z-10">
                   <div className="flex items-start gap-4 mb-6">
-                    {/* Icon */}
                     <div className="flex-shrink-0 relative">
                       <div className="absolute inset-0 bg-blue-500/20 rounded-full animate-ping"></div>
                       <div className="relative bg-gray-700/50 p-3 rounded-full border border-gray-600">
@@ -308,8 +302,6 @@ const SearchResultsPage: React.FC = () => {
                         </svg>
                       </div>
                     </div>
-                    
-                    {/* Info */}
                     <div className="flex-1 min-w-0">
                       <h3 className="text-lg md:text-xl font-bold text-white mb-2">
                         Request Song to be Added
@@ -323,16 +315,12 @@ const SearchResultsPage: React.FC = () => {
                       </div>
                     </div>
                   </div>
-
-                  {/* Button */}
                   <button
                     onClick={() => handleRequestSong()}
                     disabled={requestLoading}
                     className="w-full md:w-auto min-h-[44px] group relative overflow-hidden bg-gradient-to-r from-gray-700 to-gray-600 hover:from-gray-600 hover:to-gray-500 disabled:from-gray-800 disabled:to-gray-800 text-white font-semibold py-3 px-6 md:px-8 rounded-xl transition-all duration-300 flex items-center justify-center gap-3 shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed mx-auto"
                   >
-                    {/* Shine effect on hover */}
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
-                    
                     {requestLoading ? (
                       <>
                         <span className="h-5 w-5 rounded-full border-2 border-white/60 border-t-transparent animate-pulse" />
@@ -360,125 +348,158 @@ const SearchResultsPage: React.FC = () => {
           </div>
         ) : (
         <div className="space-y-12">
-            {/* Local Songs Section */}
-          {localSongs.length > 0 && (
+            {/* Songs Section */}
+          {songResults.length > 0 && (
             <section>
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-2xl md:text-3xl font-bold text-white">
-                    Songs <span className="text-green-400">({localSongs.length})</span>
+                    Songs <span className="text-green-400">({songFound})</span>
                   </h2>
-                  {localSongs.length > 9 && (
-                    <Link
-                      to={`/search/${encodeURIComponent(decodedQuery + ' songs')}`}
-                      className="text-green-400 hover:text-green-300 font-semibold flex items-center gap-2"
-                    >
-                      More <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </Link>
-                  )}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
-                  {localSongs.slice(0, 10).map((r) => (
-                    <Link
-                      to={`/songs/${r.localId!}`}
-                      key={r.id}
-                      className="group bg-gray-800/50 hover:bg-gray-700/50 rounded-xl overflow-hidden border border-gray-700 hover:border-green-400/50 transition-all duration-300 flex items-center min-h-[48px]"
+                  {songResults.map((r, idx) => {
+                    const content = (
+                      <>
+                        <div className="flex gap-4 p-4">
+                          <div className="flex-shrink-0 w-16 h-16 bg-gradient-to-br from-green-500/20 to-amber-500/20 rounded-lg flex items-center justify-center overflow-hidden">
+                            {r.image ? (
+                              <img src={r.image} alt={r.title} className="w-full h-full object-cover" />
+                            ) : (
+                              <svg className="w-8 h-8 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
+                              </svg>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <h3 className="font-bold text-white group-hover:text-green-400 transition-colors line-clamp-2 mb-1">
+                                {r.title}
+                              </h3>
+                              {r.externalUrl && (
+                                <span className="flex-shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-[#1DB954]/15 text-[#1DB954] border border-[#1DB954]/30">
+                                  <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+                                  </svg>
+                                  Spotify
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-400 line-clamp-1">{r.subtitle}</p>
+                          </div>
+                        </div>
+                      </>
+                    );
+                    const cardClass = "group bg-gray-800/50 hover:bg-gray-700/50 rounded-xl overflow-hidden border border-gray-700 hover:border-green-400/50 transition-all duration-300 flex items-center min-h-[48px]";
+                    const trackClick = () => trackEvent('search_suggestion_click', { query: decodedQuery, type: 'song', position: idx, source: 'results_page' });
+
+                    if (r.externalUrl) {
+                      return (
+                        <a key={r.id} href={r.externalUrl} target="_blank" rel="noopener noreferrer" className={cardClass} onClick={trackClick}>
+                          {content}
+                        </a>
+                      );
+                    }
+                    return (
+                      <Link to={r.linkTo} key={r.id} className={cardClass} onClick={trackClick}>
+                        {content}
+                      </Link>
+                    );
+                  })}
+                </div>
+                {hasMoreSongs && (
+                  <div className="flex justify-center mt-8">
+                    <button
+                      onClick={loadMoreSongs}
+                      disabled={loadingMore}
+                      className="min-h-[44px] px-8 py-3 bg-gray-800/50 hover:bg-gray-700/50 text-white font-semibold rounded-xl border border-gray-700 hover:border-green-400/50 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <div className="flex gap-4 p-4">
-                        <div className="flex-shrink-0 w-16 h-16 bg-gradient-to-br from-green-500/20 to-amber-500/20 rounded-lg flex items-center justify-center overflow-hidden">
+                      {loadingMore ? (
+                        <span className="flex items-center gap-2">
+                          <span className="h-4 w-4 rounded-full border-2 border-white/60 border-t-transparent animate-pulse" />
+                          Loading...
+                        </span>
+                      ) : (
+                        `Load More Songs (${songResults.length} of ${songFound})`
+                      )}
+                    </button>
+                  </div>
+                )}
+            </section>
+          )}
+
+            {/* Artists Section */}
+          {artistResults.length > 0 && (
+            <section>
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl md:text-3xl font-bold text-white">
+                    Artists <span className="text-green-400">({artistFound})</span>
+                  </h2>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 md:gap-6">
+                  {artistResults.map((r, idx) => {
+                    const content = (
+                      <>
+                        <div className="aspect-square rounded-xl overflow-hidden transition-all duration-300 group-hover:scale-105 shadow-lg bg-gradient-to-br from-green-500/20 to-amber-500/20 border border-gray-700 group-hover:border-green-400/50 mb-3">
                           {r.image ? (
                             <img src={r.image} alt={r.title} className="w-full h-full object-cover" />
                           ) : (
-                            <svg className="w-8 h-8 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                              <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
-                            </svg>
+                            <div className="w-full h-full flex items-center justify-center text-gray-500">
+                              <svg className="w-16 h-16" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clipRule="evenodd" />
+                              </svg>
+                            </div>
                           )}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-bold text-white group-hover:text-green-400 transition-colors line-clamp-2 mb-1">
-                            {r.title}
-                          </h3>
-                          <p className="text-sm text-gray-400 line-clamp-1">{r.subtitle}</p>
-                        </div>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-            </section>
-          )}
-
-            {/* Local Artists Section */}
-          {localArtists.length > 0 && (
-            <section>
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl md:text-3xl font-bold text-white">
-                    Artists <span className="text-green-400">({localArtists.length})</span>
-                  </h2>
-                  {localArtists.length > 12 && (
-                    <Link
-                      to={`/search/${encodeURIComponent(decodedQuery + ' artists')}`}
-                      className="text-green-400 hover:text-green-300 font-semibold flex items-center gap-2"
-                    >
-                      More <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </Link>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 md:gap-6">
-                  {localArtists.slice(0, 12).map((r) => (
-                    <Link
-                      to={`/artist/${r.localId!}`}
-                      key={r.id}
-                      className="group text-center"
-                    >
-                      <div className="aspect-square rounded-xl overflow-hidden transition-all duration-300 group-hover:scale-105 shadow-lg bg-gradient-to-br from-green-500/20 to-amber-500/20 border border-gray-700 group-hover:border-green-400/50 mb-3">
-                        {r.image ? (
-                          <img src={r.image} alt={r.title} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-500">
-                            <svg className="w-16 h-16" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clipRule="evenodd" />
-                            </svg>
-                          </div>
+                        <h3 className="font-semibold text-white group-hover:text-green-400 transition-colors">
+                          {r.title}
+                          {r.externalUrl && (
+                            <span className="ml-1.5 inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-[#1DB954]/15 text-[#1DB954] border border-[#1DB954]/30 align-middle">
+                              <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+                              </svg>
+                              Spotify
+                            </span>
+                          )}
+                        </h3>
+                        {r.subtitle && (
+                          <p className="text-sm text-gray-400 mt-1">{r.subtitle}</p>
                         )}
-                      </div>
-                      <h3 className="font-semibold text-white group-hover:text-green-400 transition-colors">
-                        {r.title}
-                      </h3>
-                      {r.subtitle && (
-                        <p className="text-sm text-gray-400 mt-1">{r.subtitle}</p>
-                      )}
-                    </Link>
-                  ))}
+                      </>
+                    );
+                    const cardClass = "group text-center";
+                    const trackClick = () => trackEvent('search_suggestion_click', { query: decodedQuery, type: 'artist', position: idx, source: 'results_page' });
+
+                    if (r.externalUrl) {
+                      return (
+                        <a key={r.id} href={r.externalUrl} target="_blank" rel="noopener noreferrer" className={cardClass} onClick={trackClick}>
+                          {content}
+                        </a>
+                      );
+                    }
+                    return (
+                      <Link to={r.linkTo} key={r.id} className={cardClass} onClick={trackClick}>
+                        {content}
+                      </Link>
+                    );
+                  })}
                 </div>
             </section>
           )}
 
-            {/* Local Genres Section */}
-          {localGenres.length > 0 && (
+            {/* Genres Section */}
+          {genreResults.length > 0 && (
             <section>
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-2xl md:text-3xl font-bold text-white">
-                    Genres <span className="text-green-400">({localGenres.length})</span>
+                    Genres <span className="text-green-400">({genreFound})</span>
                   </h2>
-                  {localGenres.length > 10 && (
-                    <Link
-                      to={`/search/${encodeURIComponent(decodedQuery + ' genres')}`}
-                      className="text-green-400 hover:text-green-300 font-semibold flex items-center gap-2"
-                    >
-                      More <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </Link>
-                  )}
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 md:gap-6">
-                  {localGenres.map((r) => (
+                  {genreResults.map((r, idx) => (
                     <Link
-                      to={`/search/${encodeURIComponent(r.title)}`}
+                      to={r.linkTo}
                       key={r.id}
+                      onClick={() => trackEvent('search_suggestion_click', { query: decodedQuery, type: 'genre', position: idx, source: 'results_page' })}
                       className="group text-center"
                     >
                       <div className="aspect-square rounded-xl overflow-hidden transition-all duration-300 group-hover:scale-105 shadow-lg bg-gradient-to-br from-green-500/20 to-amber-500/20 border border-gray-700 group-hover:border-green-400/50 mb-3">
@@ -496,50 +517,6 @@ const SearchResultsPage: React.FC = () => {
                         {r.title}
                       </h3>
                     </Link>
-                  ))}
-                </div>
-            </section>
-          )}
-
-            {/* Spotify Fallback: Songs */}
-          {spotifySongs.length > 0 && (
-            <section>
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl md:text-3xl font-bold text-white">
-                    Songs from Spotify <span className="text-green-400">({spotifySongs.length})</span>
-                  </h2>
-                  <span className="text-xs font-medium text-gray-500 bg-gray-700 px-2 py-1 rounded">
-                    From Spotify
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
-                  {spotifySongs.map((r) => (
-                    <ResultCard
-                      key={r.id}
-                      result={r}
-                      type="song"
-                      onRequestSong={(title, artist) => handleRequestSong(title, artist)}
-                      requestLoading={requestLoading}
-                    />
-                  ))}
-                </div>
-            </section>
-          )}
-
-            {/* Spotify Fallback: Artists */}
-          {spotifyArtists.length > 0 && (
-            <section>
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl md:text-3xl font-bold text-white">
-                    Artists from Spotify <span className="text-green-400">({spotifyArtists.length})</span>
-                  </h2>
-                  <span className="text-xs font-medium text-gray-500 bg-gray-700 px-2 py-1 rounded">
-                    From Spotify
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 md:gap-6">
-                  {spotifyArtists.map((r) => (
-                    <ResultCard key={r.id} result={r} type="artist" />
                   ))}
                 </div>
             </section>
