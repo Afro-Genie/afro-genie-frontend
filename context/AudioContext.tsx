@@ -4,7 +4,7 @@ import { spotifyService, type SpotifyTrackSummary } from '../services/spotifySer
 import { useWebPlayback } from './WebPlaybackContext';
 import { useAuth } from './AuthContext';
 
-type PlaybackMode = 'preview' | 'sdk' | 'embed' | 'none';
+type PlaybackMode = 'preview' | 'sdk' | 'none';
 
 interface AudioState {
   currentTrack: SpotifyTrackSummary | null;
@@ -13,7 +13,6 @@ interface AudioState {
   duration: number;
   loading: boolean;
   playbackMode: PlaybackMode;
-  embedUrl: string | null;
   externalUrl: string | null;
 }
 
@@ -45,7 +44,6 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const [duration, setDuration] = useState(0);
   const [loading, setLoading] = useState(false);
   const [playbackMode, setPlaybackMode] = useState<PlaybackMode>('none');
-  const [embedUrl, setEmbedUrl] = useState<string | null>(null);
   const [externalUrl, setExternalUrl] = useState<string | null>(null);
   const lastKeyRef = useRef<string>('');
 
@@ -121,28 +119,20 @@ export function AudioProvider({ children }: { children: ReactNode }) {
 
       if (canUseSdk && track?.spotifyUri) {
         setPlaybackMode('sdk');
-        setEmbedUrl(null);
-        setExternalUrl(track?.externalUrl || null);
+        setExternalUrl(null);
         await webPlayback.playTrack(track.spotifyUri);
       } else if (track?.previewUrl) {
         setPlaybackMode('preview');
-        setEmbedUrl(null);
-        setExternalUrl(track?.externalUrl || null);
+        setExternalUrl(null);
         audio.src = track.previewUrl;
         audio.load();
-      } else if (track?.id) {
-        setPlaybackMode('embed');
-        setEmbedUrl(`https://open.spotify.com/embed/track/${track.id}?theme=0`);
-        setExternalUrl(track?.externalUrl || `https://open.spotify.com/track/${track.id}`);
       } else {
         setPlaybackMode('none');
-        setEmbedUrl(null);
         setExternalUrl(null);
       }
     } catch {
       setCurrentTrack(null);
       setPlaybackMode('none');
-      setEmbedUrl(null);
       setExternalUrl(null);
     } finally {
       setLoading(false);
@@ -171,7 +161,6 @@ export function AudioProvider({ children }: { children: ReactNode }) {
 
       if (canUseSdk) {
         setPlaybackMode('sdk');
-        setEmbedUrl(null);
         setExternalUrl(null);
         setCurrentTrack({
           id: spotifyId,
@@ -182,7 +171,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
           previewUrl: null,
           spotifyUri: uri,
           durationMs: 0,
-          externalUrl: `https://open.spotify.com/track/${spotifyId}`,
+          externalUrl: null,
         });
         await webPlayback.playTrack(uri);
         setLoading(false);
@@ -194,24 +183,17 @@ export function AudioProvider({ children }: { children: ReactNode }) {
 
       if (track?.previewUrl) {
         setPlaybackMode('preview');
-        setEmbedUrl(null);
-        setExternalUrl(track?.externalUrl || `https://open.spotify.com/track/${spotifyId}`);
+        setExternalUrl(null);
         audio.src = track.previewUrl;
         audio.load();
-      } else if (track) {
-        setPlaybackMode('embed');
-        setEmbedUrl(`https://open.spotify.com/embed/track/${spotifyId}?theme=0`);
-        setExternalUrl(track?.externalUrl || `https://open.spotify.com/track/${spotifyId}`);
       } else {
         setPlaybackMode('none');
-        setEmbedUrl(null);
-        setExternalUrl(`https://open.spotify.com/track/${spotifyId}`);
+        setExternalUrl(null);
       }
     } catch {
       setCurrentTrack(null);
       setPlaybackMode('none');
-      setEmbedUrl(null);
-      setExternalUrl(`https://open.spotify.com/track/${spotifyId}`);
+      setExternalUrl(null);
     } finally {
       setLoading(false);
     }
@@ -220,10 +202,6 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const togglePlayPause = useCallback(async () => {
     if (playbackMode === 'sdk') {
       await webPlayback.togglePlay();
-      return;
-    }
-
-    if (playbackMode === 'embed') {
       return;
     }
 
@@ -277,7 +255,6 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       duration,
       loading,
       playbackMode,
-      embedUrl,
       externalUrl,
       loadTrack,
       loadTrackById,
@@ -287,7 +264,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       seek,
       getAudioElement,
     }),
-    [currentTrack, isPlaying, currentTime, duration, loading, playbackMode, embedUrl, externalUrl, loadTrack, loadTrackById, togglePlayPause, play, pause, seek, getAudioElement],
+    [currentTrack, isPlaying, currentTime, duration, loading, playbackMode, externalUrl, loadTrack, loadTrackById, togglePlayPause, play, pause, seek, getAudioElement],
   );
 
   return <AudioContext.Provider value={value}>{children}</AudioContext.Provider>;

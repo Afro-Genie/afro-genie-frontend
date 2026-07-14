@@ -38,7 +38,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ variant = 'header' }) => {
       setError(null);
 
       try {
-        const suggestResult = await searchSuggest(query, true);
+        const suggestResult = await searchSuggest(query);
         const items = Array.isArray(suggestResult)
           ? suggestResult
           : Array.isArray(suggestResult?.suggestions)
@@ -59,7 +59,6 @@ const SearchBar: React.FC<SearchBarProps> = ({ variant = 'header' }) => {
                   artist: doc.artistName || doc.artist || 'Unknown',
                   artistId: doc.artistId || '',
                   image: doc.imageUrl || doc.image || doc.coverImageUrl || '',
-                  spotifyUrl: doc.externalUrl || undefined,
                 } as Song,
               };
             }
@@ -133,9 +132,6 @@ const SearchBar: React.FC<SearchBarProps> = ({ variant = 'header' }) => {
   const getSuggestionLink = (item: Suggestion): string => {
     if (item.type === 'song') {
       const song = item.data as Song;
-      if (song.spotifyUrl) {
-        return `/search/${encodeURIComponent(`${song.title} ${song.artist}`)}`;
-      }
       return `/songs/${song.id}`;
     }
     return `/search/${encodeURIComponent(item.data.name)}`;
@@ -236,8 +232,8 @@ const SearchBar: React.FC<SearchBarProps> = ({ variant = 'header' }) => {
                           <p className="text-sm text-gray-400 truncate">{item.data.artist}</p>
                         )}
                       </div>
-                      <span className={`text-xs font-medium px-2 py-1 rounded flex-shrink-0 ${item.type === 'song' && (item.data as Song).spotifyUrl ? 'text-[#1DB954] bg-[#1DB954]/15 border border-[#1DB954]/30' : 'text-gray-500 bg-gray-700'}`}>
-                        {item.type === 'song' && (item.data as Song).spotifyUrl ? 'Spotify' : item.type}
+                      <span className="text-xs font-medium px-2 py-1 rounded flex-shrink-0 text-gray-500 bg-gray-700">
+                        {item.type}
                       </span>
                     </Link>
                   </li>

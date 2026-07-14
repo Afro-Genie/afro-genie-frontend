@@ -20,10 +20,11 @@ This guide will help you set up Spotify API credentials for the Afro Genie platf
      - App description: "Music metadata integration for Afro Genie"
      - Website: Enter your website URL (e.g., `https://afrogenie.web.app` or `https://afro-genie.com`)
      - Redirect URIs: **IMPORTANT for OAuth login**
-       - For local development: `http://localhost:3000` (or your dev port)
+       - For local development: `http://127.0.0.1:3000`
        - For production: `https://yourdomain.com` (your actual domain)
-       - Add both if needed: `http://localhost:3000`, `https://yourdomain.com`
-       - Note: The redirect URI must exactly match the URL where your app is hosted
+       - Add both if needed: `http://127.0.0.1:3000`, `https://yourdomain.com`
+       - **CRITICAL: `http://localhost` is NO LONGER supported** (removed Nov 2025)
+       - Use `http://127.0.0.1` instead — it's the only HTTP loopback allowed
    - Select which API/SDKs you plan to use:
      - Check "Web API" (required for our integration)
      - Other options are optional
@@ -40,10 +41,9 @@ This guide will help you set up Spotify API credentials for the Afro Genie platf
    - Add the following:
      ```
      VITE_SPOTIFY_CLIENT_ID=your_client_id_here
-     VITE_SPOTIFY_CLIENT_SECRET=your_client_secret_here
+     VITE_SPOTIFY_REDIRECT_URI=http://127.0.0.1:3000
      ```
    - Replace `your_client_id_here` with your actual Client ID
-   - `VITE_SPOTIFY_CLIENT_SECRET` is optional - only needed if you use server-side Spotify API calls
    - **Note**: For OAuth login, only `VITE_SPOTIFY_CLIENT_ID` is required (we use PKCE flow which doesn't need client secret)
 
 5. **Restart Your Development Server**
@@ -74,7 +74,13 @@ The app now supports Spotify OAuth 2.0 authentication:
 - The Spotify integration is for metadata only (artist data, song titles, album info, images)
 - API credentials are stored in environment variables and should never be committed to version control
 - **OAuth Login**: Uses PKCE flow (no client secret needed in browser - secure)
-- **Redirect URI**: Must exactly match your app's URL (e.g., `http://localhost:3000` for dev, `https://yourdomain.com` for production)
+- **Redirect URI**: Must exactly match what's registered in Spotify Developer Dashboard
+  - Local dev: `http://127.0.0.1:3000` (NOT `http://localhost:3000`)
+  - Staging: `https://afro-genie-staging.vercel.app`
+  - Production: `https://yourdomain.com`
+- **Spotify removed `http://localhost` support** as of November 27, 2025
+  - Only `http://127.0.0.1` and `http://[::1]` are allowed as HTTP loopback URIs
+  - All other redirect URIs must use HTTPS
 - The service uses both:
   - **PKCE OAuth flow** for user authentication (browser-based, secure)
   - **Client Credentials flow** for server-side metadata operations (if using server-side API calls)
@@ -87,6 +93,25 @@ If you encounter errors:
 3. Restart your development server after adding credentials
 4. Check the browser console for detailed error messages
 5. Ensure your Spotify app is active in the Spotify Developer Dashboard
+6. **Verify redirect URI**: Use `spotifyDebug.validateRedirectUri()` in the browser console
+7. **Check backend config**: Visit `/api/auth/spotify/debug` to see server-side configuration
+
+## Debug Utility
+
+A debug utility is available in the browser console:
+
+```javascript
+import { spotifyDebug } from './lib/spotifyDebug';
+
+// Inspect current configuration
+spotifyDebug.inspect();
+
+// Validate redirect URI
+spotifyDebug.validateRedirectUri();
+
+// Check backend configuration
+spotifyDebug.checkBackend();
+```
 
 ## Rate Limits
 

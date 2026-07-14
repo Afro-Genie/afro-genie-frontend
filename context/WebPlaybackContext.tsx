@@ -100,76 +100,107 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    let cancelled = false;
+    let pollTimer: ReturnType<typeof setTimeout> | null = null;
+
     const createPlayer = () => {
-      if (!window.Spotify || playerRef.current) return;
+      if (cancelled || playerRef.current) return;
 
-      const player = new window.Spotify({
-        name: 'Afro Genie Web Player',
-        getOAuthToken: (callback) => {
-          callback(getFreshToken());
-        },
-        volume: 0.8,
-      });
+      // Guard: ensure the SDK constructor is available
+      if (typeof window.Spotify !== 'function') {
+        console.warn('[WebPlayback] window.Spotify is not a function, SDK may not have loaded yet');
+        return;
+      }
 
-      playerRef.current = player;
+      try {
+        const player = new window.Spotify({
+          name: 'Afro Genie Web Player',
+          getOAuthToken: (callback) => {
+            callback(getFreshToken());
+          },
+          volume: 0.8,
+        });
 
-      player.addListener('ready', ({ device_id }) => {
-        deviceIdRef.current = device_id;
-        setDeviceId(device_id);
-        setIsReady(true);
-        refreshTokenPeriodically();
-      });
+        playerRef.current = player;
 
-      player.addListener('not_ready', () => {
-        setIsReady(false);
-        setDeviceId(null);
-        deviceIdRef.current = null;
-      });
+        player.addListener('ready', ({ device_id }) => {
+          if (cancelled) return;
+          deviceIdRef.current = device_id;
+          setDeviceId(device_id);
+          setIsReady(true);
+          refreshTokenPeriodically();
+        });
 
-      player.addListener('player_state_changed', (state) => {
-        if (!state) return;
+        player.addListener('not_ready', () => {
+          if (cancelled) return;
+          setIsReady(false);
+          setDeviceId(null);
+          deviceIdRef.current = null;
+        });
 
-        setIsPlaying(!state.paused);
-        setCurrentTime(state.position);
-        setDuration(state.duration);
-        setShuffleState(state.shuffle);
+        player.addListener('player_state_changed', (state) => {
+          if (!state) return;
 
-        const currentTrack = state.track_window.current_track;
-        if (currentTrack) {
-          setCurrentTrackUri(currentTrack.uri);
-          setCurrentTrackName(currentTrack.name);
-          setCurrentTrackArtist(currentTrack.artists?.[0]?.name ?? null);
-        } else {
-          setCurrentTrackUri(null);
-          setCurrentTrackName(null);
-          setCurrentTrackArtist(null);
-        }
-      });
+          setIsPlaying(!state.paused);
+          setCurrentTime(state.position);
+          setDuration(state.duration);
+          setShuffleState(state.shuffle);
 
-      player.addListener('authentication_error', (data) => {
-        console.error('[WebPlayback] Authentication error:', data.message);
-        setIsReady(false);
-      });
+          const currentTrack = state.track_window.current_track;
+          if (currentTrack) {
+            setCurrentTrackUri(currentTrack.uri);
+            setCurrentTrackName(currentTrack.name);
+            setCurrentTrackArtist(currentTrack.artists?.[0]?.name ?? null);
+          } else {
+            setCurrentTrackUri(null);
+            setCurrentTrackName(null);
+            setCurrentTrackArtist(null);
+          }
+        });
 
-      player.addListener('account_error', (data) => {
-        console.error('[WebPlayback] Account error:', data.message);
-        setIsReady(false);
-      });
+        player.addListener('authentication_error', (data) => {
+          console.error('[WebPlayback] Authentication error:', data.message);
+          if (!cancelled) setIsReady(false);
+        });
 
-      player.addListener('playback_error', (data) => {
-        console.error('[WebPlayback] Playback error:', data.message);
-      });
+        player.addListener('account_error', (data) => {
+          console.error('[WebPlayback] Account error:', data.message);
+          if (!cancelled) setIsReady(false);
+        });
 
-      player.connect();
+        player.addListener('playback_error', (data) => {
+          console.error('[WebPlayback] Playback error:', data.message);
+        });
+
+        player.connect();
+      } catch (err) {
+        console.error('[WebPlayback] Failed to create Spotify player:', err);
+      }
     };
 
-    if (window.Spotify) {
+    // If the SDK is already loaded, create immediately
+    if (typeof window.Spotify === 'function') {
       createPlayer();
     } else {
+      // Set the global callback for when the SDK finishes loading
       window.onSpotifyWebPlaybackSDKReady = createPlayer;
+
+      // Also poll in case the SDK loaded before our callback was set
+      // (e.g. script loaded between our check and callback assignment)
+      const pollForSdk = () => {
+        if (cancelled) return;
+        if (typeof window.Spotify === 'function') {
+          createPlayer();
+          return;
+        }
+        pollTimer = setTimeout(pollForSdk, 200);
+      };
+      pollTimer = setTimeout(pollForSdk, 500);
     }
 
     return () => {
+      cancelled = true;
+      if (pollTimer) clearTimeout(pollTimer);
       if (tokenRefreshTimerRef.current) {
         clearInterval(tokenRefreshTimerRef.current);
         tokenRefreshTimerRef.current = null;
