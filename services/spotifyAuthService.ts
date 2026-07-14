@@ -33,6 +33,13 @@ class SpotifyAuthService {
   constructor() {
     this.clientId = import.meta.env.VITE_SPOTIFY_CLIENT_ID || '';
     this.redirectUri = import.meta.env.VITE_SPOTIFY_REDIRECT_URI || window.location.origin;
+
+    // Log configuration on startup for debugging
+    console.log('[SpotifyAuth] Config:', {
+      clientId: this.clientId ? `${this.clientId.slice(0, 6)}...` : 'MISSING',
+      redirectUri: this.redirectUri || 'MISSING',
+      origin: window.location.origin,
+    });
   }
 
   /**
@@ -40,8 +47,29 @@ class SpotifyAuthService {
    */
   private assertConfigured(): void {
     if (!this.clientId) {
-      throw new Error('Spotify Client ID not found. Please set VITE_SPOTIFY_CLIENT_ID in your environment configuration.');
+      const msg = 'Spotify Client ID not found. Set VITE_SPOTIFY_CLIENT_ID in your .env file.';
+      console.error('[SpotifyAuth]', msg);
+      throw new Error(msg);
     }
+    if (!this.redirectUri) {
+      const msg = 'Spotify Redirect URI not found. Set VITE_SPOTIFY_REDIRECT_URI in your .env file.';
+      console.error('[SpotifyAuth]', msg);
+      throw new Error(msg);
+    }
+  }
+
+  /**
+   * Get the current redirect URI (for debugging / diagnostics).
+   */
+  getRedirectUri(): string {
+    return this.redirectUri;
+  }
+
+  /**
+   * Get the current client ID (for debugging / diagnostics).
+   */
+  getClientId(): string {
+    return this.clientId;
   }
 
   /**
@@ -112,7 +140,15 @@ class SpotifyAuthService {
       show_dialog: 'false'
     });
 
-    return { url: `${this.AUTH_URL}?${params.toString()}`, codeVerifier };
+    const url = `${this.AUTH_URL}?${params.toString()}`;
+
+    console.log('[SpotifyAuth] Authorization URL generated:', {
+      redirectUri: this.redirectUri,
+      scopes,
+      stateData: stateData || 'none',
+    });
+
+    return { url, codeVerifier };
   }
 
   /**
@@ -125,7 +161,7 @@ class SpotifyAuthService {
 
       const codeVerifier = sessionStorage.getItem('spotify_code_verifier');
       if (!codeVerifier) {
-        throw new Error('Code verifier not found. Please try again.');
+        throw new Error('Code verifier not found in sessionStorage. The OAuth session may have expired or the page was refreshed during the flow. Please try signing in again.');
       }
 
       // Decode the state parameter to recover the nonce and any embedded stateData
@@ -153,8 +189,14 @@ class SpotifyAuthService {
       }
 
       if (!storedNonce || !verifiedNonce || storedNonce !== verifiedNonce) {
+        console.error('[SpotifyAuth] State mismatch:', { storedNonce, verifiedNonce });
         throw new Error('Invalid Spotify OAuth state. Please try signing in again.');
       }
+
+      console.log('[SpotifyAuth] Exchanging code for token...', {
+        redirectUri: this.redirectUri,
+        clientId: `${this.clientId.slice(0, 6)}...`,
+      });
 
       const response = await fetch(this.TOKEN_URL, {
         method: 'POST',
@@ -171,14 +213,30 @@ class SpotifyAuthService {
       });
 
       if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`Token exchange failed: ${error}`);
+        const errorBody = await response.text();
+        console.error('[SpotifyAuth] Token exchange failed:', response.status, errorBody);
+
+        // Provide specific error messages for common failures
+        if (response.status === 400) {
+          if (errorBody.includes('redirect_uri')) {
+            throw new Error(`Redirect URI mismatch. The URI registered in Spotify Developer Dashboard must exactly match: ${this.redirectUri}`);
+          }
+          if (errorBody.includes('invalid_grant')) {
+            throw new Error('The authorization code has expired or is invalid. Please try signing in again.');
+          }
+          if (errorBody.includes('code_verifier') || errorBody.includes('code_challenge')) {
+            throw new Error('PKCE verification failed. The code verifier was lost. Please clear your browser cache and try again.');
+          }
+        }
+
+        throw new Error(`Token exchange failed (${response.status}): ${errorBody}`);
       }
 
       const tokenResponse: SpotifyTokenResponse = await response.json();
+      console.log('[SpotifyAuth] Token exchange successful');
       return { ...tokenResponse, stateData };
     } catch (error) {
-      console.error('Error exchanging code for token:', error);
+      console.error('[SpotifyAuth] Error exchanging code for token:', error);
       throw error;
     } finally {
       sessionStorage.removeItem('spotify_code_verifier');

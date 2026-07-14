@@ -184,7 +184,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const spotifyCode = params.get('code');
         const spotifyState = params.get('state');
+        const spotifyError = params.get('error');
+        const spotifyErrorDesc = params.get('error_description');
+
+        if (spotifyError) {
+          console.error('[Auth] Spotify OAuth error:', spotifyError, spotifyErrorDesc);
+          window.history.replaceState({}, document.title, window.location.origin + '/');
+          setLoading(false);
+          return;
+        }
+
         if (spotifyCode) {
+          console.log('[Auth] Spotify OAuth callback received, exchanging code...');
           try {
             const spotifyAuthResult = await spotifyAuthService.exchangeCodeForToken(spotifyCode, spotifyState);
             spotifyAuthService.storeTokens(spotifyAuthResult);
@@ -193,17 +204,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             if (isLinkAction) {
               // Link flow: user is already logged in, just link the Spotify account
+              console.log('[Auth] Spotify link flow...');
               try {
                 const linkResult = await authApi.linkSpotify(spotifyAuthResult.access_token);
                 setUser((prev) => prev ? { ...prev, spotifyId: 'linked', spotifyProduct: linkResult.spotifyProduct } : prev);
                 setUserProfile((prev) => prev ? { ...prev, spotifyId: 'linked', spotifyProduct: linkResult.spotifyProduct } : prev);
+                console.log('[Auth] Spotify account linked successfully');
               } catch (linkErr) {
-                console.error('Spotify link error:', linkErr);
+                console.error('[Auth] Spotify link error:', linkErr);
               }
             } else {
               // Normal sign-in flow
+              console.log('[Auth] Spotify sign-in flow, calling backend...');
               const authResult = await authApi.signInWithSpotify(spotifyAuthResult.access_token);
               initFromAuthResult(authResult);
+              console.log('[Auth] Spotify sign-in successful, user:', authResult.user.email);
             }
 
             const redirectAfterAuth = sessionStorage.getItem('spotify_redirect_after_auth');
@@ -216,8 +231,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 return;
               }
             }
-          } catch (err) {
-            console.error('Spotify auth callback error:', err);
+          } catch (err: any) {
+            console.error('[Auth] Spotify auth callback error:', err?.message || err);
+            // Show user-friendly error for common issues
+            if (err?.message?.includes('Redirect URI mismatch')) {
+              console.error('[Auth] REDIRECT URI MISMATCH — Check that your Spotify Developer Dashboard has the correct URI registered.');
+              console.error('[Auth] Expected redirect URI:', spotifyAuthService.getRedirectUri());
+            }
           }
           window.history.replaceState({}, document.title, window.location.origin + '/');
           setLoading(false);

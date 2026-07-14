@@ -52,7 +52,7 @@ export const searchCatalog = (
   q: string,
   type?: string,
   lang?: string,
-  options?: { page?: number; limit?: number; spotifyFallback?: boolean }
+  options?: { page?: number; limit?: number }
 ) => {
   const params = new URLSearchParams();
   params.set('q', q);
@@ -60,12 +60,10 @@ export const searchCatalog = (
   if (lang) params.set('lang', lang);
   if (options?.page) params.set('page', String(options.page));
   if (options?.limit) params.set('limit', String(options.limit));
-  if (options?.spotifyFallback) params.set('spotifyFallback', 'true');
   return apiFetch('/api/search?' + params.toString());
 };
 
-export const searchSuggest = (q: string, spotifyFallback?: boolean) => {
+export const searchSuggest = (q: string) => {
   const params = new URLSearchParams({ q });
-  if (spotifyFallback) params.set('spotifyFallback', 'true');
   return apiFetch('/api/search/suggest?' + params.toString());
 };

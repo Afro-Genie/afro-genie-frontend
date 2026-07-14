@@ -1,13 +1,37 @@
 import path from 'path';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
+import fs from 'fs';
+
+// HTTPS for local dev: optional, opt-in via VITE_DEV_HTTPS=true in .env
+// Run once: mkcert -install && mkcert 127.0.0.1
+// Then set VITE_DEV_HTTPS=true in your .env to enable HTTPS.
+// Without this, the dev server runs plain HTTP on http://127.0.0.1:3000
+function getHttpsConfig() {
+  const enabled = process.env.VITE_DEV_HTTPS === 'true';
+  if (!enabled) return undefined;
+
+  const certPath = path.resolve(__dirname, '127.0.0.1.pem');
+  const keyPath = path.resolve(__dirname, '127.0.0.1-key.pem');
+
+  if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
+    return {
+      cert: fs.readFileSync(certPath),
+      key: fs.readFileSync(keyPath),
+    };
+  }
+
+  // Fallback: let Vite generate a self-signed cert automatically
+  return true;
+}
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
     return {
       server: {
         port: 3000,
-        host: '0.0.0.0',
+        host: '127.0.0.1',
+        https: getHttpsConfig(),
         proxy: {
           // Proxy Genius API with Authorization header injected from env
           '/proxy/genius': {
