@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { getArtist, syncArtistFromSpotify, getAllSongs } from '../services/firebaseService';
+import { getArtist, syncArtistFromSpotify } from '../services/firebaseService';
+import { apiRequest } from '../services/api';
 import { spotifyService } from '../services/spotifyService';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../hooks/useNotification';
@@ -65,9 +66,12 @@ const ArtistDetailPage: React.FC = () => {
           }
         }
 
-        // Get artist's songs
-        const allSongs = await getAllSongs();
-        const artistSongs = allSongs.filter((song: Song) => song.artistId === id);
+        // Get artist's songs from backend using artistId filter
+        const songsResult = await apiRequest<{ songs: any[]; total: number }>(`/catalog/songs?artistId=${encodeURIComponent(id)}&limit=100`);
+        const artistSongs = (songsResult.songs || []).map((s: any) => ({
+          ...s,
+          artist: s.artist || s.artistName,
+        }));
         setSongs(artistSongs);
       } catch (error: any) {
         showNotification({

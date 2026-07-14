@@ -195,6 +195,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         if (spotifyCode) {
+          // Clear URL immediately to prevent StrictMode double-exchange
+          window.history.replaceState({}, document.title, window.location.origin + '/');
+
           console.log('[Auth] Spotify OAuth callback received, exchanging code...');
           try {
             const spotifyAuthResult = await spotifyAuthService.exchangeCodeForToken(spotifyCode, spotifyState);
@@ -239,7 +242,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               console.error('[Auth] Expected redirect URI:', spotifyAuthService.getRedirectUri());
             }
           }
-          window.history.replaceState({}, document.title, window.location.origin + '/');
           setLoading(false);
           return;
         }
@@ -271,7 +273,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!spotifyToken) return;
 
       // If Spotify token is expired or about to expire, refresh and re-check product
-      if (spotifyAuthService.isTokenExpired()) {
+      if (spotifyAuthService.isTokenExpiringSoon()) {
         try {
           const result = await spotifyAuthService.refreshAndFetchProduct();
           await authApi.syncSpotifyProduct(result.accessToken).catch(() => {});
@@ -293,6 +295,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     syncSpotify();
+  }, [userProfile?.id]);
+
+  // Periodic re-check of Spotify premium status (every 30 min)
+  useEffect(() => {
+    if (!userProfile?.id) return;
+
+    const interval = setInterval(async () => {
+      const spotifyToken = spotifyAuthService.getStoredAccessToken();
+      if (!spotifyToken) return;
+
+      try {
+        if (spotifyAuthService.isTokenExpiringSoon()) {
+          const result = await spotifyAuthService.refreshAndFetchProduct();
+          await authApi.syncSpotifyProduct(result.accessToken).catch(() => {});
+          if (result.product !== undefined) {
+            setUserProfile((prev) => prev ? { ...prev, spotifyProduct: result.product } : prev);
+            setUser((prev) => prev ? { ...prev, spotifyProduct: result.product } : prev);
+          }
+        } else {
+          await authApi.syncSpotifyProduct(spotifyToken);
+        }
+      } catch {
+        // Non-fatal
+      }
+    }, 30 * 60 * 1000);
+
+    return () => clearInterval(interval);
   }, [userProfile?.id]);
 
   const signIn = async (email: string, password: string) => {

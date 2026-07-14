@@ -352,6 +352,16 @@ class SpotifyAuthService {
   }
 
   /**
+   * Check if token is expiring soon (within 5 minutes)
+   */
+  isTokenExpiringSoon(): boolean {
+    const expiryTime = localStorage.getItem('spotify_token_expiry');
+    if (!expiryTime) return true;
+    const bufferMs = 5 * 60 * 1000;
+    return Date.now() >= parseInt(expiryTime) - bufferMs;
+  }
+
+  /**
    * Clear stored tokens
    */
   clearTokens(): void {

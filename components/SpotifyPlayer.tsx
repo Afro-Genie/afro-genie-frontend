@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import type { MouseEvent } from 'react';
 import { useAudioPlayer } from '../context/AudioContext';
 import { useWebPlayback } from '../context/WebPlaybackContext';
@@ -33,8 +33,10 @@ const SpotifyPlayer: React.FC<SpotifyPlayerProps> = ({ title, artist, spotifyId,
     seek,
   } = useAudioPlayer();
 
-  const { isSpotifyPremium } = useAuth();
+  const { isSpotifyPremium, user } = useAuth();
   const webPlayback = useWebPlayback();
+  const { sdkError } = webPlayback;
+  const [loadingElapsed, setLoadingElapsed] = useState(0);
 
   useEffect(() => {
     if (spotifyId) {
@@ -43,6 +45,20 @@ const SpotifyPlayer: React.FC<SpotifyPlayerProps> = ({ title, artist, spotifyId,
       loadTrack(artist, title);
     }
   }, [title, artist, spotifyId, loadTrack, loadTrackById]);
+
+  // Track how long we've been loading
+  useEffect(() => {
+    if (!loading) {
+      setLoadingElapsed(0);
+      return;
+    }
+    const start = Date.now();
+    setLoadingElapsed(0);
+    const id = setInterval(() => {
+      setLoadingElapsed(Math.floor((Date.now() - start) / 1000));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [loading]);
 
   const progressPercent = useMemo(() => {
     if (!duration || duration <= 0) return 0;
@@ -58,7 +74,66 @@ const SpotifyPlayer: React.FC<SpotifyPlayerProps> = ({ title, artist, spotifyId,
   };
 
   if (loading) {
-    return null;
+    const wrapperClass = compact
+      ? 'rounded-lg border border-gray-700 bg-gray-800/50 p-3 w-full'
+      : 'mb-6 rounded-xl border border-gray-700 bg-gray-800/50 p-4 md:p-6 shadow-lg';
+
+    const isSlow = loadingElapsed >= 5;
+    const isVerySlow = loadingElapsed >= 12;
+
+    return (
+      <div className={wrapperClass}>
+        <div className="mb-3">
+          <h3 className="text-sm md:text-base font-bold text-white mb-1 truncate">{title}</h3>
+          <p className="text-gray-300 text-xs md:text-sm truncate">{artist}</p>
+        </div>
+
+        {isVerySlow ? (
+          <div className="space-y-2">
+            <p className="text-[11px] text-yellow-400 leading-tight">
+              Taking longer than expected.
+            </p>
+            <p className="text-[11px] text-gray-400 leading-tight">
+              This may be due to high demand on Spotify's servers. The player will connect automatically once ready.
+            </p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="text-[11px] text-green-400 hover:text-green-300 underline transition-colors"
+            >
+              Refresh the page
+            </button>
+          </div>
+        ) : isSlow ? (
+          <div className="space-y-2">
+            {isSpotifyPremium ? (
+              <>
+                <p className="text-[11px] text-green-400 leading-tight">
+                  Connecting to Spotify player...
+                </p>
+                <p className="text-[11px] text-gray-500 leading-tight">
+                  We're establishing a connection to stream the full track. This usually takes a few seconds.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-[11px] text-yellow-400 leading-tight">
+                  Loading track information...
+                </p>
+                <p className="text-[11px] text-gray-500 leading-tight">
+                  Fetching preview data from Spotify. If this persists, check your connection.
+                </p>
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+            <p className="text-[11px] text-gray-400 leading-tight">Loading player...</p>
+          </div>
+        )}
+      </div>
+    );
   }
 
   const wrapperClass = compact
@@ -137,18 +212,51 @@ const SpotifyPlayer: React.FC<SpotifyPlayerProps> = ({ title, artist, spotifyId,
               Play
             </button>
           </div>
-          <p className="text-[11px] text-gray-500 leading-tight">
-            Preview unavailable for this track
-          </p>
-          {!isSdkMode && isSpotifyPremium && (
+          {user && isSpotifyPremium && sdkError && (
+            <div className="space-y-1">
+              <p className="text-[11px] text-red-400 leading-tight">{sdkError}</p>
+              <p className="text-[11px] text-gray-500 leading-tight">
+                Try signing out and signing back in with Spotify, or check your Premium subscription.
+              </p>
+            </div>
+          )}
+          {user && isSpotifyPremium && !sdkError && !webPlayback.isReady && (
             <p className="text-[11px] text-green-400 leading-tight">
               Connecting to Spotify player...
             </p>
           )}
-          {!isSpotifyPremium && (
-            <p className="text-[11px] text-gray-400 leading-tight">
-              Sign in with Spotify for full playback
+          {user && isSpotifyPremium && !sdkError && webPlayback.isReady && (
+            <p className="text-[11px] text-gray-500 leading-tight">
+              Full track unavailable for this song
             </p>
+          )}
+          {user && !isSpotifyPremium && (
+            <>
+              <p className="text-[11px] text-gray-500 leading-tight">
+                Preview unavailable for this track
+              </p>
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent('spotify-link-dialog:open'))}
+                className="text-[11px] text-green-400 hover:text-green-300 leading-tight underline transition-colors"
+              >
+                Connect Spotify Premium for full playback
+              </button>
+            </>
+          )}
+          {!user && (
+            <>
+              <p className="text-[11px] text-gray-500 leading-tight">
+                Preview unavailable for this track
+              </p>
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent('login-modal:open'))}
+                className="text-[11px] text-green-400 hover:text-green-300 leading-tight underline transition-colors"
+              >
+                Sign in with Spotify to play full tracks
+              </button>
+            </>
           )}
         </div>
       ) : (
