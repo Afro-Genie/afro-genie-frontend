@@ -1,4 +1,5 @@
 import { apiRequest } from './api';
+import { spotifyAuthService } from './spotifyAuthService';
 
 interface SpotifyArtist {
   id: string;
@@ -59,13 +60,103 @@ interface SpotifySearchResponse {
 }
 
 class SpotifyService {
+  private static readonly SPOTIFY_API = 'https://api.spotify.com/v1';
+  private static cooldownUntil = 0;
+  private inflightRequests = new Map<string, Promise<unknown>>();
+
+  private async waitForCooldown(): Promise<void> {
+    const now = Date.now();
+    if (now < SpotifyService.cooldownUntil) {
+      await new Promise((r) => setTimeout(r, SpotifyService.cooldownUntil - now));
+    }
+  }
+
+  private setCooldown(seconds: number): void {
+    SpotifyService.cooldownUntil = Date.now() + seconds * 1000;
+  }
+
+  private async dedupe<T>(key: string, fn: () => Promise<T>): Promise<T> {
+    const existing = this.inflightRequests.get(key);
+    if (existing) return existing as Promise<T>;
+
+    const promise = fn();
+    this.inflightRequests.set(key, promise);
+    try {
+      return await promise;
+    } finally {
+      this.inflightRequests.delete(key);
+    }
+  }
+
+  private async directSpotifyGet<T>(path: string, params?: Record<string, string | number>, retries = 2): Promise<T> {
+    const url = new URL(`${SpotifyService.SPOTIFY_API}${path}`);
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, String(v)));
+    }
+    const key = `direct:${url.pathname}${url.search}`;
+
+    return this.dedupe<T>(key, async () => {
+      const token = spotifyAuthService.getStoredAccessToken();
+      if (!token) throw new Error('No Spotify access token');
+
+      await this.waitForCooldown();
+
+      const res = await fetch(url.toString(), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.status === 429) {
+        const waitSec = parseInt(res.headers.get('retry-after') || '5', 10);
+        this.setCooldown(waitSec);
+        if (retries > 0) {
+          await new Promise((r) => setTimeout(r, waitSec * 1000));
+          return this.directSpotifyGet(path, params, retries - 1);
+        }
+        throw new Error(`Spotify API rate limited (429), retry after ${waitSec}s`);
+      }
+
+      if (!res.ok) {
+        throw new Error(`Spotify API ${res.status}: ${await res.text()}`);
+      }
+
+      return res.json();
+    });
+  }
+
+  private mapRawTrackToSummary(track: SpotifyTrack): SpotifyTrackSummary {
+    return {
+      id: track.id,
+      name: track.name,
+      artistName: track.artists?.[0]?.name ?? 'Unknown Artist',
+      albumName: track.album?.name ?? null,
+      imageUrl: track.album?.images?.[0]?.url ?? null,
+      previewUrl: track.preview_url ?? null,
+      spotifyUri: `spotify:track:${track.id}`,
+      durationMs: track.duration_ms ?? 0,
+      externalUrl: track.external_urls?.spotify ?? null,
+    };
+  }
+
   private async spotifyGet<T>(path: string, params: Record<string, string | number> = {}): Promise<T> {
+    await this.waitForCooldown();
+
     const query = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
       query.set(key, String(value));
     });
     const qs = query.toString();
-    return apiRequest<T>(`${path}${qs ? `?${qs}` : ''}`);
+    const fullPath = `${path}${qs ? `?${qs}` : ''}`;
+
+    return this.dedupe<T>(`spotifyGet:${fullPath}`, async () => {
+      try {
+        return await apiRequest<T>(fullPath);
+      } catch (err: any) {
+        if (err?.status === 429) {
+          this.setCooldown(10);
+        }
+        throw err;
+      }
+    });
   }
 
   /**
@@ -134,8 +225,10 @@ class SpotifyService {
     try {
       const track = await this.spotifyGet<SpotifyTrackSummary>(`/spotify/track/${encodeURIComponent(trackId)}`);
       return track;
-    } catch (error) {
-      throw error;
+    } catch (err: any) {
+      if (err?.status === 429 || err?.code === 'RATE_LIMITED') throw err;
+      const raw = await this.directSpotifyGet<SpotifyTrack>(`/tracks/${encodeURIComponent(trackId)}`);
+      return this.mapRawTrackToSummary(raw);
     }
   }
 
@@ -149,11 +242,15 @@ class SpotifyService {
         type: 'track',
         limit
       });
-      
-      
       return response.tracks?.items || [];
-    } catch (error) {
-      throw error;
+    } catch (err: any) {
+      if (err?.status === 429 || err?.code === 'RATE_LIMITED') throw err;
+      const response = await this.directSpotifyGet<SpotifySearchResponse>('/search', {
+        q: query,
+        type: 'track',
+        limit,
+      });
+      return response.tracks?.items || [];
     }
   }
 
@@ -178,21 +275,23 @@ class SpotifyService {
 
       try {
         const track = await this.getTrack(trackId);
-        // console.log('[Spotify] getBestTrackSummary fetched track:', track);
         if (!firstResolved) {
           firstResolved = track;
         }
 
         if (track.previewUrl) {
-          // console.log('[Spotify] getBestTrackSummary found preview, returning:', track);
           return track;
+        }
+
+        // When we don't need a preview, the first successfully resolved track is good enough.
+        if (!requirePreview && firstResolved) {
+          return firstResolved;
         }
       } catch {
         // Ignore individual track lookup failures and continue.
       }
     }
 
-    // console.log('[Spotify] getBestTrackSummary no preview found, returning:', requirePreview ? null : firstResolved);
     return requirePreview ? null : firstResolved;
   }
 
@@ -208,16 +307,11 @@ class SpotifyService {
       title
     ];
 
-    // console.log('[Spotify] searchBestTrackSummary called with:', { artist, title, requirePreview });
-
     for (const query of queries) {
-      // console.log('[Spotify] searchBestTrackSummary trying query:', query);
       const tracks = await this.searchTracks(query, 10);
       const candidateIds = tracks
         .map((track) => track.id)
         .filter((id): id is string => Boolean(id));
-
-      // console.log('[Spotify] searchBestTrackSummary candidate IDs:', candidateIds);
 
       if (candidateIds.length === 0) {
         continue;
@@ -225,14 +319,12 @@ class SpotifyService {
 
       const best = await this.getBestTrackSummary(candidateIds, requirePreview);
       if (best) {
-        // console.log('[Spotify] searchBestTrackSummary found best track:', best);
         return best;
       }
-    }
 
-    // console.log('[Spotify] searchBestTrackSummary no result found');
-    if (!requirePreview) {
-      return null;
+      // When we don't require a preview, getBestTrackSummary would have returned
+      // the first resolved track. If it returned null, all lookups failed —
+      // try the next query. But if it returned a track, we already exited above.
     }
 
     return null;

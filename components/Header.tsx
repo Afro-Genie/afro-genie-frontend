@@ -33,8 +33,16 @@ const Header: React.FC = () => {
       setToast({ message: 'Session expired. Please sign in again.', type: 'error', duration: 5000 });
     };
 
+    const handleLoginModalOpen = () => {
+      setIsLoginModalOpen(true);
+    };
+
     window.addEventListener('auth:expired', handleAuthExpired);
-    return () => window.removeEventListener('auth:expired', handleAuthExpired);
+    window.addEventListener('login-modal:open', handleLoginModalOpen);
+    return () => {
+      window.removeEventListener('auth:expired', handleAuthExpired);
+      window.removeEventListener('login-modal:open', handleLoginModalOpen);
+    };
   }, []);
 
   useEffect(() => {

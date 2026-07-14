@@ -14,6 +14,7 @@ interface WebPlaybackState {
   currentTrackArtist: string | null;
   shuffle: boolean;
   volume: number;
+  sdkError: string | null;
 }
 
 interface WebPlaybackContextValue extends WebPlaybackState {
@@ -55,11 +56,12 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
   const [currentTrackArtist, setCurrentTrackArtist] = useState<string | null>(null);
   const [shuffle, setShuffleState] = useState(false);
   const [volume, setVolumeState] = useState(0.8);
+  const [sdkError, setSdkError] = useState<string | null>(null);
 
   const getFreshToken = useCallback((): string => {
     const token = spotifyAuthService.getStoredAccessToken();
     if (!token) return '';
-    if (spotifyAuthService.isTokenExpired()) {
+    if (spotifyAuthService.isTokenExpiringSoon()) {
       const refresh = spotifyAuthService.getStoredRefreshToken();
       if (refresh) {
         spotifyAuthService.refreshAccessToken(refresh).then((tokens) => {
@@ -68,6 +70,57 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
       }
     }
     return token;
+  }, []);
+
+  const getFreshTokenAsync = useCallback(async (): Promise<string> => {
+    const token = spotifyAuthService.getStoredAccessToken();
+    if (token && !spotifyAuthService.isTokenExpiringSoon()) return token;
+    const refresh = spotifyAuthService.getStoredRefreshToken();
+    if (refresh) {
+      try {
+        const tokens = await spotifyAuthService.refreshAccessToken(refresh);
+        spotifyAuthService.storeTokens(tokens);
+        return tokens.access_token;
+      } catch {
+        return spotifyAuthService.getStoredAccessToken() || '';
+      }
+    }
+    return token || '';
+  }, []);
+
+  const getOAuthTokenForSdk = useCallback((callback: (token: string) => void) => {
+    const token = spotifyAuthService.getStoredAccessToken();
+    if (token && !spotifyAuthService.isTokenExpiringSoon()) {
+      callback(token);
+      return;
+    }
+    const refresh = spotifyAuthService.getStoredRefreshToken();
+    if (refresh) {
+      spotifyAuthService.refreshAccessToken(refresh)
+        .then((tokens) => {
+          spotifyAuthService.storeTokens(tokens);
+          callback(tokens.access_token);
+        })
+        .catch(() => {
+          callback(spotifyAuthService.getStoredAccessToken() || '');
+        });
+    } else {
+      callback(token || '');
+    }
+  }, []);
+
+  const ensureFreshToken = useCallback(async (): Promise<boolean> => {
+    const token = spotifyAuthService.getStoredAccessToken();
+    if (token && !spotifyAuthService.isTokenExpiringSoon()) return true;
+    const refresh = spotifyAuthService.getStoredRefreshToken();
+    if (!refresh) return false;
+    try {
+      const tokens = await spotifyAuthService.refreshAccessToken(refresh);
+      spotifyAuthService.storeTokens(tokens);
+      return true;
+    } catch {
+      return Boolean(spotifyAuthService.getStoredAccessToken());
+    }
   }, []);
 
   const refreshTokenPeriodically = useCallback(() => {
@@ -103,8 +156,16 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     let pollTimer: ReturnType<typeof setTimeout> | null = null;
 
-    const createPlayer = () => {
+    const createPlayer = async () => {
       if (cancelled || playerRef.current) return;
+
+      // Ensure we have a valid token before SDK calls getOAuthToken.
+      const hasToken = await ensureFreshToken();
+      if (cancelled) return;
+      if (!hasToken) {
+        setSdkError('Spotify authentication required. Please reconnect your Spotify account.');
+        return;
+      }
 
       // Guard: ensure the SDK constructor is available
       if (typeof window.Spotify !== 'function') {
@@ -115,9 +176,7 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
       try {
         const player = new window.Spotify({
           name: 'Afro Genie Web Player',
-          getOAuthToken: (callback) => {
-            callback(getFreshToken());
-          },
+          getOAuthToken: getOAuthTokenForSdk,
           volume: 0.8,
         });
 
@@ -128,6 +187,7 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
           deviceIdRef.current = device_id;
           setDeviceId(device_id);
           setIsReady(true);
+          setSdkError(null);
           refreshTokenPeriodically();
         });
 
@@ -160,12 +220,18 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
 
         player.addListener('authentication_error', (data) => {
           console.error('[WebPlayback] Authentication error:', data.message);
-          if (!cancelled) setIsReady(false);
+          if (!cancelled) {
+            setIsReady(false);
+            setSdkError('Spotify player authentication failed. Please reconnect your Spotify account.');
+          }
         });
 
         player.addListener('account_error', (data) => {
           console.error('[WebPlayback] Account error:', data.message);
-          if (!cancelled) setIsReady(false);
+          if (!cancelled) {
+            setIsReady(false);
+            setSdkError('Spotify Premium is required for full playback. Upgrade to Premium to use this feature.');
+          }
         });
 
         player.addListener('playback_error', (data) => {
@@ -175,6 +241,9 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
         player.connect();
       } catch (err) {
         console.error('[WebPlayback] Failed to create Spotify player:', err);
+        if (!cancelled) {
+          setSdkError('Spotify player is unavailable. Please refresh the page or try again later.');
+        }
       }
     };
 
@@ -212,16 +281,17 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
       delete window.onSpotifyWebPlaybackSDKReady;
       setIsReady(false);
       setDeviceId(null);
+      setSdkError(null);
       deviceIdRef.current = null;
     };
-  }, [isSpotifyPremium, getFreshToken, refreshTokenPeriodically]);
+  }, [isSpotifyPremium, getFreshToken, getOAuthTokenForSdk, ensureFreshToken, refreshTokenPeriodically]);
 
   const playTrack = useCallback(async (uri: string) => {
     const player = playerRef.current;
     const id = deviceIdRef.current;
     if (!player || !id) return;
 
-    const token = getFreshToken();
+    const token = await getFreshTokenAsync();
     if (!token) return;
 
     await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${id}`, {
@@ -232,14 +302,14 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
       },
       body: JSON.stringify({ uris: [uri] }),
     });
-  }, [getFreshToken]);
+  }, [getFreshTokenAsync]);
 
   const playUris = useCallback(async (uris: string[], index: number = 0) => {
     const player = playerRef.current;
     const id = deviceIdRef.current;
     if (!player || !id || uris.length === 0) return;
 
-    const token = getFreshToken();
+    const token = await getFreshTokenAsync();
     if (!token) return;
 
     await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${id}`, {
@@ -250,7 +320,7 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
       },
       body: JSON.stringify({ uris, offset: { position: index } }),
     });
-  }, [getFreshToken]);
+  }, [getFreshTokenAsync]);
 
   const pause = useCallback(async () => {
     await playerRef.current?.pause();
@@ -283,7 +353,7 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setShuffle = useCallback(async (state: boolean) => {
-    const token = getFreshToken();
+    const token = await getFreshTokenAsync();
     const id = deviceIdRef.current;
     if (!token || !id) return;
 
@@ -292,7 +362,7 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
       headers: { Authorization: `Bearer ${token}` },
     });
     setShuffleState(state);
-  }, [getFreshToken]);
+  }, [getFreshTokenAsync]);
 
   const value = useMemo<WebPlaybackContextValue>(
     () => ({
@@ -306,6 +376,7 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
       currentTrackArtist,
       shuffle,
       volume,
+      sdkError,
       playTrack,
       playUris,
       pause,
@@ -320,7 +391,7 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
     [
       isReady, deviceId, isPlaying, currentTime, duration,
       currentTrackUri, currentTrackName, currentTrackArtist,
-      shuffle, volume,
+      shuffle, volume, sdkError,
       playTrack, playUris, pause, resume, togglePlay, seek,
       nextTrack, previousTrack, setVolume, setShuffle,
     ],
