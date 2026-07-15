@@ -292,10 +292,65 @@ export const translationsApi = {
       method: "POST",
       body: JSON.stringify({ voteType }),
     }),
+
+  update: (id: string, data: { translatedLyrics: string }) =>
+    apiRequest<any>(`/translations/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  submitCorrection: (
+    id: string,
+    correction: { originalText: string; suggestedText: string; reason?: string }
+  ) =>
+    apiRequest<any>(`/translations/${id}/correction`, {
+      method: "POST",
+      body: JSON.stringify(correction),
+    }),
+
+  directSave: (data: {
+    songId: string;
+    originalLyrics: string;
+    translatedLyrics: string;
+    sourceLang: string;
+    targetLang: string;
+    culturalContext?: string;
+    status?: string;
+  }) =>
+    apiRequest<any>("/translations/direct", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 };
 
 // Health API
 export const healthApi = {
   check: (verbose?: boolean) =>
     apiRequest<any>(`/health${verbose ? "?verbose=true" : ""}`),
+};
+
+// Lyrics API — Structured lyrics data for playback integration
+export interface LyricLine {
+  time: number;
+  text: string;
+}
+
+export interface StructuredLyrics {
+  songId: string;
+  content: string | null;
+  syncedLyrics: string | null;
+  lyricLines: LyricLine[] | null;
+  sourceProvider: string;
+  licenseStatus: string;
+  language: string | null;
+}
+
+export const lyricsApi = {
+  /**
+   * Get structured lyrics for a song.
+   * Returns plain text, synced LRC, parsed timestamp lines,
+   * source provider, license status, and detected language.
+   */
+  getForSong: (songId: string) =>
+    apiRequest<StructuredLyrics>(`/lyrics/${songId}`),
 };

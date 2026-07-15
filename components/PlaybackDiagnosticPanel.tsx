@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useWebPlayback } from '../context/WebPlaybackContext';
+import { useAudioPlayer } from '../context/AudioContext';
 import { useAuth } from '../context/AuthContext';
 import { spotifyAuthService } from '../services/spotifyAuthService';
 
@@ -22,6 +23,7 @@ const Row: React.FC<{ label: string; ok: boolean; detail?: string }> = ({ label,
 const PlaybackDiagnosticPanel: React.FC = () => {
   const { isSpotifyPremium, user } = useAuth();
   const { isReady, deviceId, sdkError, diagnostics } = useWebPlayback();
+  const { playbackMode, sdkPending, sdkPlaybackFailed, sdkPlaybackError } = useAudioPlayer();
   const [visible, setVisible] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
@@ -169,16 +171,32 @@ const PlaybackDiagnosticPanel: React.FC = () => {
             detail={isReady ? 'Ready' : 'Not ready'}
           />
           <Row
-            label="playbackMode derived"
-            ok={isReady && isSpotifyPremium}
+            label="playbackMode"
+            ok={playbackMode === 'sdk'}
             detail={
-              isReady && isSpotifyPremium
-                ? 'SDK'
-                : isSpotifyPremium
-                  ? 'Pending SDK'
-                  : 'Preview/None'
+              sdkPending
+                ? 'SDK pending'
+                : playbackMode === 'sdk'
+                  ? 'SDK'
+                  : playbackMode === 'preview'
+                    ? 'Preview'
+                    : 'None'
             }
           />
+          {sdkPending && (
+            <Row
+              label="sdkPending"
+              ok={false}
+              detail="Waiting for SDK to become ready"
+            />
+          )}
+          {sdkPlaybackFailed && (
+            <Row
+              label="SDK playback failed"
+              ok={false}
+              detail={sdkPlaybackError ?? 'Last play request failed'}
+            />
+          )}
         </div>
 
         {expanded && (

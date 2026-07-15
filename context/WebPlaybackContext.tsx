@@ -38,12 +38,16 @@ interface WebPlaybackState {
   shuffle: boolean;
   volume: number;
   sdkError: string | null;
+  /** True when the last playTrack/playUris API call failed (device offline, 403, etc.). */
+  sdkPlaybackFailed: boolean;
+  /** Error message from the last failed SDK playback attempt. */
+  sdkPlaybackError: string | null;
   diagnostics: PlaybackDiagnostics;
 }
 
 interface WebPlaybackContextValue extends WebPlaybackState {
-  playTrack: (uri: string) => Promise<void>;
-  playUris: (uris: string[], index?: number) => Promise<void>;
+  playTrack: (uri: string) => Promise<boolean>;
+  playUris: (uris: string[], index?: number) => Promise<boolean>;
   pause: () => Promise<void>;
   resume: () => Promise<void>;
   togglePlay: () => Promise<void>;
@@ -52,6 +56,8 @@ interface WebPlaybackContextValue extends WebPlaybackState {
   previousTrack: () => Promise<void>;
   setVolume: (volume: number) => Promise<void>;
   setShuffle: (shuffle: boolean) => Promise<void>;
+  /** Clear the sdkPlaybackFailed/sdkPlaybackError state after consumer has handled it. */
+  clearSdkPlaybackFailed: () => void;
 }
 
 const MAX_EVENT_LOG = 100;
@@ -91,6 +97,8 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
   const [shuffle, setShuffleState] = useState(false);
   const [volume, setVolumeState] = useState(0.8);
   const [sdkError, setSdkError] = useState<string | null>(null);
+  const [sdkPlaybackFailed, setSdkPlaybackFailed] = useState(false);
+  const [sdkPlaybackError, setSdkPlaybackError] = useState<string | null>(null);
 
   const [diagnostics, setDiagnostics] = useState<PlaybackDiagnostics>({
     sdkScriptPresent: false,
@@ -184,6 +192,7 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
       spotifyAuthService.refreshAccessToken(refresh)
         .then((tokens) => {
           spotifyAuthService.storeTokens(tokens);
+          window.dispatchEvent(new Event('spotify:token-refreshed'));
           callback(tokens.access_token);
         })
         .catch(() => {
@@ -217,6 +226,8 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
       if (refresh) {
         spotifyAuthService.refreshAccessToken(refresh).then((tokens) => {
           spotifyAuthService.storeTokens(tokens);
+          // Signal AuthContext to re-check Spotify product status
+          window.dispatchEvent(new Event('spotify:token-refreshed'));
         }).catch(() => {});
       }
     }, 30 * 60 * 1000);
@@ -323,6 +334,8 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
           setDeviceId(device_id);
           setIsReady(true);
           setSdkError(null);
+          setSdkPlaybackFailed(false);
+          setSdkPlaybackError(null);
           refreshTokenPeriodically();
           snapshotDiagnostics({ readyEventFired: true, deviceIdAttached: true, playerCreated: true });
 
@@ -491,19 +504,32 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
       setIsReady(false);
       setDeviceId(null);
       setSdkError(null);
+      setSdkPlaybackFailed(false);
+      setSdkPlaybackError(null);
       deviceIdRef.current = null;
     };
   }, [isSpotifyPremium, getFreshToken, getOAuthTokenForSdk, ensureFreshToken, refreshTokenPeriodically, pushEvent, snapshotDiagnostics]);
 
-  const playTrack = useCallback(async (uri: string) => {
+  const playTrack = useCallback(async (uri: string): Promise<boolean> => {
     const player = playerRef.current;
     const id = deviceIdRef.current;
-    if (!player || !id) return;
+    if (!player || !id) {
+      setSdkPlaybackFailed(true);
+      setSdkPlaybackError('Spotify player is not connected. Please try again.');
+      return false;
+    }
 
     const token = await getFreshTokenAsync();
-    if (!token) return;
+    if (!token) {
+      setSdkPlaybackFailed(true);
+      setSdkPlaybackError('Spotify authentication expired. Please reconnect your account.');
+      return false;
+    }
 
-    await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${id}`, {
+    setSdkPlaybackFailed(false);
+    setSdkPlaybackError(null);
+
+    const res = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${id}`, {
       method: 'PUT',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -511,17 +537,45 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
       },
       body: JSON.stringify({ uris: [uri] }),
     });
+
+    if (!res.ok) {
+      const errorBody = await res.text().catch(() => '');
+      let errorMsg = 'Failed to start playback on Spotify.';
+      if (res.status === 403) {
+        errorMsg = 'Spotify Premium is required for full track playback.';
+      } else if (res.status === 404) {
+        errorMsg = 'No active Spotify device found. Open Spotify and try again.';
+      } else if (res.status === 429) {
+        errorMsg = 'Too many requests to Spotify. Please wait a moment and try again.';
+      }
+      console.error(`[WebPlayback] playTrack failed (${res.status}):`, errorBody);
+      setSdkPlaybackFailed(true);
+      setSdkPlaybackError(errorMsg);
+      return false;
+    }
+    return true;
   }, [getFreshTokenAsync]);
 
-  const playUris = useCallback(async (uris: string[], index: number = 0) => {
+  const playUris = useCallback(async (uris: string[], index: number = 0): Promise<boolean> => {
     const player = playerRef.current;
     const id = deviceIdRef.current;
-    if (!player || !id || uris.length === 0) return;
+    if (!player || !id || uris.length === 0) {
+      setSdkPlaybackFailed(true);
+      setSdkPlaybackError('Spotify player is not connected. Please try again.');
+      return false;
+    }
 
     const token = await getFreshTokenAsync();
-    if (!token) return;
+    if (!token) {
+      setSdkPlaybackFailed(true);
+      setSdkPlaybackError('Spotify authentication expired. Please reconnect your account.');
+      return false;
+    }
 
-    await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${id}`, {
+    setSdkPlaybackFailed(false);
+    setSdkPlaybackError(null);
+
+    const res = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${id}`, {
       method: 'PUT',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -529,6 +583,23 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
       },
       body: JSON.stringify({ uris, offset: { position: index } }),
     });
+
+    if (!res.ok) {
+      const errorBody = await res.text().catch(() => '');
+      let errorMsg = 'Failed to start playback on Spotify.';
+      if (res.status === 403) {
+        errorMsg = 'Spotify Premium is required for full track playback.';
+      } else if (res.status === 404) {
+        errorMsg = 'No active Spotify device found. Open Spotify and try again.';
+      } else if (res.status === 429) {
+        errorMsg = 'Too many requests to Spotify. Please wait a moment and try again.';
+      }
+      console.error(`[WebPlayback] playUris failed (${res.status}):`, errorBody);
+      setSdkPlaybackFailed(true);
+      setSdkPlaybackError(errorMsg);
+      return false;
+    }
+    return true;
   }, [getFreshTokenAsync]);
 
   const pause = useCallback(async () => {
@@ -574,6 +645,11 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
     setShuffleState(state);
   }, [getFreshTokenAsync]);
 
+  const clearSdkPlaybackFailed = useCallback(() => {
+    setSdkPlaybackFailed(false);
+    setSdkPlaybackError(null);
+  }, []);
+
   const value = useMemo<WebPlaybackContextValue>(
     () => ({
       isReady,
@@ -587,6 +663,8 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
       shuffle,
       volume,
       sdkError,
+      sdkPlaybackFailed,
+      sdkPlaybackError,
       diagnostics,
       playTrack,
       playUris,
@@ -598,13 +676,14 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
       previousTrack,
       setVolume,
       setShuffle,
+      clearSdkPlaybackFailed,
     }),
     [
       isReady, deviceId, isPlaying, currentTime, duration,
       currentTrackUri, currentTrackName, currentTrackArtist,
-      shuffle, volume, sdkError, diagnostics,
-      playTrack, playUris, pause, resume, togglePlay, seek,
-      nextTrack, previousTrack, setVolume, setShuffle,
+      shuffle, volume, sdkError, sdkPlaybackFailed, sdkPlaybackError,
+      diagnostics, playTrack, playUris, pause, resume, togglePlay, seek,
+      nextTrack, previousTrack, setVolume, setShuffle, clearSdkPlaybackFailed,
     ],
   );
 

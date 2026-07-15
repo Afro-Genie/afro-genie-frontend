@@ -385,7 +385,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     init();
   }, [initFromAuthResult]);
 
-  // Sync Spotify premium status on mount and when token refreshes
+  // Sync Spotify premium status on mount, when token refreshes, and when
+  // the SDK signals a token refresh (via custom event from WebPlaybackContext).
   useEffect(() => {
     if (!userProfile?.id) return;
 
@@ -420,6 +421,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     };
 
     syncSpotify();
+
+    // Re-check product when the SDK signals a token refresh
+    const onSdkTokenRefreshed = () => {
+      const token = spotifyAuthService.getStoredAccessToken();
+      if (!token) return;
+      spotifyAuthService.getUserProfile(token)
+        .then((profile) => {
+          const product = profile.product ?? null;
+          setUserProfile((prev) =>
+            prev ? { ...prev, spotifyProduct: product } : prev,
+          );
+          setUser((prev) =>
+            prev ? { ...prev, spotifyProduct: product } : prev,
+          );
+          // Persist to backend so the server-side product status stays in sync
+          authApi.syncSpotifyProduct(token).catch(() => {});
+        })
+        .catch(() => {});
+    };
+
+    window.addEventListener('spotify:token-refreshed', onSdkTokenRefreshed);
+    return () => window.removeEventListener('spotify:token-refreshed', onSdkTokenRefreshed);
   }, [userProfile?.id]);
 
   // Periodic re-check of Spotify premium status (every 30 min)

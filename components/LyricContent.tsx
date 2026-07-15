@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getSongById, getSongTranslations } from '../lib/apiClient';
+import { SUPPORTED_LANGUAGES } from '../constants';
 import HeartIcon from './icons/HeartIcon';
 import ShareIcon from './icons/ShareIcon';
 import FontSizeIcon from './icons/FontSizeIcon';
@@ -116,19 +117,8 @@ const LyricContent: React.FC = () => {
                 setLanguages(uniqueLanguages.map((lang: any) => ({ code: lang.code.toLowerCase(), name: lang.name })));
             } catch (error) {
                 console.error('Error loading languages:', error);
-                // Fallback to default languages
-                setLanguages([
-                    { code: 'en', name: 'English' },
-                    { code: 'fr', name: 'French' },
-                    { code: 'es', name: 'Spanish' },
-                    { code: 'pt', name: 'Portuguese' },
-                    { code: 'ar', name: 'Arabic' },
-                    { code: 'sw', name: 'Swahili' },
-                    { code: 'yo', name: 'Yoruba' },
-                    { code: 'ig', name: 'Igbo' },
-                    { code: 'ha', name: 'Hausa' },
-                    { code: 'pidgin', name: 'Pidgin' }
-                ]);
+                // Fallback to canonical language list
+                setLanguages(SUPPORTED_LANGUAGES.filter(l => l.isActive).map(l => ({ code: l.code, name: l.name })));
             }
         };
         loadLanguages();
@@ -373,9 +363,9 @@ const LyricContent: React.FC = () => {
                 const detectResult = await authFetch('/api/translations/detect-language', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text: originalLyrics }),
+                    body: JSON.stringify({ lyrics: originalLyrics }),
                 });
-                detectedSourceLang = detectResult?.language || detectResult?.langCode || 'en';
+                detectedSourceLang = detectResult?.languageCode || detectResult?.language || detectResult?.langCode || 'en';
                 setSourceLang(detectedSourceLang);
 
                 // Get language name for notification

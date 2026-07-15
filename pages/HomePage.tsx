@@ -4,6 +4,7 @@ import { apiFetch } from '../lib/apiClient';
 import { useAudioPlayer } from '../context/AudioContext';
 import { useAuth } from '../context/AuthContext';
 import { SearchResultsSkeleton, SongListSkeleton, SquareGridSkeleton } from '../components/PageSkeletons';
+import { SUPPORTED_LANGUAGES, LANGUAGE_FLAGS } from '../constants';
 import type { Artist, Genre, Song, GenieSettings, Topic } from '../types';
 
 const HomePage: React.FC = () => {
@@ -32,18 +33,10 @@ const HomePage: React.FC = () => {
     const { isSpotifyPremium } = useAuth();
     const { loadTrackById, currentTrack, isPlaying, togglePlayPause } = useAudioPlayer();
 
-    // Languages supported
-    const languages = [
-        { code: 'en', name: 'English', flag: '🇬🇧' },
-        { code: 'yo', name: 'Yoruba', flag: '🇳🇬' },
-        { code: 'ig', name: 'Igbo', flag: '🇳🇬' },
-        { code: 'ha', name: 'Hausa', flag: '🇳🇬' },
-        { code: 'sw', name: 'Swahili', flag: '🇰🇪' },
-        { code: 'zu', name: 'Zulu', flag: '🇿🇦' },
-        { code: 'fr', name: 'French', flag: '🇫🇷' },
-        { code: 'pt', name: 'Portuguese', flag: '🇵🇹' },
-        { code: 'ar', name: 'Arabic', flag: '🇸🇦' }
-    ];
+    // Languages supported — built from canonical source
+    const languages = SUPPORTED_LANGUAGES
+        .filter(l => l.isActive)
+        .map(l => ({ code: l.code, name: l.name, flag: LANGUAGE_FLAGS[l.code] || '' }));
 
     useEffect(() => {
         let cancelled = false;

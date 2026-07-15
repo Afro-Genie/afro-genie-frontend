@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { SUPPORTED_LANGUAGES } from '../constants';
 import { saveTranslation } from '../services/firebaseService';
 import UserProfileCard from '../components/community/UserProfileCard';
 import RegistrationForm from '../components/community/RegistrationForm';
@@ -181,12 +182,9 @@ const RequestTranslationPage: React.FC = () => {
                       onChange={(e) => setSourceLang(e.target.value)}
                       className="w-full min-h-[44px] text-base px-4 py-3 bg-[#0d1612] border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
                     >
-                      <option value="yo">Yoruba</option>
-                      <option value="ig">Igbo</option>
-                      <option value="ha">Hausa</option>
-                      <option value="pidgin">Nigerian Pidgin</option>
-                      <option value="en">English</option>
-                      <option value="sw">Swahili</option>
+                      {SUPPORTED_LANGUAGES.filter(l => l.isActive).map(l => (
+                        <option key={l.code} value={l.code}>{l.name}</option>
+                      ))}
                     </select>
                   </div>
                   <div>
@@ -198,10 +196,9 @@ const RequestTranslationPage: React.FC = () => {
                       onChange={(e) => setTargetLang(e.target.value)}
                       className="w-full min-h-[44px] text-base px-4 py-3 bg-[#0d1612] border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
                     >
-                      <option value="en">English</option>
-                      <option value="fr">French</option>
-                      <option value="es">Spanish</option>
-                      <option value="pt">Portuguese</option>
+                      {SUPPORTED_LANGUAGES.filter(l => l.isActive).map(l => (
+                        <option key={l.code} value={l.code}>{l.name}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
