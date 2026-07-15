@@ -3,6 +3,29 @@ import type { ReactNode } from 'react';
 import { spotifyAuthService } from '../services/spotifyAuthService';
 import { useAuth } from './AuthContext';
 
+interface PlaybackDiagnostics {
+  sdkScriptPresent: boolean;
+  sdkGlobalAvailable: boolean;
+  sdkGlobalType: string;
+  spotifyKeys: string[];
+  playerType: string;
+  readyEventFired: boolean;
+  deviceIdAttached: boolean;
+  sdkError: string | null;
+  playerCreated: boolean;
+  playerConnected: boolean;
+  tokenAvailable: boolean;
+  premiumDetected: boolean;
+  eventLog: DiagnosticEvent[];
+}
+
+interface DiagnosticEvent {
+  timestamp: number;
+  phase: string;
+  message: string;
+  data?: Record<string, unknown>;
+}
+
 interface WebPlaybackState {
   isReady: boolean;
   deviceId: string | null;
@@ -15,6 +38,7 @@ interface WebPlaybackState {
   shuffle: boolean;
   volume: number;
   sdkError: string | null;
+  diagnostics: PlaybackDiagnostics;
 }
 
 interface WebPlaybackContextValue extends WebPlaybackState {
@@ -30,6 +54,13 @@ interface WebPlaybackContextValue extends WebPlaybackState {
   setShuffle: (shuffle: boolean) => Promise<void>;
 }
 
+const MAX_EVENT_LOG = 100;
+
+const logDiagnostic = (event: DiagnosticEvent) => {
+  const ts = new Date(event.timestamp).toISOString().slice(11, 23);
+  console.log(`[PlaybackDiagnostic] ${ts} [${event.phase}] ${event.message}`, event.data ?? '');
+};
+
 const WebPlaybackContext = createContext<WebPlaybackContextValue | null>(null);
 
 export function useWebPlayback(): WebPlaybackContextValue {
@@ -41,10 +72,12 @@ export function useWebPlayback(): WebPlaybackContextValue {
 }
 
 export function WebPlaybackProvider({ children }: { children: ReactNode }) {
-  const { isSpotifyPremium, userProfile } = useAuth();
+  const { isSpotifyPremium } = useAuth();
   const playerRef = useRef<SpotifyPlayer | null>(null);
   const deviceIdRef = useRef<string | null>(null);
   const tokenRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const eventLogRef = useRef<DiagnosticEvent[]>([]);
+  const initStartTimeRef = useRef<number>(Date.now());
 
   const [isReady, setIsReady] = useState(false);
   const [deviceId, setDeviceId] = useState<string | null>(null);
@@ -57,6 +90,57 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
   const [shuffle, setShuffleState] = useState(false);
   const [volume, setVolumeState] = useState(0.8);
   const [sdkError, setSdkError] = useState<string | null>(null);
+
+  const [diagnostics, setDiagnostics] = useState<PlaybackDiagnostics>({
+    sdkScriptPresent: false,
+    sdkGlobalAvailable: false,
+    sdkGlobalType: 'undefined',
+    spotifyKeys: [],
+    playerType: 'undefined',
+    readyEventFired: false,
+    deviceIdAttached: false,
+    sdkError: null,
+    playerCreated: false,
+    playerConnected: false,
+    tokenAvailable: false,
+    premiumDetected: false,
+    eventLog: [],
+  });
+
+  const pushEvent = useCallback((phase: string, message: string, data?: Record<string, unknown>) => {
+    const event: DiagnosticEvent = { timestamp: Date.now(), phase, message, data };
+    eventLogRef.current = [...eventLogRef.current.slice(-MAX_EVENT_LOG + 1), event];
+    logDiagnostic(event);
+    setDiagnostics((prev) => ({ ...prev, eventLog: eventLogRef.current }));
+  }, []);
+
+  const snapshotDiagnostics = useCallback((overrides: Partial<PlaybackDiagnostics> = {}): PlaybackDiagnostics => {
+    const sdkScriptPresent = overrides.sdkScriptPresent ?? Boolean(document.querySelector('script[src*="spotify-player.js"]'));
+    const sdkGlobalAvailable = overrides.sdkGlobalAvailable ?? (typeof window.Spotify === 'function');
+    const sdkGlobalType = overrides.sdkGlobalType ?? typeof window.Spotify;
+    const spotifyRaw = window.Spotify as unknown as Record<string, unknown> | null;
+    const spotifyKeys = overrides.spotifyKeys ?? (typeof spotifyRaw === 'object' && spotifyRaw !== null
+      ? Object.keys(spotifyRaw)
+      : []);
+    const playerType = overrides.playerType ?? typeof spotifyRaw?.Player;
+    const snap: PlaybackDiagnostics = {
+      sdkScriptPresent,
+      sdkGlobalAvailable,
+      sdkGlobalType,
+      spotifyKeys,
+      playerType,
+      readyEventFired: overrides.readyEventFired ?? false,
+      deviceIdAttached: overrides.deviceIdAttached ?? Boolean(deviceIdRef.current),
+      sdkError: overrides.sdkError ?? null,
+      playerCreated: overrides.playerCreated ?? Boolean(playerRef.current),
+      playerConnected: overrides.playerConnected ?? false,
+      tokenAvailable: overrides.tokenAvailable ?? Boolean(spotifyAuthService.getStoredAccessToken()),
+      premiumDetected: overrides.premiumDetected ?? false,
+      eventLog: eventLogRef.current,
+    };
+    setDiagnostics(snap);
+    return snap;
+  }, []);
 
   const getFreshToken = useCallback((): string => {
     const token = spotifyAuthService.getStoredAccessToken();
@@ -139,6 +223,8 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!isSpotifyPremium) {
+      pushEvent('init', 'Non-premium user — skipping SDK init', { isSpotifyPremium });
+      snapshotDiagnostics({ premiumDetected: false });
       setIsReady(false);
       setDeviceId(null);
       deviceIdRef.current = null;
@@ -153,53 +239,107 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    pushEvent('init', 'Premium user detected — beginning SDK bootstrap', { isSpotifyPremium });
+    initStartTimeRef.current = Date.now();
+
+    const sdkScriptPresent = Boolean(document.querySelector('script[src*="spotify-player.js"]'));
+    const sdkGlobalAvailable = typeof window.Spotify === 'function';
+    const spotifyRaw = window.Spotify as unknown as Record<string, unknown> | null;
+    const spotifyKeys = typeof spotifyRaw === 'object' && spotifyRaw !== null
+      ? Object.keys(spotifyRaw)
+      : [];
+    const playerType = typeof spotifyRaw?.Player;
+    pushEvent('init', 'SDK script tag check', {
+      sdkScriptPresent,
+      sdkGlobalAvailable,
+      sdkGlobalType: typeof window.Spotify,
+      spotifyKeys,
+      playerType,
+    });
+
+    snapshotDiagnostics({ premiumDetected: true, sdkScriptPresent, sdkGlobalAvailable });
+
     let cancelled = false;
     let pollTimer: ReturnType<typeof setTimeout> | null = null;
+    let pollCount = 0;
 
     const createPlayer = async () => {
       if (cancelled || playerRef.current) return;
 
-      // Ensure we have a valid token before SDK calls getOAuthToken.
+      pushEvent('createPlayer', 'Attempting player creation');
+
       const hasToken = await ensureFreshToken();
       if (cancelled) return;
       if (!hasToken) {
+        pushEvent('createPlayer', 'No valid token available — cannot create player', { hasToken });
         setSdkError('Spotify authentication required. Please reconnect your Spotify account.');
+        snapshotDiagnostics({ tokenAvailable: false, sdkError: 'No valid token' });
         return;
       }
 
-      // Guard: ensure the SDK constructor is available
-      if (typeof window.Spotify !== 'function') {
-        console.warn('[WebPlayback] window.Spotify is not a function, SDK may not have loaded yet');
+      pushEvent('createPlayer', 'Token validated successfully');
+
+      const PlayerConstructor = typeof window.Spotify === 'function'
+        ? window.Spotify
+        : typeof (window.Spotify as unknown as Record<string, unknown>)?.Player === 'function'
+          ? (window.Spotify as unknown as { Player: new (opts: SpotifyPlayerOptions) => SpotifyPlayer }).Player
+          : null;
+
+      if (!PlayerConstructor) {
+        const spotifyRaw = window.Spotify as unknown as Record<string, unknown> | null;
+        const spotifyKeys = typeof spotifyRaw === 'object' && spotifyRaw !== null
+          ? Object.keys(spotifyRaw)
+          : [];
+        const playerType = typeof spotifyRaw?.Player;
+        pushEvent('createPlayer', 'No usable Spotify constructor found', {
+          sdkGlobalType: typeof window.Spotify,
+          spotifyKeys,
+          playerType,
+        });
+        snapshotDiagnostics({ sdkGlobalAvailable: false, tokenAvailable: true });
         return;
       }
+
+      pushEvent('createPlayer', 'Spotify constructor found — constructing player instance', {
+        constructorPath: typeof window.Spotify === 'function' ? 'Spotify' : 'Spotify.Player',
+      });
 
       try {
-        const player = new window.Spotify({
+        const player = new PlayerConstructor({
           name: 'Afro Genie Web Player',
           getOAuthToken: getOAuthTokenForSdk,
           volume: 0.8,
         });
 
         playerRef.current = player;
+        pushEvent('createPlayer', 'Player instance created successfully');
+        snapshotDiagnostics({ playerCreated: true, tokenAvailable: true });
 
         player.addListener('ready', ({ device_id }) => {
           if (cancelled) return;
+          pushEvent('ready', 'SDK ready event fired', { device_id, elapsedMs: Date.now() - initStartTimeRef.current });
           deviceIdRef.current = device_id;
           setDeviceId(device_id);
           setIsReady(true);
           setSdkError(null);
           refreshTokenPeriodically();
+          snapshotDiagnostics({ readyEventFired: true, deviceIdAttached: true, playerCreated: true });
         });
 
-        player.addListener('not_ready', () => {
+        player.addListener('not_ready', ({ device_id }) => {
           if (cancelled) return;
+          pushEvent('not_ready', 'SDK not_ready event fired', { device_id });
           setIsReady(false);
           setDeviceId(null);
           deviceIdRef.current = null;
+          snapshotDiagnostics({ readyEventFired: false, deviceIdAttached: false });
         });
 
         player.addListener('player_state_changed', (state) => {
-          if (!state) return;
+          if (!state) {
+            pushEvent('player_state_changed', 'State changed to null (empty state)');
+            return;
+          }
 
           setIsPlaying(!state.paused);
           setCurrentTime(state.position);
@@ -218,49 +358,90 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
           }
         });
 
+        const sanitizeLog = (msg: string) => String(msg).replace(/\r|\n/g, ' ');
+
         player.addListener('authentication_error', (data) => {
-          console.error('[WebPlayback] Authentication error:', data.message);
+          const msg = sanitizeLog(data.message);
+          console.error('[WebPlayback] Authentication error:', msg);
+          pushEvent('authentication_error', msg);
           if (!cancelled) {
             setIsReady(false);
             setSdkError('Spotify player authentication failed. Please reconnect your Spotify account.');
+            snapshotDiagnostics({ sdkError: msg });
           }
         });
 
         player.addListener('account_error', (data) => {
-          console.error('[WebPlayback] Account error:', data.message);
+          const msg = sanitizeLog(data.message);
+          console.error('[WebPlayback] Account error:', msg);
+          pushEvent('account_error', msg);
           if (!cancelled) {
             setIsReady(false);
             setSdkError('Spotify Premium is required for full playback. Upgrade to Premium to use this feature.');
+            snapshotDiagnostics({ sdkError: msg });
           }
         });
 
         player.addListener('playback_error', (data) => {
-          console.error('[WebPlayback] Playback error:', data.message);
+          const msg = sanitizeLog(data.message);
+          console.error('[WebPlayback] Playback error:', msg);
+          pushEvent('playback_error', msg);
         });
 
+        pushEvent('createPlayer', 'Calling player.connect()');
+        snapshotDiagnostics({ playerConnected: true });
         player.connect();
       } catch (err) {
+        const errMsg = err instanceof Error ? err.message : String(err);
         console.error('[WebPlayback] Failed to create Spotify player:', err);
+        pushEvent('createPlayer', `Player creation failed: ${errMsg}`);
         if (!cancelled) {
           setSdkError('Spotify player is unavailable. Please refresh the page or try again later.');
+          snapshotDiagnostics({ sdkError: errMsg });
         }
       }
     };
 
-    // If the SDK is already loaded, create immediately
-    if (typeof window.Spotify === 'function') {
+    const sdkReady = typeof window.Spotify === 'function'
+      || typeof (window.Spotify as unknown as Record<string, unknown>)?.Player === 'function';
+
+    if (sdkReady) {
+      pushEvent('init', 'SDK already loaded — creating player immediately');
       createPlayer();
     } else {
-      // Set the global callback for when the SDK finishes loading
-      window.onSpotifyWebPlaybackSDKReady = createPlayer;
+      pushEvent('init', 'SDK not yet loaded — setting callback and starting poll', {
+        callbackSet: true,
+      });
+      window.onSpotifyWebPlaybackSDKReady = () => {
+        pushEvent('init', 'onSpotifyWebPlaybackSDKReady callback fired');
+        createPlayer();
+      };
 
-      // Also poll in case the SDK loaded before our callback was set
-      // (e.g. script loaded between our check and callback assignment)
       const pollForSdk = () => {
         if (cancelled) return;
-        if (typeof window.Spotify === 'function') {
+        pollCount++;
+        const pollSpotifyRaw = window.Spotify as unknown as Record<string, unknown> | null;
+        const pollPlayerReady = typeof window.Spotify === 'function'
+          || typeof pollSpotifyRaw?.Player === 'function';
+        if (pollPlayerReady) {
+          pushEvent('poll', `SDK ready detected after ${pollCount} polls`, {
+            constructorPath: typeof window.Spotify === 'function' ? 'Spotify' : 'Spotify.Player',
+          });
           createPlayer();
           return;
+        }
+        if (typeof window.Spotify === 'object' && window.Spotify !== null) {
+          const spotifyKeys = Object.keys(pollSpotifyRaw!);
+          const playerType = typeof pollSpotifyRaw?.Player;
+          pushEvent('poll', `SDK present but no constructor yet (${pollCount} polls)`, {
+            spotifyKeys,
+            playerType,
+          });
+          snapshotDiagnostics({ sdkGlobalAvailable: false });
+        }
+        if (pollCount % 10 === 0) {
+          pushEvent('poll', `SDK still not ready after ${pollCount} polls (${pollCount * 200}ms)`);
+          snapshotDiagnostics({ sdkGlobalAvailable: false });
         }
         pollTimer = setTimeout(pollForSdk, 200);
       };
@@ -279,12 +460,13 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
         playerRef.current = null;
       }
       delete window.onSpotifyWebPlaybackSDKReady;
+      pushEvent('cleanup', 'Provider effect cleaned up');
       setIsReady(false);
       setDeviceId(null);
       setSdkError(null);
       deviceIdRef.current = null;
     };
-  }, [isSpotifyPremium, getFreshToken, getOAuthTokenForSdk, ensureFreshToken, refreshTokenPeriodically]);
+  }, [isSpotifyPremium, getFreshToken, getOAuthTokenForSdk, ensureFreshToken, refreshTokenPeriodically, pushEvent, snapshotDiagnostics]);
 
   const playTrack = useCallback(async (uri: string) => {
     const player = playerRef.current;
@@ -377,6 +559,7 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
       shuffle,
       volume,
       sdkError,
+      diagnostics,
       playTrack,
       playUris,
       pause,
@@ -391,7 +574,7 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
     [
       isReady, deviceId, isPlaying, currentTime, duration,
       currentTrackUri, currentTrackName, currentTrackArtist,
-      shuffle, volume, sdkError,
+      shuffle, volume, sdkError, diagnostics,
       playTrack, playUris, pause, resume, togglePlay, seek,
       nextTrack, previousTrack, setVolume, setShuffle,
     ],

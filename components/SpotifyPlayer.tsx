@@ -82,7 +82,15 @@ const SpotifyPlayer: React.FC<SpotifyPlayerProps> = ({ title, artist, spotifyId,
     const isVerySlow = loadingElapsed >= 12;
 
     return (
-      <div className={wrapperClass}>
+      <div
+        className={wrapperClass}
+        data-testid="spotify-player-loading"
+        data-loading-elapsed={loadingElapsed}
+        data-is-premium={isSpotifyPremium}
+        data-sdk-ready={webPlayback.isReady}
+        data-sdk-error={sdkError ?? ''}
+        data-device-id={webPlayback.deviceId ?? ''}
+      >
         <div className="mb-3">
           <h3 className="text-sm md:text-base font-bold text-white mb-1 truncate">{title}</h3>
           <p className="text-gray-300 text-xs md:text-sm truncate">{artist}</p>
@@ -146,7 +154,14 @@ const SpotifyPlayer: React.FC<SpotifyPlayerProps> = ({ title, artist, spotifyId,
   const isSdkMode = playbackMode === 'sdk';
 
   return (
-    <div className={wrapperClass}>
+    <div
+      className={wrapperClass}
+      data-testid="spotify-player-active"
+      data-playback-mode={isSdkMode ? 'sdk' : 'preview'}
+      data-is-premium={isSpotifyPremium}
+      data-sdk-ready={webPlayback.isReady}
+      data-device-id={webPlayback.deviceId ?? ''}
+    >
       <div className="mb-3">
         <h3 className="text-sm md:text-base font-bold text-white mb-1 truncate">{trackName}</h3>
         <p className="text-gray-300 text-xs md:text-sm truncate">{trackArtist}</p>

@@ -52,9 +52,10 @@ export const spotifyDebug = {
    * Opens it in a new tab so you can inspect the request.
    */
   async testAuthUrl() {
+    const sanitizeLog = (val: string) => String(val).replace(/\r|\n/g, ' ');
     const { url } = await spotifyAuthService.getAuthorizationUrl({ action: 'debug' });
-    console.log('[Spotify Debug] Authorization URL:', url);
-    console.log('[Spotify Debug] Redirect URI in URL:', new URL(url).searchParams.get('redirect_uri'));
+    console.log('[Spotify Debug] Authorization URL:', sanitizeLog(url));
+    console.log('[Spotify Debug] Redirect URI in URL:', sanitizeLog(new URL(url).searchParams.get('redirect_uri') ?? ''));
     return url;
   },
 

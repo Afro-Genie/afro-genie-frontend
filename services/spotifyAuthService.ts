@@ -26,20 +26,14 @@ interface SpotifyUserProfile {
 class SpotifyAuthService {
   private clientId: string;
   private redirectUri: string;
-  private readonly AUTH_URL = 'https://accounts.spotify.com/authorize';
-  private readonly TOKEN_URL = 'https://accounts.spotify.com/api/token';
-  private readonly API_BASE_URL = 'https://api.spotify.com/v1';
+  private readonly AUTH_URL = "https://accounts.spotify.com/authorize";
+  private readonly TOKEN_URL = "https://accounts.spotify.com/api/token";
+  private readonly API_BASE_URL = "https://api.spotify.com/v1";
 
   constructor() {
-    this.clientId = import.meta.env.VITE_SPOTIFY_CLIENT_ID || '';
-    this.redirectUri = import.meta.env.VITE_SPOTIFY_REDIRECT_URI || window.location.origin;
-
-    // Log configuration on startup for debugging
-    console.log('[SpotifyAuth] Config:', {
-      clientId: this.clientId ? `${this.clientId.slice(0, 6)}...` : 'MISSING',
-      redirectUri: this.redirectUri || 'MISSING',
-      origin: window.location.origin,
-    });
+    this.clientId = import.meta.env.VITE_SPOTIFY_CLIENT_ID || "";
+    this.redirectUri =
+      import.meta.env.VITE_SPOTIFY_REDIRECT_URI || window.location.origin;
   }
 
   /**
@@ -47,13 +41,15 @@ class SpotifyAuthService {
    */
   private assertConfigured(): void {
     if (!this.clientId) {
-      const msg = 'Spotify Client ID not found. Set VITE_SPOTIFY_CLIENT_ID in your .env file.';
-      console.error('[SpotifyAuth]', msg);
+      const msg =
+        "Spotify Client ID not found. Set VITE_SPOTIFY_CLIENT_ID in your .env file.";
+      console.error("[SpotifyAuth]", msg);
       throw new Error(msg);
     }
     if (!this.redirectUri) {
-      const msg = 'Spotify Redirect URI not found. Set VITE_SPOTIFY_REDIRECT_URI in your .env file.';
-      console.error('[SpotifyAuth]', msg);
+      const msg =
+        "Spotify Redirect URI not found. Set VITE_SPOTIFY_REDIRECT_URI in your .env file.";
+      console.error("[SpotifyAuth]", msg);
       throw new Error(msg);
     }
   }
@@ -76,8 +72,9 @@ class SpotifyAuthService {
    * Generate a random string for PKCE
    */
   private generateRandomString(length: number): string {
-    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let text = '';
+    const possible =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    let text = "";
     for (let i = 0; i < length; i++) {
       text += possible.charAt(Math.floor(Math.random() * possible.length));
     }
@@ -87,16 +84,19 @@ class SpotifyAuthService {
   /**
    * Generate code verifier and challenge for PKCE
    */
-  private async generatePKCE(): Promise<{ codeVerifier: string; codeChallenge: string }> {
+  private async generatePKCE(): Promise<{
+    codeVerifier: string;
+    codeChallenge: string;
+  }> {
     const codeVerifier = this.generateRandomString(128);
     const encoder = new TextEncoder();
     const data = encoder.encode(codeVerifier);
-    const digest = await crypto.subtle.digest('SHA-256', data);
+    const digest = await crypto.subtle.digest("SHA-256", data);
     const codeChallenge = btoa(String.fromCharCode(...new Uint8Array(digest)))
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=+$/, '');
-    
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+
     return { codeVerifier, codeChallenge };
   }
 
@@ -105,17 +105,19 @@ class SpotifyAuthService {
    * Optionally encodes stateData (e.g. { action: 'link' }) into the OAuth state parameter
    * so it survives the redirect and can be read back after callback.
    */
-  async getAuthorizationUrl(stateData?: Record<string, any>): Promise<{ url: string; codeVerifier: string }> {
+  async getAuthorizationUrl(
+    stateData?: Record<string, any>,
+  ): Promise<{ url: string; codeVerifier: string }> {
     this.assertConfigured();
 
     const scopes = [
-      'user-read-email',
-      'user-read-private',
-      'streaming',
-      'user-read-playback-state',
-      'user-modify-playback-state',
-      'user-read-currently-playing',
-    ].join(' ');
+      "user-read-email",
+      "user-read-private",
+      "streaming",
+      "user-read-playback-state",
+      "user-modify-playback-state",
+      "user-read-currently-playing",
+    ].join(" ");
 
     const { codeVerifier, codeChallenge } = await this.generatePKCE();
     const nonce = this.generateRandomString(32);
@@ -126,26 +128,26 @@ class SpotifyAuthService {
       : nonce;
 
     // Store code verifier and nonce for later verification
-    sessionStorage.setItem('spotify_code_verifier', codeVerifier);
-    sessionStorage.setItem('spotify_oauth_state', nonce);
+    sessionStorage.setItem("spotify_code_verifier", codeVerifier);
+    sessionStorage.setItem("spotify_oauth_state", nonce);
 
     const params = new URLSearchParams({
       client_id: this.clientId,
-      response_type: 'code',
+      response_type: "code",
       redirect_uri: this.redirectUri,
       scope: scopes,
       state,
-      code_challenge_method: 'S256',
+      code_challenge_method: "S256",
       code_challenge: codeChallenge,
-      show_dialog: 'false'
+      show_dialog: "false",
     });
 
     const url = `${this.AUTH_URL}?${params.toString()}`;
 
-    console.log('[SpotifyAuth] Authorization URL generated:', {
+    console.log("[SpotifyAuth] Authorization URL generated:", {
       redirectUri: this.redirectUri,
       scopes,
-      stateData: stateData || 'none',
+      stateData: stateData || "none",
     });
 
     return { url, codeVerifier };
@@ -155,24 +157,34 @@ class SpotifyAuthService {
    * Exchange authorization code for access token using PKCE.
    * Decodes the state parameter to recover any stateData passed through the OAuth redirect.
    */
-  async exchangeCodeForToken(code: string, stateFromCallback?: string | null): Promise<SpotifyAuthResult> {
+  async exchangeCodeForToken(
+    code: string,
+    stateFromCallback?: string | null,
+  ): Promise<SpotifyAuthResult> {
     try {
       this.assertConfigured();
 
-      const codeVerifier = sessionStorage.getItem('spotify_code_verifier');
+      const codeVerifier = sessionStorage.getItem("spotify_code_verifier");
       if (!codeVerifier) {
-        throw new Error('Code verifier not found in sessionStorage. The OAuth session may have expired or the page was refreshed during the flow. Please try signing in again.');
+        throw new Error(
+          "Code verifier not found in sessionStorage. The OAuth session may have expired or the page was refreshed during the flow. Please try signing in again.",
+        );
       }
 
       // Decode the state parameter to recover the nonce and any embedded stateData
-      const storedNonce = sessionStorage.getItem('spotify_oauth_state');
+      const storedNonce = sessionStorage.getItem("spotify_oauth_state");
       let verifiedNonce: string | null = null;
       let stateData: Record<string, any> | undefined;
 
       if (stateFromCallback) {
         try {
           const decoded = JSON.parse(atob(stateFromCallback));
-          if (decoded && typeof decoded === 'object' && typeof decoded.n === 'string' && decoded.n.length > 0) {
+          if (
+            decoded &&
+            typeof decoded === "object" &&
+            typeof decoded.n === "string" &&
+            decoded.n.length > 0
+          ) {
             verifiedNonce = decoded.n;
             const { n, ...rest } = decoded;
             if (Object.keys(rest).length > 0) {
@@ -189,22 +201,27 @@ class SpotifyAuthService {
       }
 
       if (!storedNonce || !verifiedNonce || storedNonce !== verifiedNonce) {
-        console.error('[SpotifyAuth] State mismatch:', { storedNonce, verifiedNonce });
-        throw new Error('Invalid Spotify OAuth state. Please try signing in again.');
+        console.error("[SpotifyAuth] State mismatch:", {
+          storedNonce,
+          verifiedNonce,
+        });
+        throw new Error(
+          "Invalid Spotify OAuth state. Please try signing in again.",
+        );
       }
 
-      console.log('[SpotifyAuth] Exchanging code for token...', {
+      console.log("[SpotifyAuth] Exchanging code for token...", {
         redirectUri: this.redirectUri,
         clientId: `${this.clientId.slice(0, 6)}...`,
       });
 
       const response = await fetch(this.TOKEN_URL, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
+          "Content-Type": "application/x-www-form-urlencoded",
         },
         body: new URLSearchParams({
-          grant_type: 'authorization_code',
+          grant_type: "authorization_code",
           code: code,
           redirect_uri: this.redirectUri,
           client_id: this.clientId,
@@ -214,33 +231,49 @@ class SpotifyAuthService {
 
       if (!response.ok) {
         const errorBody = await response.text();
-        console.error('[SpotifyAuth] Token exchange failed:', response.status, errorBody);
+        const sanitizedBody = errorBody.replace(/[<>"'`]/g, "");
+        console.error(
+          "[SpotifyAuth] Token exchange failed:",
+          response.status,
+          sanitizedBody,
+        );
 
         // Provide specific error messages for common failures
         if (response.status === 400) {
-          if (errorBody.includes('redirect_uri')) {
-            throw new Error(`Redirect URI mismatch. The URI registered in Spotify Developer Dashboard must exactly match: ${this.redirectUri}`);
+          if (errorBody.includes("redirect_uri")) {
+            throw new Error(
+              `Redirect URI mismatch. The URI registered in Spotify Developer Dashboard must exactly match: ${this.redirectUri}`,
+            );
           }
-          if (errorBody.includes('invalid_grant')) {
-            throw new Error('The authorization code has expired or is invalid. Please try signing in again.');
+          if (errorBody.includes("invalid_grant")) {
+            throw new Error(
+              "The authorization code has expired or is invalid. Please try signing in again.",
+            );
           }
-          if (errorBody.includes('code_verifier') || errorBody.includes('code_challenge')) {
-            throw new Error('PKCE verification failed. The code verifier was lost. Please clear your browser cache and try again.');
+          if (
+            errorBody.includes("code_verifier") ||
+            errorBody.includes("code_challenge")
+          ) {
+            throw new Error(
+              "PKCE verification failed. The code verifier was lost. Please clear your browser cache and try again.",
+            );
           }
         }
 
-        throw new Error(`Token exchange failed (${response.status}): ${errorBody}`);
+        throw new Error(
+          `Token exchange failed (${response.status}): ${sanitizedBody}`,
+        );
       }
 
       const tokenResponse: SpotifyTokenResponse = await response.json();
-      console.log('[SpotifyAuth] Token exchange successful');
+      console.log("[SpotifyAuth] Token exchange successful");
       return { ...tokenResponse, stateData };
     } catch (error) {
-      console.error('[SpotifyAuth] Error exchanging code for token:', error);
+      console.error("[SpotifyAuth] Error exchanging code for token:", error);
       throw error;
     } finally {
-      sessionStorage.removeItem('spotify_code_verifier');
-      sessionStorage.removeItem('spotify_oauth_state');
+      sessionStorage.removeItem("spotify_code_verifier");
+      sessionStorage.removeItem("spotify_oauth_state");
     }
   }
 
@@ -251,7 +284,7 @@ class SpotifyAuthService {
     try {
       const response = await fetch(`${this.API_BASE_URL}/me`, {
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
+          Authorization: `Bearer ${accessToken}`,
         },
       });
 
@@ -262,7 +295,7 @@ class SpotifyAuthService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error getting user profile:', error);
+      console.error("Error getting user profile:", error);
       throw error;
     }
   }
@@ -272,17 +305,19 @@ class SpotifyAuthService {
    * Checks for scope downgrade — if Spotify returns fewer scopes than requested,
    * the user must re-authorize.
    */
-  async refreshAccessToken(refreshToken: string): Promise<SpotifyTokenResponse> {
+  async refreshAccessToken(
+    refreshToken: string,
+  ): Promise<SpotifyTokenResponse> {
     try {
       this.assertConfigured();
 
       const response = await fetch(this.TOKEN_URL, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
+          "Content-Type": "application/x-www-form-urlencoded",
         },
         body: new URLSearchParams({
-          grant_type: 'refresh_token',
+          grant_type: "refresh_token",
           refresh_token: refreshToken,
           client_id: this.clientId,
         }),
@@ -296,22 +331,32 @@ class SpotifyAuthService {
       const data: SpotifyTokenResponse = await response.json();
 
       const requiredScopes = [
-        'user-read-email', 'user-read-private', 'streaming',
-        'user-read-playback-state', 'user-modify-playback-state',
-        'user-read-currently-playing',
+        "user-read-email",
+        "user-read-private",
+        "streaming",
+        "user-read-playback-state",
+        "user-modify-playback-state",
+        "user-read-currently-playing",
       ];
 
-      const grantedScopes = (data.scope || '').split(' ');
-      const missingScopes = requiredScopes.filter(s => !grantedScopes.includes(s));
+      const grantedScopes = (data.scope || "").split(" ");
+      const missingScopes = requiredScopes.filter(
+        (s) => !grantedScopes.includes(s),
+      );
 
       if (missingScopes.length > 0) {
-        console.warn('Spotify token refresh resulted in reduced scopes:', missingScopes);
-        throw new Error('Spotify permissions were reduced. Please sign in again.');
+        console.warn(
+          "Spotify token refresh resulted in reduced scopes:",
+          missingScopes,
+        );
+        throw new Error(
+          "Spotify permissions were reduced. Please sign in again.",
+        );
       }
 
       return data;
     } catch (error) {
-      console.error('Error refreshing token:', error);
+      console.error("Error refreshing token:", error);
       throw error;
     }
   }
@@ -320,33 +365,40 @@ class SpotifyAuthService {
    * Store tokens in localStorage
    */
   storeTokens(tokens: SpotifyTokenResponse): void {
-    localStorage.setItem('spotify_access_token', tokens.access_token);
-    if (tokens.refresh_token) {
-      localStorage.setItem('spotify_refresh_token', tokens.refresh_token);
+    const isValidToken = (val: string) => /^[A-Za-z0-9\-._~+/]+=*$/.test(val);
+    if (!isValidToken(tokens.access_token)) {
+      throw new Error("Invalid access token format received from Spotify.");
     }
-    const expiryTime = Date.now() + (tokens.expires_in * 1000);
-    localStorage.setItem('spotify_token_expiry', expiryTime.toString());
+    localStorage.setItem("spotify_access_token", tokens.access_token);
+    if (tokens.refresh_token) {
+      if (!isValidToken(tokens.refresh_token)) {
+        throw new Error("Invalid refresh token format received from Spotify.");
+      }
+      localStorage.setItem("spotify_refresh_token", tokens.refresh_token);
+    }
+    const expiryTime = Date.now() + tokens.expires_in * 1000;
+    localStorage.setItem("spotify_token_expiry", expiryTime.toString());
   }
 
   /**
    * Get stored access token
    */
   getStoredAccessToken(): string | null {
-    return localStorage.getItem('spotify_access_token');
+    return localStorage.getItem("spotify_access_token");
   }
 
   /**
    * Get stored refresh token
    */
   getStoredRefreshToken(): string | null {
-    return localStorage.getItem('spotify_refresh_token');
+    return localStorage.getItem("spotify_refresh_token");
   }
 
   /**
    * Check if token is expired
    */
   isTokenExpired(): boolean {
-    const expiryTime = localStorage.getItem('spotify_token_expiry');
+    const expiryTime = localStorage.getItem("spotify_token_expiry");
     if (!expiryTime) return true;
     return Date.now() >= parseInt(expiryTime);
   }
@@ -355,7 +407,7 @@ class SpotifyAuthService {
    * Check if token is expiring soon (within 5 minutes)
    */
   isTokenExpiringSoon(): boolean {
-    const expiryTime = localStorage.getItem('spotify_token_expiry');
+    const expiryTime = localStorage.getItem("spotify_token_expiry");
     if (!expiryTime) return true;
     const bufferMs = 5 * 60 * 1000;
     return Date.now() >= parseInt(expiryTime) - bufferMs;
@@ -365,9 +417,9 @@ class SpotifyAuthService {
    * Clear stored tokens
    */
   clearTokens(): void {
-    localStorage.removeItem('spotify_access_token');
-    localStorage.removeItem('spotify_refresh_token');
-    localStorage.removeItem('spotify_token_expiry');
+    localStorage.removeItem("spotify_access_token");
+    localStorage.removeItem("spotify_refresh_token");
+    localStorage.removeItem("spotify_token_expiry");
   }
 
   /**
@@ -375,10 +427,13 @@ class SpotifyAuthService {
    * Returns the new access token and the Spotify product string (e.g. "premium", "free", "open").
    * Useful for keeping the backend in sync with the user's current Premium status.
    */
-  async refreshAndFetchProduct(): Promise<{ accessToken: string; product: string | null }> {
+  async refreshAndFetchProduct(): Promise<{
+    accessToken: string;
+    product: string | null;
+  }> {
     const storedRefresh = this.getStoredRefreshToken();
     if (!storedRefresh) {
-      throw new Error('No Spotify refresh token available');
+      throw new Error("No Spotify refresh token available");
     }
 
     const tokenResponse = await this.refreshAccessToken(storedRefresh);
@@ -398,4 +453,3 @@ class SpotifyAuthService {
 
 export const spotifyAuthService = new SpotifyAuthService();
 export type { SpotifyUserProfile, SpotifyTokenResponse, SpotifyAuthResult };
-
