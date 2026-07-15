@@ -45,6 +45,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const [playbackMode, setPlaybackMode] = useState<PlaybackMode>('none');
   const lastKeyRef = useRef<string>('');
   const lastAttemptedTrackRef = useRef<{ id: string; title?: string; artist?: string } | null>(null);
+  const intentionalPlayRef = useRef<boolean>(false);
   const { isSpotifyPremium } = useAuth();
   const webPlayback = useWebPlayback();
 
@@ -56,26 +57,36 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     setDuration(webPlayback.duration / 1000);
   }, [playbackMode, webPlayback.isPlaying, webPlayback.currentTime, webPlayback.duration]);
 
+  // Sync currentTrack metadata from SDK state so AudioContext knows what's actually playing.
+  // This prevents stale URI usage when the SDK handles next/prev internally.
+  useEffect(() => {
+    if (playbackMode !== 'sdk') return;
+    if (webPlayback.currentTrackUri && currentTrack?.spotifyUri !== webPlayback.currentTrackUri) {
+      setCurrentTrack((prev) => ({
+        id: webPlayback.currentTrackUri!.replace('spotify:track:', ''),
+        name: webPlayback.currentTrackName || prev?.name || 'Unknown Track',
+        artistName: webPlayback.currentTrackArtist || prev?.artistName || 'Unknown Artist',
+        albumName: prev?.albumName ?? null,
+        imageUrl: prev?.imageUrl ?? null,
+        previewUrl: prev?.previewUrl ?? null,
+        spotifyUri: webPlayback.currentTrackUri!,
+        durationMs: webPlayback.duration,
+        externalUrl: prev?.externalUrl ?? null,
+      }));
+    }
+  }, [playbackMode, webPlayback.currentTrackUri, webPlayback.currentTrackName, webPlayback.currentTrackArtist, webPlayback.duration, currentTrack?.spotifyUri]);
+
   // When SDK becomes ready for a Premium user stuck in 'none' mode, auto-switch to SDK
   // and retry playback for the last attempted track.
   useEffect(() => {
     if (!isSpotifyPremium || !webPlayback.isReady) return;
 
-    if (playbackMode === 'sdk') {
-      // Already in SDK mode — if we have a URI but nothing playing, start it.
-      if (currentTrack?.spotifyUri && !isPlaying) {
-        webPlayback.playTrack(currentTrack.spotifyUri);
-      }
-      return;
-    }
-
     if (playbackMode === 'none') {
-      // SDK just became ready after a failed initial load — retry with the stored track.
       const last = lastAttemptedTrackRef.current;
       if (last?.id) {
         const uri = `spotify:track:${last.id}`;
         setPlaybackMode('sdk');
-        setCurrentTrack((prev) => prev?.spotifyUri === uri ? prev : {
+        setCurrentTrack({
           id: last.id,
           name: last.title || 'Unknown Track',
           artistName: last.artist || 'Unknown Artist',
@@ -86,10 +97,11 @@ export function AudioProvider({ children }: { children: ReactNode }) {
           durationMs: 0,
           externalUrl: null,
         });
+        intentionalPlayRef.current = true;
         webPlayback.playTrack(uri);
       }
     }
-  }, [isSpotifyPremium, webPlayback.isReady, playbackMode, currentTrack?.spotifyUri, isPlaying, webPlayback.playTrack]);
+  }, [isSpotifyPremium, webPlayback.isReady, playbackMode, webPlayback.playTrack]);
 
   // Initialize <audio> element for preview path
   useEffect(() => {
@@ -131,6 +143,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     const key = `${artist}::${title}`;
     if (key === lastKeyRef.current) return;
     lastKeyRef.current = key;
+    intentionalPlayRef.current = false;
 
     const audio = audioRef.current;
     if (!audio) return;
@@ -152,6 +165,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
 
       if (canUseSdk && track?.spotifyUri) {
         setPlaybackMode('sdk');
+        intentionalPlayRef.current = true;
         await webPlayback.playTrack(track.spotifyUri);
       } else if (track?.previewUrl) {
         setPlaybackMode('preview');
@@ -173,6 +187,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     if (key === lastKeyRef.current) return;
     lastKeyRef.current = key;
     lastAttemptedTrackRef.current = { id: spotifyId, title, artist };
+    intentionalPlayRef.current = false;
 
     const audio = audioRef.current;
     if (!audio) return;
@@ -202,6 +217,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
           durationMs: 0,
           externalUrl: null,
         });
+        intentionalPlayRef.current = true;
         await webPlayback.playTrack(uri);
         setLoading(false);
         return;
@@ -261,6 +277,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
 
   const seek = useCallback((time: number) => {
     if (playbackMode === 'sdk') {
+      setCurrentTime(time);
       webPlayback.seek(time * 1000);
       return;
     }

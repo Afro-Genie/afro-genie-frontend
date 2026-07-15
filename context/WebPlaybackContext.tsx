@@ -78,6 +78,7 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
   const tokenRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const eventLogRef = useRef<DiagnosticEvent[]>([]);
   const initStartTimeRef = useRef<number>(Date.now());
+  const timelineTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [isReady, setIsReady] = useState(false);
   const [deviceId, setDeviceId] = useState<string | null>(null);
@@ -324,11 +325,33 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
           setSdkError(null);
           refreshTokenPeriodically();
           snapshotDiagnostics({ readyEventFired: true, deviceIdAttached: true, playerCreated: true });
+
+          if (timelineTimerRef.current) clearInterval(timelineTimerRef.current);
+          timelineTimerRef.current = setInterval(async () => {
+            if (cancelled || !playerRef.current) {
+              if (timelineTimerRef.current) clearInterval(timelineTimerRef.current);
+              return;
+            }
+            try {
+              const state = await playerRef.current.getCurrentState();
+              if (state) {
+                setIsPlaying(!state.paused);
+                setCurrentTime(state.position);
+                setDuration(state.duration);
+              }
+            } catch {
+              // getCurrentState can throw if player is not connected
+            }
+          }, 1000);
         });
 
         player.addListener('not_ready', ({ device_id }) => {
           if (cancelled) return;
           pushEvent('not_ready', 'SDK not_ready event fired', { device_id });
+          if (timelineTimerRef.current) {
+            clearInterval(timelineTimerRef.current);
+            timelineTimerRef.current = null;
+          }
           setIsReady(false);
           setDeviceId(null);
           deviceIdRef.current = null;
@@ -451,6 +474,10 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
       if (pollTimer) clearTimeout(pollTimer);
+      if (timelineTimerRef.current) {
+        clearInterval(timelineTimerRef.current);
+        timelineTimerRef.current = null;
+      }
       if (tokenRefreshTimerRef.current) {
         clearInterval(tokenRefreshTimerRef.current);
         tokenRefreshTimerRef.current = null;
@@ -517,6 +544,7 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const seek = useCallback(async (positionMs: number) => {
+    setCurrentTime(positionMs);
     await playerRef.current?.seek(positionMs);
   }, []);
 
