@@ -165,17 +165,18 @@ const ArtistDetailPage: React.FC = () => {
     return null;
   }
 
-  // Use Spotify data if available, otherwise use database data
-  // Apply normalization to ensure all fields exist with safe defaults
+  // Use database data first (Last.fm enriched), fall back to Spotify
   const normalizedDb = normalizeArtistData(artist);
-  const displayImage = spotifyArtist?.images?.[0]?.url || normalizedDb.image || artist.image;
-  const displayGenres = spotifyArtist?.genres?.length
-    ? spotifyArtist.genres
-    : normalizedDb.genres?.length
-      ? normalizedDb.genres
-      : [normalizedDb.genre || artist.genre].filter(Boolean);
-  const displayPopularity = spotifyArtist?.popularity ?? normalizedDb.popularity ?? artist.popularity;
-  const displayFollowers = spotifyArtist?.followers?.total ?? normalizedDb.followers ?? artist.followers;
+  const dbImage = normalizedDb.image || artist.image;
+  const displayImage = dbImage || spotifyArtist?.images?.[0]?.url;
+  const dbGenres = normalizedDb.genres?.length
+    ? normalizedDb.genres
+    : [normalizedDb.genre || artist.genre].filter(Boolean);
+  const displayGenres = dbGenres.length > 0
+    ? dbGenres
+    : spotifyArtist?.genres || [];
+  const displayPopularity = normalizedDb.popularity || artist.popularity || (spotifyArtist?.popularity ?? 0);
+  const displayFollowers = normalizedDb.followers || artist.followers || (spotifyArtist?.followers?.total ?? 0);
   const displayBio = normalizedDb.bio || artist.bio || (spotifyArtist ? 'Information from Spotify' : '');
 
   return (
