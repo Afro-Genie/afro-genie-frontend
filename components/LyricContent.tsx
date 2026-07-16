@@ -32,7 +32,7 @@ const LyricContent: React.FC = () => {
     const [hoveredLine, setHoveredLine] = useState<number | null>(null);
     const [showTranslation, setShowTranslation] = useState<boolean>(false); // For toggle mode
     const [requestLoading, setRequestLoading] = useState(false);
-    const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+    const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
     const [translationLoading, setTranslationLoading] = useState(false);
     const [showLanguageSelector, setShowLanguageSelector] = useState(false);
     const [sourceLang, setSourceLang] = useState<string>('en');
@@ -482,19 +482,23 @@ const LyricContent: React.FC = () => {
             let resolvedTranslationId = requestResult?.translation?.id || null;
 
             if (!resolvedTranslationText && jobId) {
-                for (let attempt = 0; attempt < 15; attempt += 1) {
+                // Poll up to 90 attempts × 2s = 3 minutes for background AI translation
+                const MAX_POLL_ATTEMPTS = 90;
+                const POLL_INTERVAL_MS = 2000;
+
+                for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt += 1) {
                     let pollResult;
                     try {
                         pollResult = await authFetch('/api/translations/status/' + jobId);
                     } catch (pollError) {
                         // Polling failure is not fatal — retry on next attempt
-                        await sleep(2000);
+                        await sleep(POLL_INTERVAL_MS);
                         continue;
                     }
                     const jobState = String(pollResult?.state || pollResult?.status || '').toLowerCase();
 
                     if (jobState === 'failed' || jobState === 'error') {
-                        throw new Error(pollResult?.failedReason || pollResult?.error || 'Translation job failed');
+                        throw new Error(pollResult?.failedReason || pollResult?.error || 'Translation job failed after multiple attempts.');
                     }
 
                     // When job is completed, fetch the translation directly
@@ -512,12 +516,26 @@ const LyricContent: React.FC = () => {
                         if (resolvedTranslationText) break;
                     }
 
-                    await sleep(2000);
+                    // Still processing — show status update at progress milestones
+                    if (attempt === 15) {
+                        setNotification({
+                            message: 'Translation is still processing… this may take a minute for longer songs.',
+                            type: 'info'
+                        });
+                    }
+
+                    await sleep(POLL_INTERVAL_MS);
                 }
             }
 
             if (!resolvedTranslationText) {
-                throw new Error('Translation is taking longer than expected. Please try again in a moment.');
+                // Don't throw — show a non-error status so the user can retry later
+                setNotification({
+                    message: 'Translation is still being generated. Please check back in a few minutes.',
+                    type: 'info'
+                });
+                setTimeout(() => setNotification(null), 8000);
+                return;
             }
 
             setExistingTranslationId(resolvedTranslationId || existingTranslationId);
@@ -1412,11 +1430,15 @@ const LyricContent: React.FC = () => {
                 <div className="fixed top-4 right-4 left-4 md:left-auto md:right-4 z-50 max-w-md mx-auto md:mx-0 animate-slide-in-right">
                     <div className={`relative overflow-hidden rounded-2xl shadow-2xl border ${notification.type === 'success'
                         ? 'bg-gradient-to-br from-gray-800 to-gray-900 border-gray-600/50'
+                        : notification.type === 'info'
+                        ? 'bg-gradient-to-br from-gray-800 to-gray-900 border-blue-500/50'
                         : 'bg-gradient-to-br from-gray-900 to-gray-800 border-red-500/50'
                         } backdrop-blur-sm`}>
                         {/* Animated background gradient */}
                         <div className={`absolute inset-0 ${notification.type === 'success'
                             ? 'bg-gradient-to-r from-blue-500/10 via-green-500/10 to-blue-500/10'
+                            : notification.type === 'info'
+                            ? 'bg-gradient-to-r from-blue-500/10 via-cyan-500/10 to-blue-500/10'
                             : 'bg-gradient-to-r from-red-500/10 via-orange-500/10 to-red-500/10'
                             } animate-gradient-shift`}></div>
 
@@ -1424,15 +1446,19 @@ const LyricContent: React.FC = () => {
                         <div className="relative z-10 p-4 md:p-5">
                             <div className="flex items-start gap-4">
                                 {/* Icon */}
-                                <div className={`flex-shrink-0 relative ${notification.type === 'success' ? 'text-green-400' : 'text-red-400'
+                                <div className={`flex-shrink-0 relative ${notification.type === 'success' ? 'text-green-400' : notification.type === 'info' ? 'text-blue-400' : 'text-red-400'
                                     }`}>
-                                    <div className={`absolute inset-0 ${notification.type === 'success' ? 'bg-green-500/20' : 'bg-red-500/20'
+                                    <div className={`absolute inset-0 ${notification.type === 'success' ? 'bg-green-500/20' : notification.type === 'info' ? 'bg-blue-500/20' : 'bg-red-500/20'
                                         } rounded-full animate-ping`}></div>
-                                    <div className={`relative bg-gray-700/50 p-2 rounded-full border ${notification.type === 'success' ? 'border-green-500/30' : 'border-red-500/30'
+                                    <div className={`relative bg-gray-700/50 p-2 rounded-full border ${notification.type === 'success' ? 'border-green-500/30' : notification.type === 'info' ? 'border-blue-500/30' : 'border-red-500/30'
                                         }`}>
                                         {notification.type === 'success' ? (
                                             <svg className="w-5 h-5 md:w-6 md:h-6 animate-scale-in" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        ) : notification.type === 'info' ? (
+                                            <svg className="w-5 h-5 md:w-6 md:h-6 animate-scale-in" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                             </svg>
                                         ) : (
                                             <svg className="w-5 h-5 md:w-6 md:h-6 animate-scale-in" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1445,7 +1471,7 @@ const LyricContent: React.FC = () => {
                                 {/* Message */}
                                 <div className="flex-1 min-w-0">
                                     <p className="text-white font-semibold text-sm md:text-base mb-1">
-                                        {notification.type === 'success' ? 'Success!' : 'Error'}
+                                        {notification.type === 'success' ? 'Success!' : notification.type === 'info' ? 'Processing' : 'Error'}
                                     </p>
                                     <p className="text-gray-300 text-xs md:text-sm leading-relaxed">
                                         {notification.message}
@@ -1467,10 +1493,10 @@ const LyricContent: React.FC = () => {
                             {/* Progress bar */}
                             <div className="mt-3 h-1 bg-gray-700/50 rounded-full overflow-hidden">
                                 <div
-                                    className={`h-full ${notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'
+                                    className={`h-full ${notification.type === 'success' ? 'bg-green-500' : notification.type === 'info' ? 'bg-blue-500' : 'bg-red-500'
                                         }`}
                                     style={{
-                                        animation: `progress-bar ${notification.type === 'success' ? '4s' : '5s'} linear forwards`
+                                        animation: `progress-bar ${notification.type === 'success' ? '4s' : notification.type === 'info' ? '8s' : '5s'} linear forwards`
                                     }}
                                 ></div>
                             </div>
