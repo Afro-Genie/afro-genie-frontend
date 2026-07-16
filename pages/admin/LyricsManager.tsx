@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { SUPPORTED_LANGUAGES } from '../../constants';
 import {
   getAllTranslations,
   getAllSongs,
@@ -743,12 +744,9 @@ const LyricsManager: React.FC = () => {
                   onChange={(e) => setManualForm({ ...manualForm, sourceLang: e.target.value })}
                   className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
                 >
-                  <option value="en">English</option>
-                  <option value="yo">Yoruba</option>
-                  <option value="ig">Igbo</option>
-                  <option value="ha">Hausa</option>
-                  <option value="pidgin">Nigerian Pidgin</option>
-                  <option value="sw">Swahili</option>
+                  {SUPPORTED_LANGUAGES.filter(l => l.isActive).map(l => (
+                    <option key={l.code} value={l.code}>{l.name}</option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -758,10 +756,9 @@ const LyricsManager: React.FC = () => {
                   onChange={(e) => setManualForm({ ...manualForm, targetLang: e.target.value })}
                   className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
                 >
-                  <option value="en">English</option>
-                  <option value="fr">French</option>
-                  <option value="es">Spanish</option>
-                  <option value="pt">Portuguese</option>
+                  {SUPPORTED_LANGUAGES.filter(l => l.isActive).map(l => (
+                    <option key={l.code} value={l.code}>{l.name}</option>
+                  ))}
                 </select>
               </div>
             </div>

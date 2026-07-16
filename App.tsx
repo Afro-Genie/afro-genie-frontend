@@ -39,6 +39,7 @@ import AccountPage from './pages/AccountPage';
 import SpotifyLinkDialog from './components/SpotifyLinkDialog';
 import NowPlayingBar from './components/NowPlayingBar';
 import ScrollToTop from './components/ScrollToTop';
+import PlaybackDiagnosticPanel from './components/PlaybackDiagnosticPanel';
 
 function App() {
   return (
@@ -106,6 +107,7 @@ function App() {
           <Footer />
           </div>
         </HashRouter>
+        <PlaybackDiagnosticPanel />
         </AudioProvider>
       </WebPlaybackProvider>
     </AuthProvider>

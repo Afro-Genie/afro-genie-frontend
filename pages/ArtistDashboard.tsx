@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { SUPPORTED_LANGUAGES } from '../constants';
 import {
   getArtistSongs,
   addSongAsArtist,
@@ -443,12 +444,9 @@ const ArtistDashboard: React.FC = () => {
                     onChange={(e) => setLyricsForm(prev => ({ ...prev, sourceLang: e.target.value }))}
                     className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
                   >
-                    <option value="en">English</option>
-                    <option value="yo">Yoruba</option>
-                    <option value="ig">Igbo</option>
-                    <option value="ha">Hausa</option>
-                    <option value="sw">Swahili</option>
-                    <option value="zu">Zulu</option>
+                    {SUPPORTED_LANGUAGES.filter(l => l.isActive).map(l => (
+                      <option key={l.code} value={l.code}>{l.name}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -458,12 +456,9 @@ const ArtistDashboard: React.FC = () => {
                     onChange={(e) => setLyricsForm(prev => ({ ...prev, targetLang: e.target.value }))}
                     className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
                   >
-                    <option value="en">English</option>
-                    <option value="yo">Yoruba</option>
-                    <option value="ig">Igbo</option>
-                    <option value="ha">Hausa</option>
-                    <option value="sw">Swahili</option>
-                    <option value="zu">Zulu</option>
+                    {SUPPORTED_LANGUAGES.filter(l => l.isActive).map(l => (
+                      <option key={l.code} value={l.code}>{l.name}</option>
+                    ))}
                   </select>
                 </div>
               </div>

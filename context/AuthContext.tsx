@@ -1,7 +1,24 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { authApi, setTokens, clearTokens, getAccessToken, getRefreshToken, setAuthRefreshFn } from '../services/api';
-import { spotifyAuthService, SpotifyUserProfile, SpotifyTokenResponse } from '../services/spotifyAuthService';
-import { toApiUrl } from '../lib/apiBase';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+} from "react";
+import {
+  authApi,
+  setTokens,
+  clearTokens,
+  getAccessToken,
+  getRefreshToken,
+  setAuthRefreshFn,
+} from "../services/api";
+import {
+  spotifyAuthService,
+  SpotifyUserProfile,
+  SpotifyTokenResponse,
+} from "../services/spotifyAuthService";
+import { toApiUrl } from "../lib/apiBase";
 
 interface AuthUser {
   uid: string;
@@ -20,7 +37,7 @@ interface UserProfile {
   email: string | null;
   displayName: string | null;
   photoURL: string | null;
-  role: 'user' | 'admin' | 'moderator' | 'artist';
+  role: "user" | "admin" | "moderator" | "artist";
   spotifyId?: string | null;
   spotifyProduct?: string | null;
   createdAt?: any;
@@ -47,16 +64,16 @@ interface UserProfile {
   };
 }
 
-type BackendRole = 'USER' | 'ADMIN' | 'ARTIST' | 'MODERATOR';
+type BackendRole = "USER" | "ADMIN" | "ARTIST" | "MODERATOR";
 
-const mapRole = (role: string): 'user' | 'admin' | 'moderator' | 'artist' => {
-  const mapping: Record<string, 'user' | 'admin' | 'moderator' | 'artist'> = {
-    USER: 'user',
-    ADMIN: 'admin',
-    MODERATOR: 'moderator',
-    ARTIST: 'artist',
+const mapRole = (role: string): "user" | "admin" | "moderator" | "artist" => {
+  const mapping: Record<string, "user" | "admin" | "moderator" | "artist"> = {
+    USER: "user",
+    ADMIN: "admin",
+    MODERATOR: "moderator",
+    ARTIST: "artist",
   };
-  return mapping[role] || 'user';
+  return mapping[role] || "user";
 };
 
 interface AuthContextType {
@@ -64,21 +81,29 @@ interface AuthContextType {
   userProfile: UserProfile | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, displayName: string) => Promise<void>;
-  signUpAsArtist: (email: string, password: string, artistData: {
-    stageName: string;
-    genre: string;
-    bio: string;
-    location?: string;
-    website?: string;
-    socialLinks?: {
-      instagram?: string;
-      twitter?: string;
-      facebook?: string;
-      youtube?: string;
-    };
-    photoURL?: string;
-  }) => Promise<void>;
+  signUp: (
+    email: string,
+    password: string,
+    displayName: string,
+  ) => Promise<void>;
+  signUpAsArtist: (
+    email: string,
+    password: string,
+    artistData: {
+      stageName: string;
+      genre: string;
+      bio: string;
+      location?: string;
+      website?: string;
+      socialLinks?: {
+        instagram?: string;
+        twitter?: string;
+        facebook?: string;
+        youtube?: string;
+      };
+      photoURL?: string;
+    },
+  ) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signInWithSpotify: () => Promise<void>;
   signInAnonymously: () => Promise<void>;
@@ -95,12 +120,19 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 };
 
-const buildUser = (data: { id: string; email: string; displayName: string; role: string; spotifyId?: string | null; spotifyProduct?: string | null }): AuthUser => ({
+const buildUser = (data: {
+  id: string;
+  email: string;
+  displayName: string;
+  role: string;
+  spotifyId?: string | null;
+  spotifyProduct?: string | null;
+}): AuthUser => ({
   uid: data.id,
   id: data.id,
   email: data.email,
@@ -111,7 +143,14 @@ const buildUser = (data: { id: string; email: string; displayName: string; role:
   spotifyProduct: data.spotifyProduct ?? null,
 });
 
-const buildProfile = (data: { id: string; email: string; displayName: string; role: string; spotifyId?: string | null; spotifyProduct?: string | null }): UserProfile => ({
+const buildProfile = (data: {
+  id: string;
+  email: string;
+  displayName: string;
+  role: string;
+  spotifyId?: string | null;
+  spotifyProduct?: string | null;
+}): UserProfile => ({
   uid: data.id,
   id: data.id,
   email: data.email,
@@ -122,20 +161,31 @@ const buildProfile = (data: { id: string; email: string; displayName: string; ro
   spotifyProduct: data.spotifyProduct ?? null,
 });
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const initFromAuthResult = useCallback((authResult: {
-    user: { id: string; email: string; displayName: string; role: string; spotifyProduct?: string | null };
-    accessToken: string;
-    refreshToken: string;
-  }) => {
-    setTokens(authResult.accessToken, authResult.refreshToken);
-    setUser(buildUser(authResult.user));
-    setUserProfile(buildProfile(authResult.user));
-  }, []);
+  const initFromAuthResult = useCallback(
+    (authResult: {
+      user: {
+        id: string;
+        email: string;
+        displayName: string;
+        role: string;
+        spotifyProduct?: string | null;
+      };
+      accessToken: string;
+      refreshToken: string;
+    }) => {
+      setTokens(authResult.accessToken, authResult.refreshToken);
+      setUser(buildUser(authResult.user));
+      setUserProfile(buildProfile(authResult.user));
+    },
+    [],
+  );
 
   // Inject the token refresh function into api.ts so all API helpers
   // (songsApi, artistsApi, etc.) use the same refresh logic as authFetch.
@@ -152,7 +202,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         clearTokens();
         setUser(null);
         setUserProfile(null);
-        window.dispatchEvent(new Event('auth:expired'));
+        window.dispatchEvent(new Event("auth:expired"));
         return false;
       }
     });
@@ -165,81 +215,152 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const params = new URLSearchParams(window.location.search);
 
-        const accessTokenParam = params.get('accessToken');
-        const refreshTokenParam = params.get('refreshToken');
-        const userId = params.get('userId');
-        const email = params.get('email');
-        const displayName = params.get('displayName');
-        const role = params.get('role');
+        const accessTokenParam = params.get("accessToken");
+        const refreshTokenParam = params.get("refreshToken");
+        const userId = params.get("userId");
+        const email = params.get("email");
+        const displayName = params.get("displayName");
+        const role = params.get("role");
 
         if (accessTokenParam && refreshTokenParam && userId) {
           setTokens(accessTokenParam, refreshTokenParam);
-          const authUser = { id: userId, email: email || '', displayName: displayName || email?.split('@')[0] || 'User', role: role || 'USER' };
+          const authUser = {
+            id: userId,
+            email: email || "",
+            displayName: displayName || email?.split("@")[0] || "User",
+            role: role || "USER",
+          };
           setUser(buildUser(authUser));
           setUserProfile(buildProfile(authUser));
-          window.history.replaceState({}, document.title, window.location.origin + '/');
+          window.history.replaceState(
+            {},
+            document.title,
+            window.location.origin + "/",
+          );
           setLoading(false);
           return;
         }
 
-        const spotifyCode = params.get('code');
-        const spotifyState = params.get('state');
-        const spotifyError = params.get('error');
-        const spotifyErrorDesc = params.get('error_description');
+        const spotifyCode = params.get("code");
+        const spotifyState = params.get("state");
+        const spotifyError = params.get("error");
+        const spotifyErrorDesc = params.get("error_description");
 
         if (spotifyError) {
-          console.error('[Auth] Spotify OAuth error:', spotifyError, spotifyErrorDesc);
-          window.history.replaceState({}, document.title, window.location.origin + '/');
+          console.error(
+            "[Auth] Spotify OAuth error:",
+            spotifyError,
+            spotifyErrorDesc,
+          );
+          window.history.replaceState(
+            {},
+            document.title,
+            window.location.origin + "/",
+          );
           setLoading(false);
           return;
         }
 
         if (spotifyCode) {
           // Clear URL immediately to prevent StrictMode double-exchange
-          window.history.replaceState({}, document.title, window.location.origin + '/');
+          window.history.replaceState(
+            {},
+            document.title,
+            window.location.origin + "/",
+          );
 
-          console.log('[Auth] Spotify OAuth callback received, exchanging code...');
+          console.log(
+            "[Auth] Spotify OAuth callback received, exchanging code...",
+          );
           try {
-            const spotifyAuthResult = await spotifyAuthService.exchangeCodeForToken(spotifyCode, spotifyState);
+            const spotifyAuthResult =
+              await spotifyAuthService.exchangeCodeForToken(
+                spotifyCode,
+                spotifyState,
+              );
             spotifyAuthService.storeTokens(spotifyAuthResult);
 
-            const isLinkAction = spotifyAuthResult.stateData?.action === 'link';
+            const isLinkAction = spotifyAuthResult.stateData?.action === "link";
 
             if (isLinkAction) {
               // Link flow: user is already logged in, just link the Spotify account
-              console.log('[Auth] Spotify link flow...');
+              console.log("[Auth] Spotify link flow...");
               try {
-                const linkResult = await authApi.linkSpotify(spotifyAuthResult.access_token);
-                setUser((prev) => prev ? { ...prev, spotifyId: 'linked', spotifyProduct: linkResult.spotifyProduct } : prev);
-                setUserProfile((prev) => prev ? { ...prev, spotifyId: 'linked', spotifyProduct: linkResult.spotifyProduct } : prev);
-                console.log('[Auth] Spotify account linked successfully');
+                const linkResult = await authApi.linkSpotify(
+                  spotifyAuthResult.access_token,
+                );
+                setUser((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        spotifyId: "linked",
+                        spotifyProduct: linkResult.spotifyProduct,
+                      }
+                    : prev,
+                );
+                setUserProfile((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        spotifyId: "linked",
+                        spotifyProduct: linkResult.spotifyProduct,
+                      }
+                    : prev,
+                );
+                console.log("[Auth] Spotify account linked successfully");
               } catch (linkErr) {
-                console.error('[Auth] Spotify link error:', linkErr);
+                console.error("[Auth] Spotify link error:", linkErr);
               }
             } else {
               // Normal sign-in flow
-              console.log('[Auth] Spotify sign-in flow, calling backend...');
-              const authResult = await authApi.signInWithSpotify(spotifyAuthResult.access_token);
+              console.log("[Auth] Spotify sign-in flow, calling backend...");
+              const authResult = await authApi.signInWithSpotify(
+                spotifyAuthResult.access_token,
+              );
               initFromAuthResult(authResult);
-              console.log('[Auth] Spotify sign-in successful, user:', authResult.user.email);
+              console.log(
+                "[Auth] Spotify sign-in successful, user:",
+                authResult.user.email,
+              );
             }
 
-            const redirectAfterAuth = sessionStorage.getItem('spotify_redirect_after_auth');
-            sessionStorage.removeItem('spotify_redirect_after_auth');
+            const redirectAfterAuth = sessionStorage.getItem(
+              "spotify_redirect_after_auth",
+            );
+            sessionStorage.removeItem("spotify_redirect_after_auth");
 
             if (redirectAfterAuth) {
-              const targetUrl = new URL(redirectAfterAuth, window.location.origin);
-              if (targetUrl.origin === window.location.origin) {
-                window.location.replace(targetUrl.toString());
-                return;
+              try {
+                const targetUrl = new URL(
+                  redirectAfterAuth,
+                  window.location.origin,
+                );
+                if (
+                  (targetUrl.protocol === "https:" ||
+                    targetUrl.protocol === "http:") &&
+                  targetUrl.origin === window.location.origin
+                ) {
+                  window.location.replace(targetUrl.toString());
+                  return;
+                }
+              } catch {
+                // Invalid URL — ignore and fall through
               }
             }
           } catch (err: any) {
-            console.error('[Auth] Spotify auth callback error:', err?.message || err);
+            console.error(
+              "[Auth] Spotify auth callback error:",
+              err?.message || err,
+            );
             // Show user-friendly error for common issues
-            if (err?.message?.includes('Redirect URI mismatch')) {
-              console.error('[Auth] REDIRECT URI MISMATCH — Check that your Spotify Developer Dashboard has the correct URI registered.');
-              console.error('[Auth] Expected redirect URI:', spotifyAuthService.getRedirectUri());
+            if (err?.message?.includes("Redirect URI mismatch")) {
+              console.error(
+                "[Auth] REDIRECT URI MISMATCH — Check that your Spotify Developer Dashboard has the correct URI registered.",
+              );
+              console.error(
+                "[Auth] Expected redirect URI:",
+                spotifyAuthService.getRedirectUri(),
+              );
             }
           }
           setLoading(false);
@@ -264,7 +385,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     init();
   }, [initFromAuthResult]);
 
-  // Sync Spotify premium status on mount and when token refreshes
+  // Sync Spotify premium status on mount, when token refreshes, and when
+  // the SDK signals a token refresh (via custom event from WebPlaybackContext).
   useEffect(() => {
     if (!userProfile?.id) return;
 
@@ -278,8 +400,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const result = await spotifyAuthService.refreshAndFetchProduct();
           await authApi.syncSpotifyProduct(result.accessToken).catch(() => {});
           if (result.product !== undefined) {
-            setUserProfile((prev) => prev ? { ...prev, spotifyProduct: result.product } : prev);
-            setUser((prev) => prev ? { ...prev, spotifyProduct: result.product } : prev);
+            setUserProfile((prev) =>
+              prev ? { ...prev, spotifyProduct: result.product } : prev,
+            );
+            setUser((prev) =>
+              prev ? { ...prev, spotifyProduct: result.product } : prev,
+            );
           }
         } catch {
           // Non-fatal: premium status will be re-checked on next login
@@ -295,31 +421,62 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     syncSpotify();
+
+    // Re-check product when the SDK signals a token refresh
+    const onSdkTokenRefreshed = () => {
+      const token = spotifyAuthService.getStoredAccessToken();
+      if (!token) return;
+      spotifyAuthService.getUserProfile(token)
+        .then((profile) => {
+          const product = profile.product ?? null;
+          setUserProfile((prev) =>
+            prev ? { ...prev, spotifyProduct: product } : prev,
+          );
+          setUser((prev) =>
+            prev ? { ...prev, spotifyProduct: product } : prev,
+          );
+          // Persist to backend so the server-side product status stays in sync
+          authApi.syncSpotifyProduct(token).catch(() => {});
+        })
+        .catch(() => {});
+    };
+
+    window.addEventListener('spotify:token-refreshed', onSdkTokenRefreshed);
+    return () => window.removeEventListener('spotify:token-refreshed', onSdkTokenRefreshed);
   }, [userProfile?.id]);
 
   // Periodic re-check of Spotify premium status (every 30 min)
   useEffect(() => {
     if (!userProfile?.id) return;
 
-    const interval = setInterval(async () => {
-      const spotifyToken = spotifyAuthService.getStoredAccessToken();
-      if (!spotifyToken) return;
+    const interval = setInterval(
+      async () => {
+        const spotifyToken = spotifyAuthService.getStoredAccessToken();
+        if (!spotifyToken) return;
 
-      try {
-        if (spotifyAuthService.isTokenExpiringSoon()) {
-          const result = await spotifyAuthService.refreshAndFetchProduct();
-          await authApi.syncSpotifyProduct(result.accessToken).catch(() => {});
-          if (result.product !== undefined) {
-            setUserProfile((prev) => prev ? { ...prev, spotifyProduct: result.product } : prev);
-            setUser((prev) => prev ? { ...prev, spotifyProduct: result.product } : prev);
+        try {
+          if (spotifyAuthService.isTokenExpiringSoon()) {
+            const result = await spotifyAuthService.refreshAndFetchProduct();
+            await authApi
+              .syncSpotifyProduct(result.accessToken)
+              .catch(() => {});
+            if (result.product !== undefined) {
+              setUserProfile((prev) =>
+                prev ? { ...prev, spotifyProduct: result.product } : prev,
+              );
+              setUser((prev) =>
+                prev ? { ...prev, spotifyProduct: result.product } : prev,
+              );
+            }
+          } else {
+            await authApi.syncSpotifyProduct(spotifyToken);
           }
-        } else {
-          await authApi.syncSpotifyProduct(spotifyToken);
+        } catch {
+          // Non-fatal
         }
-      } catch {
-        // Non-fatal
-      }
-    }, 30 * 60 * 1000);
+      },
+      30 * 60 * 1000,
+    );
 
     return () => clearInterval(interval);
   }, [userProfile?.id]);
@@ -329,7 +486,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initFromAuthResult(result);
   };
 
-  const signUp = async (email: string, password: string, displayName: string) => {
+  const signUp = async (
+    email: string,
+    password: string,
+    displayName: string,
+  ) => {
     const result = await authApi.register(email, password, displayName);
     initFromAuthResult(result);
   };
@@ -350,7 +511,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         youtube?: string;
       };
       photoURL?: string;
-    }
+    },
   ) => {
     const result = await authApi.registerArtist({
       email,
@@ -373,17 +534,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signInWithSpotify = async () => {
     try {
       const { url } = await spotifyAuthService.getAuthorizationUrl();
-      sessionStorage.setItem('spotify_redirect_after_auth', window.location.href);
-      window.location.href = url;
+      const currentUrl = new URL(window.location.href);
+      if (currentUrl.protocol === "https:" || currentUrl.protocol === "http:") {
+        sessionStorage.setItem(
+          "spotify_redirect_after_auth",
+          currentUrl.toString(),
+        );
+      }
+      const parsedUrl = new URL(url);
+      if (parsedUrl.protocol === "https:" || parsedUrl.protocol === "http:") {
+        window.location.href = url;
+      }
     } catch (error) {
-      console.error('Spotify sign in error:', error);
+      console.error("Spotify sign in error:", error);
       throw error;
     }
   };
 
   const signInAnonymously = async () => {
-    console.warn('Anonymous sign-in is not available with the current backend');
-    throw new Error('Anonymous sign-in is not available');
+    console.warn("Anonymous sign-in is not available with the current backend");
+    throw new Error("Anonymous sign-in is not available");
   };
 
   const logout = async () => {
@@ -405,13 +575,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ...(options.headers as Record<string, string>),
       };
 
-      if (options.body && !nextHeaders['Content-Type']) {
-        nextHeaders['Content-Type'] = 'application/json';
+      if (options.body && !nextHeaders["Content-Type"]) {
+        nextHeaders["Content-Type"] = "application/json";
       }
 
       const token = getAccessToken();
       if (token) {
-        nextHeaders['Authorization'] = `Bearer ${token}`;
+        nextHeaders["Authorization"] = `Bearer ${token}`;
       }
 
       return nextHeaders;
@@ -440,8 +610,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         clearTokens();
         setUser(null);
         setUserProfile(null);
-        window.dispatchEvent(new Event('auth:expired'));
-        throw new Error('Session expired. Please sign in again.');
+        window.dispatchEvent(new Event("auth:expired"));
+        throw new Error("Session expired. Please sign in again.");
       }
 
       headers = buildHeaders();
@@ -452,8 +622,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     if (!res.ok) {
-      const body = await res.json().catch(() => ({ error: 'Request failed' }));
-      throw new Error(body.error || body.message || 'Request failed');
+      const body = await res.json().catch(() => ({ error: "Request failed" }));
+      const sanitize = (val: unknown) =>
+        typeof val === "string" ? val.replace(/[<>"'`]/g, "") : "Request failed";
+      throw new Error(sanitize(body.error) || sanitize(body.message) || "Request failed");
     }
 
     if (res.status === 204) {
@@ -463,9 +635,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return res.json();
   };
 
-  const isAdmin = userProfile?.role === 'admin';
-  const isArtist = userProfile?.role === 'artist';
-  const isSpotifyPremium = userProfile?.spotifyProduct === 'premium';
+  const isAdmin = userProfile?.role === "admin";
+  const isArtist = userProfile?.role === "artist";
+  const isSpotifyPremium = userProfile?.spotifyProduct === "premium";
 
   const refreshSpotifyProduct = useCallback(async () => {
     const spotifyToken = spotifyAuthService.getStoredAccessToken();
@@ -473,8 +645,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       const result = await authApi.syncSpotifyProduct(spotifyToken);
-      setUserProfile((prev) => prev ? { ...prev, spotifyProduct: result.spotifyProduct } : prev);
-      setUser((prev) => prev ? { ...prev, spotifyProduct: result.spotifyProduct } : prev);
+      setUserProfile((prev) =>
+        prev ? { ...prev, spotifyProduct: result.spotifyProduct } : prev,
+      );
+      setUser((prev) =>
+        prev ? { ...prev, spotifyProduct: result.spotifyProduct } : prev,
+      );
     } catch {
       // Non-fatal: premium status will be re-checked on next login
     }

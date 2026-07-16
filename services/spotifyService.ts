@@ -64,6 +64,70 @@ class SpotifyService {
   private static cooldownUntil = 0;
   private inflightRequests = new Map<string, Promise<unknown>>();
 
+  // Track result cache: caches resolved SpotifyTrackSummary by track ID.
+  // Avoids re-fetching the same track metadata from the API on repeated loads.
+  private trackCache = new Map<string, SpotifyTrackSummary>();
+  // Null-preview set: tracks known to have preview_url === null.
+  // Prevents repeated API calls for tracks that are confirmed un-previewable.
+  private nullPreviewIds = new Set<string>();
+  // Cache TTL: 10 minutes
+  private static readonly CACHE_TTL_MS = 10 * 60 * 1000;
+  private cacheTimestamps = new Map<string, number>();
+
+  private isCacheValid(key: string): boolean {
+    const ts = this.cacheTimestamps.get(key);
+    if (!ts) return false;
+    return Date.now() - ts < SpotifyService.CACHE_TTL_MS;
+  }
+
+  private setCache(key: string, value: SpotifyTrackSummary): void {
+    // Evict oldest entries when cache exceeds 200 tracks
+    if (this.trackCache.size >= 200) {
+      const oldestKey = this.cacheTimestamps.keys().next().value;
+      if (oldestKey) {
+        this.trackCache.delete(oldestKey);
+        this.cacheTimestamps.delete(oldestKey);
+        this.nullPreviewIds.delete(oldestKey);
+      }
+    }
+    this.trackCache.set(key, value);
+    this.cacheTimestamps.set(key, Date.now());
+    if (value.previewUrl === null) {
+      this.nullPreviewIds.add(key);
+    }
+  }
+
+  private getCachedTrack(trackId: string): SpotifyTrackSummary | undefined {
+    if (this.isCacheValid(trackId)) {
+      return this.trackCache.get(trackId);
+    }
+    // Expired — evict
+    this.trackCache.delete(trackId);
+    this.cacheTimestamps.delete(trackId);
+    this.nullPreviewIds.delete(trackId);
+    return undefined;
+  }
+
+  /** Returns true if we already know this track has no preview URL. */
+  isKnownNoPreview(trackId: string): boolean {
+    return this.nullPreviewIds.has(trackId);
+  }
+
+  /** Returns cache diagnostics for the playback diagnostic panel. */
+  getCacheStats(): { cachedTracks: number; nullPreviewTracks: number } {
+    return {
+      cachedTracks: this.trackCache.size,
+      nullPreviewTracks: this.nullPreviewIds.size,
+    };
+  }
+
+  /** Clears all cached track data. Useful after sync operations or manual refresh. */
+  clearCache(): void {
+    this.trackCache.clear();
+    this.cacheTimestamps.clear();
+    this.nullPreviewIds.clear();
+  }
+
   private async waitForCooldown(): Promise<void> {
     const now = Date.now();
     if (now < SpotifyService.cooldownUntil) {
@@ -219,17 +283,25 @@ class SpotifyService {
   }
 
   /**
-   * Get track details by ID
+   * Get track details by ID — with local cache.
+   * Caches both positive results (track found) and negative results (null preview).
+   * Returns cached data immediately when available, avoiding redundant API calls.
    */
   async getTrack(trackId: string): Promise<SpotifyTrackSummary> {
+    const cached = this.getCachedTrack(trackId);
+    if (cached) return cached;
+
+    let track: SpotifyTrackSummary;
     try {
-      const track = await this.spotifyGet<SpotifyTrackSummary>(`/spotify/track/${encodeURIComponent(trackId)}`);
-      return track;
+      track = await this.spotifyGet<SpotifyTrackSummary>(`/spotify/track/${encodeURIComponent(trackId)}`);
     } catch (err: any) {
       if (err?.status === 429 || err?.code === 'RATE_LIMITED') throw err;
       const raw = await this.directSpotifyGet<SpotifyTrack>(`/tracks/${encodeURIComponent(trackId)}`);
-      return this.mapRawTrackToSummary(raw);
+      track = this.mapRawTrackToSummary(raw);
     }
+
+    this.setCache(trackId, track);
+    return track;
   }
 
   /**
@@ -264,7 +336,8 @@ class SpotifyService {
 
   private async getBestTrackSummary(
     trackIds: string[],
-    requirePreview: boolean
+    requirePreview: boolean,
+    lookupBudget?: { remaining: { value: number } }
   ): Promise<SpotifyTrackSummary | null> {
     let firstResolved: SpotifyTrackSummary | null = null;
 
@@ -273,7 +346,18 @@ class SpotifyService {
         continue;
       }
 
+      // Respect the global lookup budget
+      if (lookupBudget && lookupBudget.remaining.value <= 0) {
+        break;
+      }
+
+      // When requiring a preview, skip tracks we already know have no preview
+      if (requirePreview && this.isKnownNoPreview(trackId)) {
+        continue;
+      }
+
       try {
+        if (lookupBudget) lookupBudget.remaining.value--;
         const track = await this.getTrack(trackId);
         if (!firstResolved) {
           firstResolved = track;
@@ -301,6 +385,12 @@ class SpotifyService {
     options?: { requirePreview?: boolean }
   ): Promise<SpotifyTrackSummary | null> {
     const requirePreview = options?.requirePreview ?? false;
+
+    // Hard cap on total getTrack() calls across all queries to stay within
+    // Spotify API limits and avoid excessive billing on the proxy.
+    const MAX_TRACK_LOOKUPS = 10;
+    const lookupBudget = { remaining: { value: MAX_TRACK_LOOKUPS } };
+
     const queries = [
       `artist:${artist} track:${title}`,
       `${artist} ${title}`,
@@ -308,6 +398,8 @@ class SpotifyService {
     ];
 
     for (const query of queries) {
+      if (lookupBudget.remaining.value <= 0) break;
+
       const tracks = await this.searchTracks(query, 10);
       const candidateIds = tracks
         .map((track) => track.id)
@@ -317,7 +409,7 @@ class SpotifyService {
         continue;
       }
 
-      const best = await this.getBestTrackSummary(candidateIds, requirePreview);
+      const best = await this.getBestTrackSummary(candidateIds, requirePreview, lookupBudget);
       if (best) {
         return best;
       }

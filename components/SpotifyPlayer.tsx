@@ -27,10 +27,15 @@ const SpotifyPlayer: React.FC<SpotifyPlayerProps> = ({ title, artist, spotifyId,
     duration,
     loading,
     playbackMode,
+    sdkPending,
+    sdkPlaybackFailed,
+    sdkPlaybackError,
     loadTrack,
     loadTrackById,
     togglePlayPause,
     seek,
+    retryPlayback,
+    retrySdkPlayback,
   } = useAudioPlayer();
 
   const { isSpotifyPremium, user } = useAuth();
@@ -82,7 +87,15 @@ const SpotifyPlayer: React.FC<SpotifyPlayerProps> = ({ title, artist, spotifyId,
     const isVerySlow = loadingElapsed >= 12;
 
     return (
-      <div className={wrapperClass}>
+      <div
+        className={wrapperClass}
+        data-testid="spotify-player-loading"
+        data-loading-elapsed={loadingElapsed}
+        data-is-premium={isSpotifyPremium}
+        data-sdk-ready={webPlayback.isReady}
+        data-sdk-error={sdkError ?? ''}
+        data-device-id={webPlayback.deviceId ?? ''}
+      >
         <div className="mb-3">
           <h3 className="text-sm md:text-base font-bold text-white mb-1 truncate">{title}</h3>
           <p className="text-gray-300 text-xs md:text-sm truncate">{artist}</p>
@@ -94,7 +107,9 @@ const SpotifyPlayer: React.FC<SpotifyPlayerProps> = ({ title, artist, spotifyId,
               Taking longer than expected.
             </p>
             <p className="text-[11px] text-gray-400 leading-tight">
-              This may be due to high demand on Spotify's servers. The player will connect automatically once ready.
+              {isSpotifyPremium
+                ? 'Still waiting for the Spotify player to connect. This usually resolves within a few more seconds.'
+                : 'This may be due to high demand on Spotify\'s servers. The player will connect automatically once ready.'}
             </p>
             <button
               type="button"
@@ -146,7 +161,14 @@ const SpotifyPlayer: React.FC<SpotifyPlayerProps> = ({ title, artist, spotifyId,
   const isSdkMode = playbackMode === 'sdk';
 
   return (
-    <div className={wrapperClass}>
+    <div
+      className={wrapperClass}
+      data-testid="spotify-player-active"
+      data-playback-mode={isSdkMode ? 'sdk' : 'preview'}
+      data-is-premium={isSpotifyPremium}
+      data-sdk-ready={webPlayback.isReady}
+      data-device-id={webPlayback.deviceId ?? ''}
+    >
       <div className="mb-3">
         <h3 className="text-sm md:text-base font-bold text-white mb-1 truncate">{trackName}</h3>
         <p className="text-gray-300 text-xs md:text-sm truncate">{trackArtist}</p>
@@ -202,61 +224,115 @@ const SpotifyPlayer: React.FC<SpotifyPlayerProps> = ({ title, artist, spotifyId,
           </div>
         </>
       ) : !hasPreview ? (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              disabled
-              className="rounded-md bg-gray-700 px-3 py-1.5 text-xs font-semibold text-gray-400 cursor-not-allowed"
-            >
-              Play
-            </button>
-          </div>
+        <div className="space-y-3">
+          {user && isSpotifyPremium && sdkPlaybackFailed && (
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-700/40">
+                <span className="text-red-400 text-sm" aria-hidden="true">!</span>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-red-300">Full track playback failed</p>
+                <p className="text-[11px] text-gray-500 leading-tight">
+                  {sdkPlaybackError || 'Could not start playback on Spotify.'}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {!(user && isSpotifyPremium && sdkPlaybackFailed) && (
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-700/60">
+                <span className="text-gray-400 text-sm" aria-hidden="true">&#9834;</span>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-gray-300">Playback unavailable</p>
+                <p className="text-[11px] text-gray-500 leading-tight">
+                  No audio preview or stream available for this track.
+                </p>
+              </div>
+            </div>
+          )}
+
           {user && isSpotifyPremium && sdkError && (
-            <div className="space-y-1">
-              <p className="text-[11px] text-red-400 leading-tight">{sdkError}</p>
-              <p className="text-[11px] text-gray-500 leading-tight">
-                Try signing out and signing back in with Spotify, or check your Premium subscription.
+            <div className="rounded-md bg-red-900/20 border border-red-800/30 p-2 space-y-1">
+              <p className="text-[11px] text-red-400 leading-tight font-medium">{sdkError}</p>
+              <p className="text-[11px] text-gray-400 leading-tight">
+                Try signing out and signing back in, or check your Premium subscription.
               </p>
             </div>
           )}
+
+          {user && isSpotifyPremium && sdkPlaybackFailed && !sdkError && (
+            <div className="rounded-md bg-red-900/20 border border-red-800/30 p-2 space-y-1.5">
+              <p className="text-[11px] text-red-400 leading-tight font-medium">
+                {sdkPlaybackError || 'Spotify playback request failed.'}
+              </p>
+              <p className="text-[11px] text-gray-400 leading-tight">
+                Make sure Spotify is open and try again.
+              </p>
+              <button
+                type="button"
+                onClick={retrySdkPlayback}
+                className="text-[11px] text-green-400 hover:text-green-300 leading-tight underline transition-colors"
+              >
+                Retry full track playback
+              </button>
+            </div>
+          )}
+
           {user && isSpotifyPremium && !sdkError && !webPlayback.isReady && (
-            <p className="text-[11px] text-green-400 leading-tight">
-              Connecting to Spotify player...
-            </p>
+            <div className="rounded-md bg-green-900/20 border border-green-800/30 p-2">
+              <p className="text-[11px] text-green-400 leading-tight">
+                {sdkPending
+                  ? 'Waiting for Spotify player to connect — full track playback will start automatically.'
+                  : 'Connecting to Spotify player — full track playback will activate once ready.'}
+              </p>
+            </div>
           )}
+
           {user && isSpotifyPremium && !sdkError && webPlayback.isReady && (
-            <p className="text-[11px] text-gray-500 leading-tight">
-              Full track unavailable for this song
-            </p>
-          )}
-          {user && !isSpotifyPremium && (
-            <>
+            <div className="space-y-1.5">
               <p className="text-[11px] text-gray-500 leading-tight">
-                Preview unavailable for this track
+                Full track streaming is not available for this song on Spotify.
+              </p>
+              <button
+                type="button"
+                onClick={retryPlayback}
+                className="text-[11px] text-gray-400 hover:text-gray-300 leading-tight underline transition-colors"
+              >
+                Try again
+              </button>
+            </div>
+          )}
+
+          {user && !isSpotifyPremium && (
+            <div className="rounded-md bg-gray-700/30 border border-gray-600/30 p-2 space-y-1.5">
+              <p className="text-[11px] text-gray-400 leading-tight">
+                Spotify previews are not available for this track. Connect Spotify Premium to stream full tracks.
               </p>
               <button
                 type="button"
                 onClick={() => window.dispatchEvent(new CustomEvent('spotify-link-dialog:open'))}
                 className="text-[11px] text-green-400 hover:text-green-300 leading-tight underline transition-colors"
               >
-                Connect Spotify Premium for full playback
+                Connect Spotify Premium
               </button>
-            </>
+            </div>
           )}
+
           {!user && (
-            <>
-              <p className="text-[11px] text-gray-500 leading-tight">
-                Preview unavailable for this track
+            <div className="rounded-md bg-gray-700/30 border border-gray-600/30 p-2 space-y-1.5">
+              <p className="text-[11px] text-gray-400 leading-tight">
+                Sign in to access full playback and track previews.
               </p>
               <button
                 type="button"
                 onClick={() => window.dispatchEvent(new CustomEvent('login-modal:open'))}
                 className="text-[11px] text-green-400 hover:text-green-300 leading-tight underline transition-colors"
               >
-                Sign in with Spotify to play full tracks
+                Sign in with Spotify
               </button>
-            </>
+            </div>
           )}
         </div>
       ) : (

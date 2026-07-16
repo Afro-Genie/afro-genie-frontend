@@ -57,7 +57,9 @@ interface SpotifyTrack {
 
 interface Window {
   Spotify: {
-    new (options: SpotifyPlayerOptions): SpotifyPlayer;
+    Player: {
+      new (options: SpotifyPlayerOptions): SpotifyPlayer;
+    };
   };
   onSpotifyWebPlaybackSDKReady?: () => void;
 }

@@ -203,6 +203,21 @@ export const deleteGenre = async (genreId: string) => {
 
 // Translation Operations
 export const saveTranslation = async (translation: Omit<Translation, 'id' | 'createdAt' | 'updatedAt'>) => {
+  // If translated lyrics are already provided, persist directly without queuing AI
+  if (translation.translatedLyrics && translation.translatedLyrics.trim().length > 0) {
+    const result = await translationsApi.directSave({
+      songId: translation.songId,
+      originalLyrics: translation.originalLyrics || '',
+      translatedLyrics: translation.translatedLyrics,
+      sourceLang: translation.sourceLang,
+      targetLang: translation.targetLang,
+      culturalContext: translation.culturalContext || '',
+      status: (translation.status || 'approved').toUpperCase(),
+    });
+    return result.translation?.id || 'saved';
+  }
+
+  // Otherwise queue an AI translation job
   const result = await translationsApi.request(translation.songId, translation.sourceLang, translation.targetLang);
   return result.translation?.id || result.jobId || 'stub-id';
 };
@@ -240,7 +255,10 @@ export const getAllTranslations = async (
           if (Array.isArray(group)) all.push(...group);
         });
       }
-      return all;
+      return all.map(t => ({
+        ...t,
+        status: (t.status || 'pending').toLowerCase() as Translation['status'],
+      }));
     } catch {
       return [];
     }
@@ -258,7 +276,10 @@ export const getTranslationsForSong = async (songId: string) => {
         if (Array.isArray(group)) all.push(...group);
       });
     }
-    return all;
+    return all.map(t => ({
+      ...t,
+      status: (t.status || 'pending').toLowerCase() as Translation['status'],
+    }));
   } catch {
     return [];
   }
@@ -268,7 +289,9 @@ export const updateTranslation = async (
   translationId: string,
   data: Partial<Omit<Translation, 'id' | 'createdAt'>>
 ) => {
-  console.warn('updateTranslation: Not yet implemented in backend API');
+  if (data.translatedLyrics !== undefined) {
+    await translationsApi.update(translationId, { translatedLyrics: data.translatedLyrics });
+  }
 };
 
 export const getSuspectTranslations = async () => {
@@ -309,8 +332,12 @@ export const getUserVote = async (translationId: string, userId: string): Promis
 export const submitTranslationCorrection = async (
   correction: Omit<TranslationCorrection, 'id' | 'createdAt' | 'status'>
 ): Promise<string> => {
-  console.warn('submitTranslationCorrection: Not yet implemented');
-  return 'stub-id';
+  const result = await translationsApi.submitCorrection(correction.translationId, {
+    originalText: correction.originalText,
+    suggestedText: correction.suggestedText,
+    reason: correction.reason,
+  });
+  return result?.id || 'submitted';
 };
 
 export const getTranslationCorrections = async (translationId: string): Promise<TranslationCorrection[]> => {

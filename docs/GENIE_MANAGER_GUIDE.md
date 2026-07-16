@@ -5,13 +5,16 @@ The Genie Manager allows administrators to customize the floating genie mascot o
 ## ✨ Features
 
 ### 1. **Custom Genie Image Upload**
+
 - Upload your own genie mascot image
 - Supports PNG, JPG, GIF formats
 - Maximum file size: 5MB
 - Images are stored in Firebase Storage
 
 ### 2. **Animation Controls**
+
 Choose from 5 animation types:
+
 - **Float** - Gentle up and down movement (default)
 - **Bounce** - More energetic bouncing motion
 - **Pulse** - Scale in and out effect
@@ -19,12 +22,14 @@ Choose from 5 animation types:
 - **None** - No animation (static)
 
 ### 3. **Customization Options**
+
 - **Animation Duration**: 1-10 seconds
 - **Animation Delay**: 0-5 seconds (delay before animation starts)
 - **Background Opacity**: 0-100% (for the blurred background genie)
 - **Size**: Small, Medium, or Large
 
 ### 4. **Live Preview**
+
 - Real-time preview of your changes
 - See exactly how it will look on the homepage
 - Test different animations before saving
@@ -64,6 +69,7 @@ Choose from 5 animation types:
 ### Animation Types Explained
 
 #### Float (Default)
+
 ```
 Smooth vertical movement
 Best for: Gentle, friendly feel
@@ -71,6 +77,7 @@ Duration suggestion: 3-5 seconds
 ```
 
 #### Bounce
+
 ```
 More energetic up/down motion
 Best for: Playful, dynamic feel
@@ -78,6 +85,7 @@ Duration suggestion: 2-3 seconds
 ```
 
 #### Pulse
+
 ```
 Scales larger and smaller
 Best for: Drawing attention
@@ -85,6 +93,7 @@ Duration suggestion: 2-4 seconds
 ```
 
 #### Spin
+
 ```
 Continuous rotation
 Best for: Fun, whimsical feel
@@ -92,6 +101,7 @@ Duration suggestion: 5-10 seconds
 ```
 
 #### None
+
 ```
 No animation at all
 Best for: Clean, professional look
@@ -99,11 +109,11 @@ Best for: Clean, professional look
 
 ### Size Guidelines
 
-| Size | Main Genie | Background | Best For |
-|------|------------|------------|----------|
-| Small | 160-192px | 192-256px | Subtle presence |
-| Medium | 208-240px | 256-320px | Balanced look |
-| Large | 256-288px | 320-500px | Hero emphasis |
+| Size   | Main Genie | Background | Best For        |
+| ------ | ---------- | ---------- | --------------- |
+| Small  | 160-192px  | 192-256px  | Subtle presence |
+| Medium | 208-240px  | 256-320px  | Balanced look   |
+| Large  | 256-288px  | 320-500px  | Hero emphasis   |
 
 ### Opacity Tips
 
@@ -117,6 +127,7 @@ Best for: Clean, professional look
 ### Database Structure
 
 Settings are stored in Firestore:
+
 ```
 Collection: genieSettings
 Document: main
@@ -133,6 +144,7 @@ Fields:
 ### Storage Location
 
 Images are uploaded to:
+
 ```
 Firebase Storage: gs://afrogenie.firebasestorage.app/genie/
 Format: genie_[timestamp]_[original_filename]
@@ -141,10 +153,12 @@ Format: genie_[timestamp]_[original_filename]
 ### Permissions
 
 **Firestore Rules**:
+
 - Read: Public (anyone can view settings)
 - Write: Admin only
 
 **Storage Rules**:
+
 - Read: Public (anyone can view images)
 - Write: Authenticated users (upload limited to 5MB images)
 
@@ -179,6 +193,7 @@ Format: genie_[timestamp]_[original_filename]
 
 **Issue**: Image upload fails
 **Solutions**:
+
 1. Check file size (must be < 5MB)
 2. Verify file type (PNG, JPG, GIF only)
 3. Ensure you're logged in as admin
@@ -188,6 +203,7 @@ Format: genie_[timestamp]_[original_filename]
 
 **Issue**: Animation doesn't appear on homepage
 **Solutions**:
+
 1. Click "Save Settings" after making changes
 2. Hard refresh the homepage (Cmd+Shift+R / Ctrl+Shift+R)
 3. Clear browser cache
@@ -197,6 +213,7 @@ Format: genie_[timestamp]_[original_filename]
 
 **Issue**: Can't access Genie Manager
 **Solutions**:
+
 1. Verify you're logged in as admin
 2. Check your role in Firestore (users collection)
 3. Regular users see "Access Denied" page (this is correct)
@@ -205,6 +222,7 @@ Format: genie_[timestamp]_[original_filename]
 
 **Issue**: Settings revert after page reload
 **Solutions**:
+
 1. Make sure to click "Save Settings"
 2. Wait for success message
 3. Check Firebase Console for saved data
@@ -213,6 +231,7 @@ Format: genie_[timestamp]_[original_filename]
 ## 📱 Mobile Considerations
 
 The genie appears on mobile devices with responsive sizing:
+
 - Small screens: Automatically scaled down
 - Touch devices: Animations may perform differently
 - Always test on actual mobile devices
@@ -227,16 +246,19 @@ The genie appears on mobile devices with responsive sizing:
 ## 💡 Creative Ideas
 
 ### Seasonal Themes
+
 - Halloween: Spooky genie
 - Christmas: Santa genie
 - New Year: Party genie
 
 ### Brand Integration
+
 - Match genie to logo colors
 - Use brand mascot
 - Coordinate with marketing campaigns
 
 ### User Engagement
+
 - Special genies for milestones
 - Community contests for best genie
 - Limited-time special genies
@@ -244,6 +266,7 @@ The genie appears on mobile devices with responsive sizing:
 ## 📞 Support
 
 If you encounter issues:
+
 1. Check the troubleshooting section
 2. Review Firebase Console logs
 3. Check browser console for errors
@@ -254,6 +277,3 @@ If you encounter issues:
 **Version**: 1.0  
 **Last Updated**: November 14, 2025  
 **Status**: ✅ Production Ready
-
-
-
