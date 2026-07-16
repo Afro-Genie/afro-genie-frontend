@@ -1,7 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useAudioPlayer } from '../context/AudioContext';
 import { getSongById, getSongTranslations } from '../lib/apiClient';
+import { lyricsApi, type LyricLine } from '../services/api';
 import { SUPPORTED_LANGUAGES } from '../constants';
 import HeartIcon from './icons/HeartIcon';
 import ShareIcon from './icons/ShareIcon';
@@ -9,8 +11,14 @@ import FontSizeIcon from './icons/FontSizeIcon';
 import SpotifyPlayer from './SpotifyPlayer';
 import type { Song, TranslationViewMode } from '../types';
 
+// Strip LRC timestamp prefixes like [01:23.45] or [01:23.456] from lyrics text
+const stripTimestamps = (text: string): string => {
+  return text.replace(/^\[\d{1,3}:\d{2}\.\d{2,3}\]\s*/gm, '');
+};
+
 const LyricContent: React.FC = () => {
     const { user: currentUser, authFetch } = useAuth();
+    const { currentTime, isPlaying } = useAudioPlayer();
     const [showLoginPrompt, setShowLoginPrompt] = useState(false);
     const { id: songIdParam } = useParams<{ id: string }>();
     const songId = useMemo(() => songIdParam ?? '', [songIdParam]);
@@ -49,6 +57,25 @@ const LyricContent: React.FC = () => {
     const [correctionReason, setCorrectionReason] = useState('');
     const [sourceProvider, setSourceProvider] = useState<string | null>(null);
     const [songSource, setSongSource] = useState<string | null>(null);
+    const [syncedLyricLines, setSyncedLyricLines] = useState<LyricLine[]>([]);
+    const [activeLyricIndex, setActiveLyricIndex] = useState<number>(-1);
+    const [showActionMenu, setShowActionMenu] = useState<boolean>(false);
+    const lyricsContainerRef = useRef<HTMLDivElement>(null);
+    const activeLineRef = useRef<HTMLDivElement>(null);
+    const actionMenuRef = useRef<HTMLDivElement>(null);
+
+    // Close action menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (actionMenuRef.current && !actionMenuRef.current.contains(event.target as Node)) {
+                setShowActionMenu(false);
+            }
+        };
+        if (showActionMenu) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [showActionMenu]);
 
     const isSpotifyImageUrl = (url?: string): boolean => {
         if (!url || typeof url !== 'string') return false;
@@ -226,6 +253,18 @@ const LyricContent: React.FC = () => {
                 if (lyricsSource && !cancelled) {
                     setSourceProvider(lyricsSource);
                 }
+
+                // Fetch structured lyrics for synchronized display
+                try {
+                    const structuredLyrics = await lyricsApi.getForSong(songId);
+                    if (structuredLyrics?.lyricLines && structuredLyrics.lyricLines.length > 0 && !cancelled) {
+                        setSyncedLyricLines(structuredLyrics.lyricLines);
+                    }
+                } catch (lyricsErr) {
+                    // Non-fatal: synced lyrics are optional, plain text lyrics still work
+                    console.warn('Could not load synced lyrics:', lyricsErr);
+                }
+
                 const translationResponse = await getSongTranslations(songId).catch(() => null);
                 const availableTranslations = normalizeAndRankTranslations(extractTranslations(translationResponse));
                 // Pick the best translation: one with non-empty translated text preferred
@@ -678,20 +717,92 @@ const LyricContent: React.FC = () => {
         }
     };
 
-    const hasNoLyrics = originalLyrics === 'No lyrics available yet for this song.' || !originalLyrics.trim();
-    const hasNoTranslation = translatedLyrics === 'No translation available yet. Use "Reveal the Meaning" to generate one.' || !translatedLyrics.trim();
+    // Strip timestamps from lyrics for clean display
+    const cleanOriginalLyrics = useMemo(() => stripTimestamps(originalLyrics), [originalLyrics]);
+    const cleanTranslatedLyrics = useMemo(() => stripTimestamps(translatedLyrics), [translatedLyrics]);
+
+    // Track active lyric line based on playback time
+    useEffect(() => {
+        if (syncedLyricLines.length === 0 || !isPlaying) {
+            return;
+        }
+
+        // Find the current line based on time
+        let currentIndex = -1;
+        for (let i = syncedLyricLines.length - 1; i >= 0; i--) {
+            if (currentTime >= syncedLyricLines[i].time) {
+                currentIndex = i;
+                break;
+            }
+        }
+        setActiveLyricIndex(currentIndex);
+    }, [currentTime, isPlaying, syncedLyricLines]);
+
+    // Auto-scroll to active lyric line
+    useEffect(() => {
+        if (activeLyricIndex >= 0 && activeLineRef.current && lyricsContainerRef.current) {
+            const container = lyricsContainerRef.current;
+            const line = activeLineRef.current;
+            const containerRect = container.getBoundingClientRect();
+            const lineRect = line.getBoundingClientRect();
+
+            // Check if line is outside visible area
+            if (lineRect.top < containerRect.top || lineRect.bottom > containerRect.bottom) {
+                line.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+    }, [activeLyricIndex]);
+
+    const hasNoLyrics = cleanOriginalLyrics === 'No lyrics available yet for this song.' || !cleanOriginalLyrics.trim();
+    const hasNoTranslation = cleanTranslatedLyrics === 'No translation available yet. Use "Reveal the Meaning" to generate one.' || !cleanTranslatedLyrics.trim();
     const hasOriginalLyrics = !hasNoLyrics;
     const canGenerateTranslation = hasOriginalLyrics && hasNoTranslation;
-    const hasValidTranslation = translatedLyrics &&
-        translatedLyrics.trim() &&
-        translatedLyrics !== 'No translation available yet. Use "Reveal the Meaning" to generate one.';
+    const hasValidTranslation = cleanTranslatedLyrics &&
+        cleanTranslatedLyrics.trim() &&
+        cleanTranslatedLyrics !== 'No translation available yet. Use "Reveal the Meaning" to generate one.';
 
     // Split lyrics into lines for hover and inline modes
-    const originalLines = originalLyrics.split('\n');
-    const translatedLines = translatedLyrics.split('\n');
+    const originalLines = cleanOriginalLyrics.split('\n');
+    const translatedLines = cleanTranslatedLyrics.split('\n');
+
+    // Determine if we should use synced lyrics view
+    const hasSyncedLyrics = syncedLyricLines.length > 0;
 
     // Render lyrics based on view mode
     const renderLyrics = () => {
+        // If we have synced lyrics, show synchronized view for supported modes
+        if (hasSyncedLyrics && (viewMode === 'tabs' || viewMode === 'toggle' || viewMode === 'side-by-side' || viewMode === 'top-bottom')) {
+            return (
+                <div
+                    ref={lyricsContainerRef}
+                    className="max-h-[50vh] md:max-h-[60vh] overflow-y-auto scroll-smooth rounded-lg bg-gray-900/30 p-3 md:p-4"
+                >
+                    <div className="space-y-1">
+                        {syncedLyricLines.map((line, index) => (
+                            <div
+                                key={index}
+                                ref={index === activeLyricIndex ? activeLineRef : null}
+                                className={`py-2 px-3 rounded-lg transition-all duration-300 cursor-pointer ${
+                                    index === activeLyricIndex
+                                        ? 'bg-green-600/30 text-white font-semibold scale-[1.02] shadow-lg'
+                                        : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/50'
+                                }`}
+                                style={{ fontSize: `${fontSize}px` }}
+                                onClick={() => {
+                                    // Click to seek to this line's time
+                                    if (line.time !== undefined) {
+                                        // seek(line.time); // Would need to expose seek from context
+                                    }
+                                }}
+                            >
+                                {line.text}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
         switch (viewMode) {
             case 'tabs':
                 return (
@@ -718,9 +829,9 @@ const LyricContent: React.FC = () => {
                         </div>
                         <div className="text-gray-200 text-lg leading-loose min-h-[400px]">
                             {!showTranslation ? (
-                                <pre className="font-sans whitespace-pre-wrap" style={{ fontSize: `${fontSize}px` }}>{originalLyrics}</pre>
+                                <pre className="font-sans whitespace-pre-wrap" style={{ fontSize: `${fontSize}px` }}>{cleanOriginalLyrics}</pre>
                             ) : (
-                                <pre className="font-sans whitespace-pre-wrap" style={{ fontSize: `${fontSize}px` }}>{translatedLyrics}</pre>
+                                <pre className="font-sans whitespace-pre-wrap" style={{ fontSize: `${fontSize}px` }}>{cleanTranslatedLyrics}</pre>
                             )}
                         </div>
                     </>
@@ -731,11 +842,11 @@ const LyricContent: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <h3 className="font-bold text-white mb-3">Original</h3>
-                            <pre className="font-sans whitespace-pre-wrap text-gray-200 leading-loose" style={{ fontSize: `${fontSize}px` }}>{originalLyrics}</pre>
+                            <pre className="font-sans whitespace-pre-wrap text-gray-200 leading-loose" style={{ fontSize: `${fontSize}px` }}>{cleanOriginalLyrics}</pre>
                         </div>
                         <div>
                             <h3 className="font-bold text-white mb-3">Translation</h3>
-                            <pre className="font-sans whitespace-pre-wrap text-gray-200 leading-loose" style={{ fontSize: `${fontSize}px` }}>{translatedLyrics}</pre>
+                            <pre className="font-sans whitespace-pre-wrap text-gray-200 leading-loose" style={{ fontSize: `${fontSize}px` }}>{cleanTranslatedLyrics}</pre>
                         </div>
                     </div>
                 );
@@ -745,11 +856,11 @@ const LyricContent: React.FC = () => {
                     <div className="space-y-8">
                         <div>
                             <h3 className="font-bold text-white mb-3">Original</h3>
-                            <pre className="font-sans whitespace-pre-wrap text-gray-200 leading-loose" style={{ fontSize: `${fontSize}px` }}>{originalLyrics}</pre>
+                            <pre className="font-sans whitespace-pre-wrap text-gray-200 leading-loose" style={{ fontSize: `${fontSize}px` }}>{cleanOriginalLyrics}</pre>
                         </div>
                         <div>
                             <h3 className="font-bold text-white mb-3">Translation</h3>
-                            <pre className="font-sans whitespace-pre-wrap text-gray-200 leading-loose" style={{ fontSize: `${fontSize}px` }}>{translatedLyrics}</pre>
+                            <pre className="font-sans whitespace-pre-wrap text-gray-200 leading-loose" style={{ fontSize: `${fontSize}px` }}>{cleanTranslatedLyrics}</pre>
                         </div>
                     </div>
                 );
@@ -787,7 +898,7 @@ const LyricContent: React.FC = () => {
                                 style={{ width: `${splitPosition}%` }}
                             >
                                 <h3 className="font-bold text-white mb-3 sticky top-0 bg-[#122118] py-2">Original</h3>
-                                <pre className="font-sans whitespace-pre-wrap text-gray-200 leading-loose" style={{ fontSize: `${fontSize}px` }}>{originalLyrics}</pre>
+                                <pre className="font-sans whitespace-pre-wrap text-gray-200 leading-loose" style={{ fontSize: `${fontSize}px` }}>{cleanOriginalLyrics}</pre>
                             </div>
                             <div
                                 className="w-1 bg-gray-600 cursor-col-resize hover:bg-green-400 transition-colors"
@@ -813,7 +924,7 @@ const LyricContent: React.FC = () => {
                                 style={{ width: `${100 - splitPosition}%` }}
                             >
                                 <h3 className="font-bold text-white mb-3 sticky top-0 bg-[#122118] py-2">Translation</h3>
-                                <pre className="font-sans whitespace-pre-wrap text-gray-200 leading-loose" style={{ fontSize: `${fontSize}px` }}>{translatedLyrics}</pre>
+                                <pre className="font-sans whitespace-pre-wrap text-gray-200 leading-loose" style={{ fontSize: `${fontSize}px` }}>{cleanTranslatedLyrics}</pre>
                             </div>
                         </div>
                     </div>
@@ -847,7 +958,7 @@ const LyricContent: React.FC = () => {
                             {showTranslation ? 'Show Original' : 'Show Translation'}
                         </button>
                         <pre className="font-sans whitespace-pre-wrap" style={{ fontSize: `${fontSize}px` }}>
-                            {showTranslation ? translatedLyrics : originalLyrics}
+                            {showTranslation ? cleanTranslatedLyrics : cleanOriginalLyrics}
                         </pre>
                     </div>
                 );
@@ -1317,9 +1428,9 @@ const LyricContent: React.FC = () => {
                         <span className="text-gray-400 text-xs">{fontSize}px</span>
                     </div>
                     {/* Compact Status Indicators */}
-                    {song && (originalLyrics !== 'No lyrics available yet for this song.' || translatedLyrics !== 'No translation available yet. Use "Reveal the Meaning" to generate one.') && (
+                    {song && (cleanOriginalLyrics !== 'No lyrics available yet for this song.' || cleanTranslatedLyrics !== 'No translation available yet. Use "Reveal the Meaning" to generate one.') && (
                         <div className="ml-auto flex items-center gap-2 text-xs">
-                            {originalLyrics !== 'No lyrics available yet for this song.' && (
+                            {cleanOriginalLyrics !== 'No lyrics available yet for this song.' && (
                                 <span className="text-green-400 flex items-center gap-1">
                                     <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -1327,7 +1438,7 @@ const LyricContent: React.FC = () => {
                                     Original
                                 </span>
                             )}
-                            {translatedLyrics !== 'No translation available yet. Use "Reveal the Meaning" to generate one.' && (
+                            {cleanTranslatedLyrics !== 'No translation available yet. Use "Reveal the Meaning" to generate one.' && (
                                 <span className="text-amber-400 flex items-center gap-1">
                                     <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -1394,35 +1505,99 @@ const LyricContent: React.FC = () => {
                 </div>
             )}
 
-            {/* Action Bar */}
-            <div className="fixed left-1/2 -translate-x-1/2 w-[min(92vw,360px)] flex items-center justify-around gap-2 sm:gap-4 bg-[#2a3c30]/95 backdrop-blur-md p-3 rounded-full border border-white/10 shadow-2xl z-40 bottom-[max(1.5rem,env(safe-area-inset-bottom))]">
-                <button
-                    onClick={handleFavoriteToggle}
-                    disabled={favoriteLoading}
-                    className={`flex flex-col items-center justify-center min-w-[44px] min-h-[44px] w-20 h-14 rounded-full hover:bg-white/10 transition-colors touch-manipulation ${isFavorite ? 'text-red-400' : ''}`}
-                >
-                    <HeartIcon className={`h-6 w-6 ${isFavorite ? 'fill-current' : ''}`} />
-                    <span className="text-xs mt-1">{isFavorite ? 'Liked' : 'Like'}</span>
-                </button>
-                <button
-                    onClick={handleShare}
-                    className="flex flex-col items-center justify-center min-w-[44px] min-h-[44px] w-20 h-14 rounded-full hover:bg-white/10 transition-colors touch-manipulation"
-                >
-                    <ShareIcon className="h-6 w-6" />
-                    <span className="text-xs mt-1">Share</span>
-                </button>
-                {song && (
-                    <Link
-                        to={`/community/create?songId=${song.id}&artistId=${song.artistId}`}
-                        className="flex flex-col items-center justify-center min-w-[44px] min-h-[44px] w-20 h-14 rounded-full hover:bg-white/10 transition-colors text-amber-400 touch-manipulation"
-                        title="Discuss this song"
+            {/* Action Bar - Mobile: Collapsible, Desktop: All buttons visible */}
+            <div
+                ref={actionMenuRef}
+                className="fixed left-1/2 -translate-x-1/2 w-[min(92vw,360px)] z-40 bottom-[max(1.5rem,env(safe-area-inset-bottom))]"
+            >
+                {/* Mobile: Collapsed state - single Actions button */}
+                <div className="md:hidden">
+                    {showActionMenu ? (
+                        <div className="bg-[#2a3c30]/95 backdrop-blur-md p-3 rounded-full border border-white/10 shadow-2xl flex items-center justify-around gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                            <button
+                                onClick={() => { handleFavoriteToggle(); setShowActionMenu(false); }}
+                                disabled={favoriteLoading}
+                                className={`flex flex-col items-center justify-center min-w-[44px] min-h-[44px] w-16 h-14 rounded-full hover:bg-white/10 transition-colors touch-manipulation ${isFavorite ? 'text-red-400' : ''}`}
+                            >
+                                <HeartIcon className={`h-5 w-5 ${isFavorite ? 'fill-current' : ''}`} />
+                                <span className="text-[10px] mt-1">{isFavorite ? 'Liked' : 'Like'}</span>
+                            </button>
+                            <button
+                                onClick={() => { handleShare(); setShowActionMenu(false); }}
+                                className="flex flex-col items-center justify-center min-w-[44px] min-h-[44px] w-16 h-14 rounded-full hover:bg-white/10 transition-colors touch-manipulation"
+                            >
+                                <ShareIcon className="h-5 w-5" />
+                                <span className="text-[10px] mt-1">Share</span>
+                            </button>
+                            {song && (
+                                <Link
+                                    to={`/community/create?songId=${song.id}&artistId=${song.artistId}`}
+                                    onClick={() => setShowActionMenu(false)}
+                                    className="flex flex-col items-center justify-center min-w-[44px] min-h-[44px] w-16 h-14 rounded-full hover:bg-white/10 transition-colors text-amber-400 touch-manipulation"
+                                    title="Discuss this song"
+                                >
+                                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                    </svg>
+                                    <span className="text-[10px] mt-1">Discuss</span>
+                                </Link>
+                            )}
+                            <button
+                                onClick={() => setShowActionMenu(false)}
+                                className="flex flex-col items-center justify-center min-w-[44px] min-h-[44px] w-12 h-14 rounded-full hover:bg-white/10 transition-colors touch-manipulation"
+                                aria-label="Close menu"
+                            >
+                                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                    ) : (
+                        <button
+                            onClick={() => setShowActionMenu(true)}
+                            className="w-full flex items-center justify-center gap-2 bg-[#2a3c30]/95 backdrop-blur-md py-3 px-6 rounded-full border border-white/10 shadow-2xl touch-manipulation hover:bg-[#344a3a]/95 transition-colors"
+                        >
+                            <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                            </svg>
+                            <span className="text-sm font-medium text-white">Actions</span>
+                            {isFavorite && (
+                                <HeartIcon className="h-4 w-4 text-red-400 fill-current" />
+                            )}
+                        </button>
+                    )}
+                </div>
+
+                {/* Desktop: All buttons visible */}
+                <div className="hidden md:flex items-center justify-around gap-4 bg-[#2a3c30]/95 backdrop-blur-md p-3 rounded-full border border-white/10 shadow-2xl">
+                    <button
+                        onClick={handleFavoriteToggle}
+                        disabled={favoriteLoading}
+                        className={`flex flex-col items-center justify-center min-w-[44px] min-h-[44px] w-20 h-14 rounded-full hover:bg-white/10 transition-colors touch-manipulation ${isFavorite ? 'text-red-400' : ''}`}
                     >
-                        <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                        </svg>
-                        <span className="text-xs mt-1">Discuss</span>
-                    </Link>
-                )}
+                        <HeartIcon className={`h-6 w-6 ${isFavorite ? 'fill-current' : ''}`} />
+                        <span className="text-xs mt-1">{isFavorite ? 'Liked' : 'Like'}</span>
+                    </button>
+                    <button
+                        onClick={handleShare}
+                        className="flex flex-col items-center justify-center min-w-[44px] min-h-[44px] w-20 h-14 rounded-full hover:bg-white/10 transition-colors touch-manipulation"
+                    >
+                        <ShareIcon className="h-6 w-6" />
+                        <span className="text-xs mt-1">Share</span>
+                    </button>
+                    {song && (
+                        <Link
+                            to={`/community/create?songId=${song.id}&artistId=${song.artistId}`}
+                            className="flex flex-col items-center justify-center min-w-[44px] min-h-[44px] w-20 h-14 rounded-full hover:bg-white/10 transition-colors text-amber-400 touch-manipulation"
+                            title="Discuss this song"
+                        >
+                            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                            <span className="text-xs mt-1">Discuss</span>
+                        </Link>
+                    )}
+                </div>
             </div>
 
             {/* Custom Notification Toast */}
