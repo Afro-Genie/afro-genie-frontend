@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { SUPPORTED_LANGUAGES } from '../constants';
@@ -12,15 +12,6 @@ import type { AiAnalysisResult } from '../types';
 const RequestTranslationPage: React.FC = () => {
   const navigate = useNavigate();
   const { notification, showNotification, hideNotification } = useNotification();
-
-  // Redirect to homepage if accessed directly
-  useEffect(() => {
-    // Show a message and redirect after a brief delay
-    const timer = setTimeout(() => {
-      navigate('/', { replace: true });
-    }, 3000);
-    return () => clearTimeout(timer);
-  }, [navigate]);
   const { user } = useAuth();
   const [artist, setArtist] = useState('');
   const [title, setTitle] = useState('');
@@ -100,22 +91,27 @@ const RequestTranslationPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#122118]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Redirect Message */}
-        <div className="mb-8 p-6 bg-amber-900/30 border border-amber-700 rounded-lg text-center">
-          <h2 className="text-2xl font-bold text-amber-200 mb-2">Translation Request Flow Updated</h2>
-          <p className="text-amber-100 mb-4">
-            To request a translation, please navigate to a song page that doesn't have lyrics or translation yet.
-            You'll see a "Request Translation" button there.
+        {/* Guidance Banner */}
+        <div className="mb-8 p-6 bg-green-900/30 border border-green-700 rounded-lg text-center">
+          <h2 className="text-2xl font-bold text-green-200 mb-2">Translation Requests Are Now On Song Pages</h2>
+          <p className="text-green-100 mb-4">
+            Navigate to any song page to request a translation, generate one with AI, or view existing translations.
+            Each song page has built-in translation tools.
           </p>
-          <p className="text-amber-200 text-sm">
-            Redirecting to homepage in 3 seconds...
-          </p>
-          <button
-            onClick={() => navigate('/')}
-            className="mt-4 min-h-[44px] bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 px-6 rounded-lg transition-colors"
-          >
-            Go to Homepage Now
-          </button>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <button
+              onClick={() => navigate('/')}
+              className="min-h-[44px] bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 px-6 rounded-lg transition-colors"
+            >
+              Browse Songs
+            </button>
+            <button
+              onClick={() => navigate('/search')}
+              className="min-h-[44px] bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2.5 px-6 rounded-lg transition-colors"
+            >
+              Search for a Song
+            </button>
+          </div>
         </div>
 
         {/* Hero Section */}

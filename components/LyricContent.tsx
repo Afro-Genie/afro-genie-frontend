@@ -90,6 +90,37 @@ const LyricContent: React.FC = () => {
         translation?.result?.translatedLyrics ||
         '';
 
+    // Normalize and rank translations by quality (PUBLISHED > APPROVED > PENDING)
+    const normalizeAndRankTranslations = (translations: any[]): any[] => {
+        const statusRank: Record<string, number> = {
+            PUBLISHED: 3,
+            APPROVED: 2,
+            PENDING: 1,
+            REJECTED: 0,
+        };
+        return [...translations].sort((a, b) => {
+            const rankA = statusRank[String(a.status || '').toUpperCase()] ?? 0;
+            const rankB = statusRank[String(b.status || '').toUpperCase()] ?? 0;
+            if (rankB !== rankA) return rankB - rankA;
+            // Prefer translations with non-empty translatedLyrics
+            const aHasText = pickTranslationText(a) ? 1 : 0;
+            const bHasText = pickTranslationText(b) ? 1 : 0;
+            if (bHasText !== aHasText) return bHasText - aHasText;
+            // Fall back to most recent
+            return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+        });
+    };
+
+    // Resolve source language: stored metadata first, then song language, then 'en'
+    const resolveSourceLang = (translation: any, songMeta: Song | null): string => {
+        if (translation?.sourceLang) return translation.sourceLang;
+        if (songMeta?.language) {
+            const code = songMeta.language.toLowerCase().split(',')[0].trim();
+            if (code) return code;
+        }
+        return 'en';
+    };
+
     // Load languages from database
     useEffect(() => {
         const loadLanguages = async () => {
@@ -196,33 +227,28 @@ const LyricContent: React.FC = () => {
                     setSourceProvider(lyricsSource);
                 }
                 const translationResponse = await getSongTranslations(songId).catch(() => null);
-                const availableTranslations = extractTranslations(translationResponse);
-                const latest = availableTranslations[0] || null;
+                const availableTranslations = normalizeAndRankTranslations(extractTranslations(translationResponse));
+                // Pick the best translation: one with non-empty translated text preferred
+                const bestTranslation = availableTranslations.find((t: any) => pickTranslationText(t)) || availableTranslations[0] || null;
 
-                if (latest && !cancelled) {
-                    setOriginalLyrics(latest.originalLyrics || songLyrics || 'No lyrics available yet for this song.');
-                    setTranslatedLyrics(pickTranslationText(latest) || 'No translation available yet. Use "Reveal the Meaning" to generate one.');
-                    setCulturalContext(latest.culturalContext || '');
-                    setExistingTranslationId(latest.id || latest.translationId || null);
-                    setUpvotes(latest.upvotes || latest.voteStats?.upvotes || 0);
-                    setDownvotes(latest.downvotes || latest.voteStats?.downvotes || 0);
-                    // Set source language from translation or song metadata
-                    if (latest.sourceLang) {
-                        setSourceLang(latest.sourceLang);
-                    } else if (normalizedSong?.language) {
-                        setSourceLang(normalizedSong.language.toLowerCase().split(',')[0].trim() || 'en');
-                    }
-                    if (latest.targetLang) {
-                        setTargetLang(latest.targetLang);
+                if (bestTranslation && !cancelled) {
+                    setOriginalLyrics(bestTranslation.originalLyrics || songLyrics || 'No lyrics available yet for this song.');
+                    setTranslatedLyrics(pickTranslationText(bestTranslation) || 'No translation available yet. Use "Reveal the Meaning" to generate one.');
+                    setCulturalContext(bestTranslation.culturalContext || '');
+                    setExistingTranslationId(bestTranslation.id || bestTranslation.translationId || null);
+                    setUpvotes(bestTranslation.upvotes || bestTranslation.voteStats?.upvotes || 0);
+                    setDownvotes(bestTranslation.downvotes || bestTranslation.voteStats?.downvotes || 0);
+                    // Resolve source language: translation metadata > song metadata > 'en'
+                    setSourceLang(resolveSourceLang(bestTranslation, normalizedSong));
+                    if (bestTranslation.targetLang) {
+                        setTargetLang(bestTranslation.targetLang);
                     }
                 } else if (!cancelled) {
                     setOriginalLyrics(songLyrics || 'No lyrics available yet for this song.');
                     setTranslatedLyrics('No translation available yet. Use "Reveal the Meaning" to generate one.');
                     setExistingTranslationId(null);
-                    // Set source language from song metadata if available
-                    if (normalizedSong?.language) {
-                        setSourceLang(normalizedSong.language.toLowerCase().split(',')[0].trim() || 'en');
-                    }
+                    // Resolve source language from song metadata
+                    setSourceLang(resolveSourceLang(null, normalizedSong));
                 }
 
                 // Add to history if user is logged in
@@ -310,10 +336,18 @@ const LyricContent: React.FC = () => {
 
         setRequestLoading(true);
         try {
+            // Resolve source language: song metadata first, then default
+            const resolvedSource = resolveSourceLang(null, song) || sourceLang || 'en';
+            const resolvedTarget = targetLang || 'en';
+
             await authFetch('/api/translations/request', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ songId, songTitle: title, artist }),
+                body: JSON.stringify({
+                    songId,
+                    sourceLang: resolvedSource,
+                    targetLang: resolvedTarget,
+                }),
             });
             setNotification({
                 message: 'Request received. Estimated turnaround: 5-10 minutes.\nThanks for contributing to AfroGenie.',
@@ -357,41 +391,49 @@ const LyricContent: React.FC = () => {
                 throw new Error('Please sign in to generate translations');
             }
 
-            // ALWAYS auto-detect source language - user doesn't need to select it
+            // Language detection: stored metadata first, then lyric-based detection
             setDetectingLanguage(true);
             try {
-                const detectResult = await authFetch('/api/translations/detect-language', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ lyrics: originalLyrics }),
-                });
-                detectedSourceLang = detectResult?.languageCode || detectResult?.language || detectResult?.langCode || 'en';
-                setSourceLang(detectedSourceLang);
+                // Priority 1: Use stored song metadata language if available
+                const storedLang = resolveSourceLang(null, song);
+                if (storedLang && storedLang !== 'en') {
+                    detectedSourceLang = storedLang;
+                    setSourceLang(detectedSourceLang);
 
-                // Get language name for notification
-                const langData = await authFetch('/api/languages/' + detectedSourceLang).catch(() => null);
-                const langName = langData?.name || detectedSourceLang;
+                    const langData = await authFetch('/api/languages/' + detectedSourceLang).catch(() => null);
+                    const langName = langData?.name || detectedSourceLang;
+                    setNotification({
+                        message: `Source language from song metadata: ${langName}`,
+                        type: 'success'
+                    });
+                    setTimeout(() => setNotification(null), 3000);
+                } else {
+                    // Priority 2: AI lyric-based detection
+                    const detectResult = await authFetch('/api/translations/detect-language', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ lyrics: originalLyrics }),
+                    });
+                    detectedSourceLang = detectResult?.languageCode || detectResult?.language || detectResult?.langCode || 'en';
+                    setSourceLang(detectedSourceLang);
 
-                setNotification({
-                    message: `Detected source language: ${langName}`,
-                    type: 'success'
-                });
-                setTimeout(() => setNotification(null), 3000);
+                    const langData = await authFetch('/api/languages/' + detectedSourceLang).catch(() => null);
+                    const langName = langData?.name || detectedSourceLang;
+
+                    setNotification({
+                        message: `Detected source language: ${langName}`,
+                        type: 'success'
+                    });
+                    setTimeout(() => setNotification(null), 3000);
+                }
             } catch (detectError) {
                 console.error('Language detection failed:', detectError);
-                // Fallback to song's language or 'en'
-                if (song?.language) {
-                    const songLangCode = song.language.toLowerCase().split(',')[0].trim();
-                    detectedSourceLang = songLangCode || 'en';
-                    setSourceLang(detectedSourceLang);
-                } else {
-                    detectedSourceLang = 'en';
-                    setSourceLang('en');
-                }
+                // Priority 3: Use song metadata or default to 'en'
+                detectedSourceLang = resolveSourceLang(null, song) || sourceLang || 'en';
+                setSourceLang(detectedSourceLang);
 
-                // Show warning if detection failed
                 setNotification({
-                    message: 'Could not auto-detect language. Using default. Translation may not be accurate.',
+                    message: 'Language detection unavailable. Using song metadata or default.',
                     type: 'error'
                 });
                 setTimeout(() => setNotification(null), 4000);
@@ -399,31 +441,35 @@ const LyricContent: React.FC = () => {
                 setDetectingLanguage(false);
             }
 
-            // Validate again after detection
-            // Validate again after detection
-            /* Removed blocking check for source === target to allow AI to handle dialects/context
             if (detectedSourceLang === targetLang) {
-                setNotification({
-                    message: `Detected source language (${detectedSourceLang}) is same as target. Proceeding with AI context analysis.`,
-                    type: 'success'
-                });
-                // Continue execution instead of returning
-            }
-            */
-            if (detectedSourceLang === targetLang) {
-                // Optional: notifying user but allowing to proceed
                 console.log('Source matches target, proceeding anyway for context-aware translation');
             }
 
-            const requestResult = await authFetch('/api/translations/request', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    songId,
-                    sourceLang: detectedSourceLang || 'auto',
-                    targetLang,
-                }),
-            });
+            // Attempt AI translation
+            let requestResult;
+            try {
+                requestResult = await authFetch('/api/translations/request', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        songId,
+                        sourceLang: detectedSourceLang || 'auto',
+                        targetLang,
+                    }),
+                });
+            } catch (requestError: any) {
+                // If the translation service is unavailable, offer the request path instead
+                const errorMsg = String(requestError?.message || '').toLowerCase();
+                if (errorMsg.includes('500') || errorMsg.includes('internal server') || errorMsg.includes('budget') || errorMsg.includes('capacity')) {
+                    setNotification({
+                        message: 'AI translation is temporarily unavailable. You can request a translation and our team will process it.',
+                        type: 'error'
+                    });
+                    setTimeout(() => setNotification(null), 6000);
+                    return;
+                }
+                throw requestError;
+            }
 
             const jobId = requestResult?.jobId || requestResult?.id;
 
@@ -437,25 +483,33 @@ const LyricContent: React.FC = () => {
 
             if (!resolvedTranslationText && jobId) {
                 for (let attempt = 0; attempt < 15; attempt += 1) {
-                    const pollResult = await authFetch('/api/translations/status/' + jobId);
-                    const status = String(pollResult?.status || '').toLowerCase();
+                    let pollResult;
+                    try {
+                        pollResult = await authFetch('/api/translations/status/' + jobId);
+                    } catch (pollError) {
+                        // Polling failure is not fatal — retry on next attempt
+                        await sleep(2000);
+                        continue;
+                    }
+                    const jobState = String(pollResult?.state || pollResult?.status || '').toLowerCase();
 
-                    if (status === 'failed' || status === 'error') {
-                        throw new Error(pollResult?.error || 'Translation job failed');
+                    if (jobState === 'failed' || jobState === 'error') {
+                        throw new Error(pollResult?.failedReason || pollResult?.error || 'Translation job failed');
                     }
 
-                    resolvedTranslationText =
-                        pickTranslationText(pollResult?.translation) ||
-                        pickTranslationText(pollResult?.result) ||
-                        pollResult?.translatedLyrics ||
-                        '';
-                    resolvedTranslationId =
-                        pollResult?.translation?.id ||
-                        pollResult?.result?.id ||
-                        resolvedTranslationId;
-
-                    if (resolvedTranslationText) {
-                        break;
+                    // When job is completed, fetch the translation directly
+                    if (jobState === 'completed' || jobState === 'finished') {
+                        const songTranslations = await getSongTranslations(songId).catch(() => null);
+                        const allTranslations = normalizeAndRankTranslations(extractTranslations(songTranslations));
+                        const matching = allTranslations.find((t: any) => {
+                            const text = pickTranslationText(t);
+                            return text && t.sourceLang === detectedSourceLang && t.targetLang === targetLang;
+                        }) || allTranslations.find((t: any) => pickTranslationText(t)) || allTranslations[0];
+                        if (matching) {
+                            resolvedTranslationText = pickTranslationText(matching);
+                            resolvedTranslationId = matching.id || matching.translationId || resolvedTranslationId;
+                        }
+                        if (resolvedTranslationText) break;
                     }
 
                     await sleep(2000);
@@ -463,7 +517,7 @@ const LyricContent: React.FC = () => {
             }
 
             if (!resolvedTranslationText) {
-                throw new Error('Translation is still processing. Please try again shortly.');
+                throw new Error('Translation is taking longer than expected. Please try again in a moment.');
             }
 
             setExistingTranslationId(resolvedTranslationId || existingTranslationId);
@@ -967,6 +1021,17 @@ const LyricContent: React.FC = () => {
                                                     </svg>
                                                 </>
                                             )}
+                                        </button>
+                                    </div>
+
+                                    {/* Fallback: Request Translation link */}
+                                    <div className="mt-3">
+                                        <button
+                                            onClick={handleRequestTranslation}
+                                            disabled={requestLoading}
+                                            className="text-sm text-gray-400 hover:text-gray-300 underline transition-colors disabled:opacity-50"
+                                        >
+                                            {requestLoading ? 'Submitting...' : 'Prefer a human translation? Request one instead'}
                                         </button>
                                     </div>
                                 </div>
