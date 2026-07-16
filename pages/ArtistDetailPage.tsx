@@ -6,6 +6,7 @@ import { spotifyService } from '../services/spotifyService';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../hooks/useNotification';
 import { useConfirm } from '../hooks/useConfirm';
+import { normalizeArtistData } from '../lib/compat';
 import Notification from '../components/Notification';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { DetailPageSkeleton } from '../components/PageSkeletons';
@@ -165,11 +166,17 @@ const ArtistDetailPage: React.FC = () => {
   }
 
   // Use Spotify data if available, otherwise use database data
-  const displayImage = spotifyArtist?.images?.[0]?.url || artist.image;
-  const displayGenres = spotifyArtist?.genres || artist.genres || [artist.genre].filter(Boolean);
-  const displayPopularity = spotifyArtist?.popularity || artist.popularity;
-  const displayFollowers = spotifyArtist?.followers?.total || artist.followers;
-  const displayBio = artist.bio || (spotifyArtist ? 'Information from Spotify' : '');
+  // Apply normalization to ensure all fields exist with safe defaults
+  const normalizedDb = normalizeArtistData(artist);
+  const displayImage = spotifyArtist?.images?.[0]?.url || normalizedDb.image || artist.image;
+  const displayGenres = spotifyArtist?.genres?.length
+    ? spotifyArtist.genres
+    : normalizedDb.genres?.length
+      ? normalizedDb.genres
+      : [normalizedDb.genre || artist.genre].filter(Boolean);
+  const displayPopularity = spotifyArtist?.popularity ?? normalizedDb.popularity ?? artist.popularity;
+  const displayFollowers = spotifyArtist?.followers?.total ?? normalizedDb.followers ?? artist.followers;
+  const displayBio = normalizedDb.bio || artist.bio || (spotifyArtist ? 'Information from Spotify' : '');
 
   return (
     <div className="min-h-screen bg-[#122118]">

@@ -30,7 +30,10 @@ import AddSongPage from './pages/admin/AddSongPage';
 import ArtistSignupPage from './pages/ArtistSignupPage';
 import ArtistDashboard from './pages/ArtistDashboard';
 import ArtistDetailPage from './pages/ArtistDetailPage';
+import ArtistsPage from './pages/ArtistsPage';
 import SongsCatalogPage from './pages/SongsCatalogPage';
+import GenreResultPage from './pages/GenreResultPage';
+import LanguageResultPage from './pages/LanguageResultPage';
 import TermsOfUsePage from './pages/TermsOfUsePage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
@@ -64,6 +67,9 @@ function App() {
               <Route path="/songs" element={<SongsCatalogPage />} />
               <Route path="/search" element={<SearchResultsPage />} />
               <Route path="/search/:query" element={<SearchResultsPage />} />
+              <Route path="/genre/:name" element={<GenreResultPage />} />
+              <Route path="/language/:code" element={<LanguageResultPage />} />
+              <Route path="/artists" element={<ArtistsPage />} />
               <Route path="/request-translation" element={<RequestTranslationPage />} />
               <Route path="/community" element={<CommunityPage />} />
               <Route path="/community/create" element={<CommunityPage />} />

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getAllSongs, getUserFavorites, getUserHistory } from '../services/firebaseService';
 import { useAuth } from '../context/AuthContext';
+import { featureFlags } from '../config/featureFlags';
 import ChevronDownIcon from './icons/ChevronDownIcon';
 
 const LeftSidebar: React.FC = () => {
@@ -73,7 +74,7 @@ const LeftSidebar: React.FC = () => {
 
       <section>
         <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4">Explore by Genre</h2>
-        <Link to="/search" className="block bg-[#2a3c30] hover:bg-[#3a4c40] p-4 rounded-lg transition-colors">
+        <Link to={featureFlags.genrePages ? '/songs' : '/search'} className="block bg-[#2a3c30] hover:bg-[#3a4c40] p-4 rounded-lg transition-colors">
           <div className="flex justify-between items-center">
             <h3 className="font-semibold">Genres</h3>
             <ChevronDownIcon className="h-5 w-5" />

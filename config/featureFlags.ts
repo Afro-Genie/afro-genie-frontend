@@ -26,13 +26,13 @@ export const featureFlags = {
   // --- Phase 0 isolation flags ---
 
   // Phase 2: dedicated genre result pages
-  genrePages: asBoolean(import.meta.env.VITE_FLAG_GENRE_PAGES as FlagValue, false),
+  genrePages: asBoolean(import.meta.env.VITE_FLAG_GENRE_PAGES as FlagValue, true),
 
   // Phase 2: dedicated language result pages
-  languagePages: asBoolean(import.meta.env.VITE_FLAG_LANGUAGE_PAGES as FlagValue, false),
+  languagePages: asBoolean(import.meta.env.VITE_FLAG_LANGUAGE_PAGES as FlagValue, true),
 
   // Phase 3: artist popularity ranking across the app
-  artistRanking: asBoolean(import.meta.env.VITE_FLAG_ARTIST_RANKING as FlagValue, false),
+  artistRanking: asBoolean(import.meta.env.VITE_FLAG_ARTIST_RANKING as FlagValue, true),
 
   // Phase 6: improved lyrics/translation inline UI
   inlineTranslationUX: asBoolean(import.meta.env.VITE_FLAG_INLINE_TRANSLATION_UX as FlagValue, false),

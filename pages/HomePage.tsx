@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { apiFetch } from '../lib/apiClient';
 import { useAudioPlayer } from '../context/AudioContext';
 import { useAuth } from '../context/AuthContext';
 import { SearchResultsSkeleton, SongListSkeleton, SquareGridSkeleton } from '../components/PageSkeletons';
 import { SUPPORTED_LANGUAGES, LANGUAGE_FLAGS } from '../constants';
+import { featureFlags } from '../config/featureFlags';
 import type { Artist, Genre, Song, GenieSettings, Topic } from '../types';
 
 const HomePage: React.FC = () => {
@@ -32,6 +33,7 @@ const HomePage: React.FC = () => {
 
     const { isSpotifyPremium } = useAuth();
     const { loadTrackById, currentTrack, isPlaying, togglePlayPause } = useAudioPlayer();
+    const navigate = useNavigate();
 
     // Languages supported — built from canonical source
     const languages = SUPPORTED_LANGUAGES
@@ -399,7 +401,13 @@ const HomePage: React.FC = () => {
                             <button
                                 key={lang.code}
                                 type="button"
-                                onClick={() => setSelectedLanguage(lang.code)}
+                                onClick={() => {
+                                    if (featureFlags.languagePages) {
+                                        navigate(`/language/${lang.code}`);
+                                    } else {
+                                        setSelectedLanguage(lang.code);
+                                    }
+                                }}
                                 className="group min-w-[150px] md:min-w-0 bg-gray-800/50 hover:bg-gray-700/50 rounded-xl p-4 sm:p-6 border border-gray-700 hover:border-green-400/50 transition-all duration-300 text-center min-h-[44px] flex flex-col items-center justify-center"
                             >
                                 <div className="text-4xl mb-3">{lang.flag}</div>
@@ -430,7 +438,7 @@ const HomePage: React.FC = () => {
                             Top Artists on <span className="text-green-400">AfroGenie</span>
                         </h2>
                         <Link 
-                            to="/search" 
+                            to="/artists" 
                             className="inline-flex items-center min-h-[44px] text-green-400 hover:text-green-300 font-semibold gap-2 self-start"
                         >
                             More <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -504,7 +512,7 @@ const HomePage: React.FC = () => {
                         <div className="flex md:grid md:grid-cols-5 gap-4 md:gap-6 overflow-x-auto pb-2">
                             {genres.map((genre) => (
                                 <Link 
-                                    to={`/search/${genre.name}`} 
+                                    to={featureFlags.genrePages ? `/genre/${encodeURIComponent(genre.name)}` : `/search/${genre.name}`} 
                                     key={genre.id} 
                                     className="group cursor-pointer min-w-[150px] md:min-w-0"
                                 >

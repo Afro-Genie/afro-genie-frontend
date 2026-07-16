@@ -45,7 +45,8 @@ export function navigateToRoute(
  *
  * Known stable routes (do not remove):
  *   /, /songs, /songs/:id, /songs/:id/translations,
- *   /artist/:id, /search, /search/:query,
+ *   /artist/:id, /artists, /genre/:name, /language/:code,
+ *   /search, /search/:query,
  *   /account, /community, /community/:categoryId,
  *   /admin/*, /terms, /privacy, /forgot-password, /reset-password
  */
@@ -55,6 +56,9 @@ export function isKnownRoute(path: string): boolean {
     '/',
     '/songs',
     '/artist',
+    '/artists',
+    '/genre',
+    '/language',
     '/search',
     '/account',
     '/community',
