@@ -34,7 +34,7 @@ const UserProfileCard: React.FC = () => {
                         ⭐ Administrator
                     </span>
                 )}
-                {isSpotifyPremium && (
+                {isSpotifyPremium && user.spotifyId && (
                     <div className="mt-2">
                         <PremiumBadge variant="full" />
                     </div>

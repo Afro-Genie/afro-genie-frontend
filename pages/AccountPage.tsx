@@ -8,6 +8,7 @@ const AccountPage: React.FC = () => {
   const navigate = useNavigate();
   const [spotifyProfile, setSpotifyProfile] = useState<{ displayName: string; email: string } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [lastChecked, setLastChecked] = useState<Date | null>(null);
 
   useEffect(() => {
     if (!user?.spotifyId) return;
@@ -50,6 +51,7 @@ const AccountPage: React.FC = () => {
     setRefreshing(true);
     try {
       await refreshSpotifyProduct();
+      setLastChecked(new Date());
     } finally {
       setRefreshing(false);
     }
@@ -143,11 +145,11 @@ const AccountPage: React.FC = () => {
                 Connect Spotify
               </button>
             </div>
-          ) : isSpotifyPremium ? (
-            /* Linked + Premium */
+          ) : (
+            /* Linked — show status for both premium and non-premium */
             <div>
               <div className="flex items-center gap-3 mb-4">
-                <div className="bg-green-500/20 p-2.5 rounded-full">
+                <div className={`p-2.5 rounded-full ${isSpotifyPremium ? 'bg-green-500/20' : 'bg-gray-700/50'}`}>
                   <SpotifySvg />
                 </div>
                 <div className="min-w-0">
@@ -161,52 +163,53 @@ const AccountPage: React.FC = () => {
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-green-900/50 text-green-300 rounded-full">
-                  <SpotifySvg />
-                  Spotify Premium
-                </span>
-                <svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                    clipRule="evenodd"
-                  />
-                </svg>
+
+              {/* Premium status badge */}
+              <div className="flex items-center gap-2 mb-3">
+                {isSpotifyPremium ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-green-900/50 text-green-300 rounded-full">
+                    <SpotifySvg />
+                    Spotify Premium
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center px-2.5 py-1 text-xs font-medium bg-gray-700/50 text-gray-300 rounded-full">
+                    Spotify Free
+                  </span>
+                )}
+                {lastChecked && (
+                  <span className="text-xs text-gray-500">
+                    Checked {lastChecked.toLocaleTimeString()}
+                  </span>
+                )}
               </div>
-            </div>
-          ) : (
-            /* Linked but not Premium */
-            <div>
-              <div className="flex items-center gap-3 mb-3">
-                <div className="bg-gray-700/50 p-2.5 rounded-full">
-                  <SpotifySvg />
-                </div>
-                <div className="min-w-0">
-                  {spotifyProfile ? (
-                    <>
-                      <p className="text-white font-medium truncate">{spotifyProfile.displayName}</p>
-                      <p className="text-gray-400 text-sm truncate">{spotifyProfile.email}</p>
-                    </>
-                  ) : (
-                    <p className="text-gray-400 text-sm">Spotify account linked</p>
-                  )}
-                </div>
-              </div>
-              <div className="mb-3">
-                <span className="inline-flex items-center px-2.5 py-1 text-xs font-medium bg-gray-700/50 text-gray-300 rounded-full">
-                  Spotify Free
-                </span>
-              </div>
-              <p className="text-gray-400 text-sm mb-4">
-                Upgrade to Spotify Premium for full-track playback
-              </p>
+
+              {isSpotifyPremium ? (
+                <p className="text-green-400/80 text-sm mb-4">
+                  Full-track playback is available
+                </p>
+              ) : (
+                <p className="text-gray-400 text-sm mb-4">
+                  Upgrade to Spotify Premium for full-track playback
+                </p>
+              )}
+
+              {/* Re-check status button — shown for ALL linked users */}
               <button
                 onClick={handleRecheckStatus}
                 disabled={refreshing}
-                className="bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
               >
-                {refreshing ? 'Checking...' : 'Re-check Status'}
+                {refreshing ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Checking...
+                  </>
+                ) : (
+                  'Re-check Subscription Status'
+                )}
               </button>
             </div>
           )}

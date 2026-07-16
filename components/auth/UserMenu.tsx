@@ -110,7 +110,7 @@ const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
                       Admin
                     </span>
                   )}
-                  {isSpotifyPremium && (
+                  {isSpotifyPremium && user.spotifyId && (
                     <PremiumBadge variant="compact" className="mt-1" />
                   )}
                 </div>
