@@ -19,6 +19,7 @@ import {
   SpotifyTokenResponse,
 } from "../services/spotifyAuthService";
 import { toApiUrl } from "../lib/apiBase";
+import { clearAllAuthData } from "../lib/fallbacks";
 
 interface AuthUser {
   uid: string;
@@ -387,8 +388,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Sync Spotify premium status on mount, when token refreshes, and when
   // the SDK signals a token refresh (via custom event from WebPlaybackContext).
+  // Only runs for users who actually have a linked Spotify account.
   useEffect(() => {
-    if (!userProfile?.id) return;
+    if (!userProfile?.id || !userProfile?.spotifyId) return;
 
     const syncSpotify = async () => {
       const spotifyToken = spotifyAuthService.getStoredAccessToken();
@@ -443,11 +445,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     window.addEventListener('spotify:token-refreshed', onSdkTokenRefreshed);
     return () => window.removeEventListener('spotify:token-refreshed', onSdkTokenRefreshed);
-  }, [userProfile?.id]);
+  }, [userProfile?.id, userProfile?.spotifyId]);
 
   // Periodic re-check of Spotify premium status (every 30 min)
+  // Only runs for users who actually have a linked Spotify account.
   useEffect(() => {
-    if (!userProfile?.id) return;
+    if (!userProfile?.id || !userProfile?.spotifyId) return;
 
     const interval = setInterval(
       async () => {
@@ -479,7 +482,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     );
 
     return () => clearInterval(interval);
-  }, [userProfile?.id]);
+  }, [userProfile?.id, userProfile?.spotifyId]);
 
   const signIn = async (email: string, password: string) => {
     const result = await authApi.login(email, password);
@@ -563,6 +566,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         await authApi.logout(storedRefresh).catch(() => {});
       }
     } finally {
+      // Clear Spotify tokens first to prevent stale premium state
+      spotifyAuthService.clearTokens();
+      // Clear all auth-related data (JWT + Spotify + OAuth session keys)
+      clearAllAuthData();
       clearTokens();
       setUser(null);
       setUserProfile(null);
@@ -640,8 +647,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const isSpotifyPremium = userProfile?.spotifyProduct === "premium";
 
   const refreshSpotifyProduct = useCallback(async () => {
+    // Guard: only refresh for users who actually have a linked Spotify account
+    if (!userProfile?.id || !userProfile?.spotifyId) return;
+
     const spotifyToken = spotifyAuthService.getStoredAccessToken();
-    if (!spotifyToken || !userProfile?.id) return;
+    if (!spotifyToken) return;
 
     try {
       const result = await authApi.syncSpotifyProduct(spotifyToken);
@@ -654,7 +664,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     } catch {
       // Non-fatal: premium status will be re-checked on next login
     }
-  }, [userProfile?.id]);
+  }, [userProfile?.id, userProfile?.spotifyId]);
 
   const value = {
     user,

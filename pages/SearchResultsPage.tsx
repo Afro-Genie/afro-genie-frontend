@@ -64,7 +64,7 @@ const SearchResultsPage: React.FC = () => {
         id: doc.id,
         title: doc.name || 'Genre',
         image: doc.imageUrl || '',
-        linkTo: `/search/${encodeURIComponent(doc.name)}`,
+        linkTo: featureFlags.genrePages ? `/genre/${encodeURIComponent(doc.name)}` : `/search/${encodeURIComponent(doc.name)}`,
       };
     });
   }, []);
