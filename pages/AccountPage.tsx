@@ -1,7 +1,334 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { authApi, roleRequestsApi } from '../services/api';
+import type { RoleRequest, RequestedRole, RoleRequestStatus } from '../services/api';
 import { spotifyAuthService } from '../services/spotifyAuthService';
+
+const RoleUpgradeSection: React.FC = () => {
+  const { user, userProfile } = useAuth();
+  const [requests, setRequests] = useState<RoleRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<RequestedRole>('ARTIST');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  const [artistFields, setArtistFields] = useState({
+    stageName: '',
+    genre: '',
+    bio: '',
+  });
+
+  const [moderatorFields, setModeratorFields] = useState({
+    reason: '',
+    experience: '',
+  });
+
+  const [notes, setNotes] = useState('');
+
+  useEffect(() => {
+    fetchRequests();
+  }, []);
+
+  const fetchRequests = async () => {
+    try {
+      const data = await roleRequestsApi.list();
+      setRequests(data);
+    } catch (err) {
+      console.error('Failed to fetch role requests:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    setSubmitting(true);
+
+    try {
+      const fields = selectedRole === 'ARTIST' ? artistFields : moderatorFields;
+      await roleRequestsApi.submit(selectedRole, fields, notes || undefined);
+      setSuccess('Role request submitted successfully! It will be reviewed by an admin.');
+      setShowForm(false);
+      setNotes('');
+      if (selectedRole === 'ARTIST') {
+        setArtistFields({ stageName: '', genre: '', bio: '' });
+      } else {
+        setModeratorFields({ reason: '', experience: '' });
+      }
+      fetchRequests();
+    } catch (err: any) {
+      setError(err.message || 'Failed to submit role request');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const getStatusBadge = (status: RoleRequestStatus) => {
+    switch (status) {
+      case 'PENDING':
+        return (
+          <span className="inline-flex items-center px-2.5 py-1 text-xs font-medium bg-yellow-900/50 text-yellow-300 rounded-full border border-yellow-700/50">
+            <svg className="w-3 h-3 mr-1.5 animate-pulse" fill="currentColor" viewBox="0 0 8 8">
+              <circle cx="4" cy="4" r="4" />
+            </svg>
+            Pending
+          </span>
+        );
+      case 'UNDER_REVIEW':
+        return (
+          <span className="inline-flex items-center px-2.5 py-1 text-xs font-medium bg-blue-900/50 text-blue-300 rounded-full border border-blue-700/50">
+            <svg className="w-3 h-3 mr-1.5 animate-pulse" fill="currentColor" viewBox="0 0 8 8">
+              <circle cx="4" cy="4" r="4" />
+            </svg>
+            Under Review
+          </span>
+        );
+      case 'APPROVED':
+        return (
+          <span className="inline-flex items-center px-2.5 py-1 text-xs font-medium bg-green-900/50 text-green-300 rounded-full border border-green-700/50">
+            <svg className="w-3 h-3 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+            Approved
+          </span>
+        );
+      case 'REJECTED':
+        return (
+          <span className="inline-flex items-center px-2.5 py-1 text-xs font-medium bg-red-900/50 text-red-300 rounded-full border border-red-700/50">
+            <svg className="w-3 h-3 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+            Rejected
+          </span>
+        );
+    }
+  };
+
+  const hasPendingRequest = (role: RequestedRole) =>
+    requests.some((r) => r.role === role && (r.status === 'PENDING' || r.status === 'UNDER_REVIEW'));
+
+  const canRequestRole = (role: RequestedRole) => {
+    if (userProfile?.role === role.toLowerCase()) return false;
+    return !hasPendingRequest(role);
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-3">
+        <div className="h-6 bg-gray-700 rounded w-48 animate-pulse" />
+        <div className="h-4 bg-gray-700 rounded w-64 animate-pulse" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-white font-medium">Available Upgrades</h3>
+          <p className="text-gray-400 text-sm mt-1">Request a role upgrade to access additional features</p>
+        </div>
+        {!showForm && (
+          <button
+            onClick={() => setShowForm(true)}
+            className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm"
+          >
+            Request Role
+          </button>
+        )}
+      </div>
+
+      {error && (
+        <div className="bg-red-900/50 border border-red-700 text-red-100 px-4 py-3 rounded-lg text-sm">
+          {error}
+        </div>
+      )}
+
+      {success && (
+        <div className="bg-green-900/50 border border-green-700 text-green-100 px-4 py-3 rounded-lg text-sm">
+          {success}
+        </div>
+      )}
+
+      {/* Role Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className={`p-4 rounded-lg border ${userProfile?.role === 'artist' ? 'bg-purple-900/20 border-purple-700/50' : 'bg-gray-700/30 border-gray-600'}`}>
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-white font-medium">Artist</h4>
+            {userProfile?.role === 'artist' ? (
+              <span className="text-xs text-purple-300 bg-purple-900/50 px-2 py-0.5 rounded">Current Role</span>
+            ) : hasPendingRequest('ARTIST') ? (
+              <span className="text-xs text-yellow-300 bg-yellow-900/50 px-2 py-0.5 rounded">Request Pending</span>
+            ) : null}
+          </div>
+          <p className="text-gray-400 text-sm">Upload songs, manage your artist profile, and access analytics.</p>
+        </div>
+
+        <div className={`p-4 rounded-lg border ${userProfile?.role === 'moderator' ? 'bg-blue-900/20 border-blue-700/50' : 'bg-gray-700/30 border-gray-600'}`}>
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-white font-medium">Moderator</h4>
+            {userProfile?.role === 'moderator' ? (
+              <span className="text-xs text-blue-300 bg-blue-900/50 px-2 py-0.5 rounded">Current Role</span>
+            ) : hasPendingRequest('MODERATOR') ? (
+              <span className="text-xs text-yellow-300 bg-yellow-900/50 px-2 py-0.5 rounded">Request Pending</span>
+            ) : null}
+          </div>
+          <p className="text-gray-400 text-sm">Help moderate community content and manage translation requests.</p>
+        </div>
+      </div>
+
+      {/* Application Form */}
+      {showForm && (
+        <form onSubmit={handleSubmit} className="bg-gray-700/30 border border-gray-600 rounded-lg p-4 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Select Role</label>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setSelectedRole('ARTIST')}
+                disabled={!canRequestRole('ARTIST')}
+                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                  selectedRole === 'ARTIST'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                } ${!canRequestRole('ARTIST') ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                Artist
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedRole('MODERATOR')}
+                disabled={!canRequestRole('MODERATOR')}
+                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                  selectedRole === 'MODERATOR'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                } ${!canRequestRole('MODERATOR') ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                Moderator
+              </button>
+            </div>
+          </div>
+
+          {selectedRole === 'ARTIST' && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Stage Name *</label>
+                <input
+                  type="text"
+                  value={artistFields.stageName}
+                  onChange={(e) => setArtistFields({ ...artistFields, stageName: e.target.value })}
+                  required
+                  className="w-full px-3 py-2.5 min-h-[44px] text-base bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                  placeholder="Your artist/stage name"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Primary Genre *</label>
+                <input
+                  type="text"
+                  value={artistFields.genre}
+                  onChange={(e) => setArtistFields({ ...artistFields, genre: e.target.value })}
+                  required
+                  className="w-full px-3 py-2.5 min-h-[44px] text-base bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                  placeholder="e.g. Afrobeats, Amapiano, Highlife"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Bio *</label>
+                <textarea
+                  value={artistFields.bio}
+                  onChange={(e) => setArtistFields({ ...artistFields, bio: e.target.value })}
+                  required
+                  rows={3}
+                  className="w-full px-3 py-2.5 text-base bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
+                  placeholder="Tell us about yourself as an artist"
+                />
+              </div>
+            </>
+          )}
+
+          {selectedRole === 'MODERATOR' && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Why do you want to be a moderator? *</label>
+                <textarea
+                  value={moderatorFields.reason}
+                  onChange={(e) => setModeratorFields({ ...moderatorFields, reason: e.target.value })}
+                  required
+                  rows={3}
+                  className="w-full px-3 py-2.5 text-base bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
+                  placeholder="Explain your interest in moderating the community"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Relevant Experience</label>
+                <textarea
+                  value={moderatorFields.experience}
+                  onChange={(e) => setModeratorFields({ ...moderatorFields, experience: e.target.value })}
+                  rows={2}
+                  className="w-full px-3 py-2.5 text-base bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
+                  placeholder="Any moderation or community management experience"
+                />
+              </div>
+            </>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">Additional Notes</label>
+            <input
+              type="text"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="w-full px-3 py-2.5 min-h-[44px] text-base bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+              placeholder="Optional: any additional information"
+            />
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => { setShowForm(false); setError(''); setSuccess(''); }}
+              className="flex-1 py-2.5 px-4 rounded-lg text-sm font-medium bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex-1 py-2.5 px-4 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 transition-colors disabled:opacity-50"
+            >
+              {submitting ? 'Submitting...' : 'Submit Request'}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* Existing Requests */}
+      {requests.length > 0 && (
+        <div className="space-y-3">
+          <h4 className="text-sm font-medium text-gray-400">Your Requests</h4>
+          {requests.map((req) => (
+            <div key={req.id} className="flex items-center justify-between p-3 bg-gray-700/30 rounded-lg border border-gray-600">
+              <div className="flex items-center gap-3">
+                <span className="text-white font-medium capitalize">{req.role.toLowerCase()}</span>
+                {getStatusBadge(req.status)}
+              </div>
+              <span className="text-xs text-gray-500">
+                {new Date(req.createdAt).toLocaleDateString()}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const AccountPage: React.FC = () => {
   const { user, userProfile, isSpotifyPremium, refreshSpotifyProduct, logout } = useAuth();
@@ -9,6 +336,13 @@ const AccountPage: React.FC = () => {
   const [spotifyProfile, setSpotifyProfile] = useState<{ displayName: string; email: string } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
+
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
 
   useEffect(() => {
     if (!user?.spotifyId) return;
@@ -60,6 +394,45 @@ const AccountPage: React.FC = () => {
   const handleLogout = async () => {
     await logout();
     navigate('/');
+  };
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError('');
+    setPasswordSuccess(false);
+
+    if (newPassword.length < 8) {
+      setPasswordError('New password must be at least 8 characters');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError('New passwords do not match');
+      return;
+    }
+
+    setPasswordLoading(true);
+
+    try {
+      await authApi.changePassword(currentPassword, newPassword);
+      setPasswordSuccess(true);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err: any) {
+      const code = err.code || '';
+      const message = err.message || 'Failed to change password';
+
+      if (code === 'UNAUTHORIZED') {
+        setPasswordError('Current password is incorrect');
+      } else if (code === 'CONFLICT') {
+        setPasswordError('This account does not have a password. Use your sign-in provider to manage your credentials.');
+      } else {
+        setPasswordError(message);
+      }
+    } finally {
+      setPasswordLoading(false);
+    }
   };
 
   if (!user) return null;
@@ -119,6 +492,66 @@ const AccountPage: React.FC = () => {
               <p className="text-white">{formatMemberSince(userProfile?.createdAt)}</p>
             </div>
           </div>
+        </section>
+
+        {/* Change Password */}
+        <section className="bg-gray-800/50 rounded-xl border border-gray-700 p-6">
+          <h2 className="text-lg font-semibold text-white mb-4">Change Password</h2>
+
+          {passwordSuccess && (
+            <div className="bg-green-900/50 border border-green-700 text-green-100 px-4 py-3 rounded-lg mb-4 text-sm">
+              Password updated successfully. You may need to sign in again on other devices.
+            </div>
+          )}
+
+          {passwordError && (
+            <div className="bg-red-900/50 border border-red-700 text-red-100 px-4 py-3 rounded-lg mb-4 text-sm">
+              {passwordError}
+            </div>
+          )}
+
+          <form onSubmit={handlePasswordChange} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Current Password</label>
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                required
+                className="w-full px-3 py-2.5 min-h-[44px] text-base bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">New Password</label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+                minLength={8}
+                className="w-full px-3 py-2.5 min-h-[44px] text-base bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                placeholder="Minimum 8 characters"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Confirm New Password</label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                className="w-full px-3 py-2.5 min-h-[44px] text-base bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                placeholder="Re-enter new password"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={passwordLoading}
+              className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-semibold py-2.5 px-6 rounded-lg transition-colors min-h-[44px]"
+            >
+              {passwordLoading ? 'Updating...' : 'Update Password'}
+            </button>
+          </form>
         </section>
 
         {/* Spotify Connection */}
@@ -214,6 +647,13 @@ const AccountPage: React.FC = () => {
             </div>
           )}
         </section>
+
+        {/* Role Upgrade */}
+        {userProfile?.role === 'user' && (
+          <section className="bg-gray-800/50 rounded-xl border border-gray-700 p-6">
+            <RoleUpgradeSection />
+          </section>
+        )}
 
         {/* Account Actions */}
         <section className="bg-gray-800/50 rounded-xl border border-gray-700 p-6">

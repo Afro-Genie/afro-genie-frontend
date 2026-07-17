@@ -222,6 +222,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         const email = params.get("email");
         const displayName = params.get("displayName");
         const role = params.get("role");
+        const spotifyId = params.get("spotifyId") || undefined;
+        const spotifyProduct = params.get("spotifyProduct") || undefined;
 
         if (accessTokenParam && refreshTokenParam && userId) {
           setTokens(accessTokenParam, refreshTokenParam);
@@ -230,6 +232,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             email: email || "",
             displayName: displayName || email?.split("@")[0] || "User",
             role: role || "USER",
+            spotifyId: spotifyId || null,
+            spotifyProduct: spotifyProduct || null,
           };
           setUser(buildUser(authUser));
           setUserProfile(buildProfile(authUser));

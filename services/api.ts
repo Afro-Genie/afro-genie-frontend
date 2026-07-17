@@ -184,6 +184,12 @@ export const authApi = {
       method: "POST",
       body: JSON.stringify({ token, newPassword }),
     }),
+
+  changePassword: (currentPassword: string, newPassword: string) =>
+    apiRequest<{ success: boolean }>("/auth/change-password", {
+      method: "POST",
+      body: JSON.stringify({ currentPassword, newPassword }),
+    }),
 };
 
 // Songs API
@@ -320,6 +326,79 @@ export const translationsApi = {
     apiRequest<any>("/translations/direct", {
       method: "POST",
       body: JSON.stringify(data),
+    }),
+};
+
+// Role Requests API
+export type RoleRequestStatus = 'PENDING' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED';
+export type RequestedRole = 'ARTIST' | 'MODERATOR';
+
+export interface RoleRequest {
+  id: string;
+  userId: string;
+  role: RequestedRole;
+  status: RoleRequestStatus;
+  fields: Record<string, unknown>;
+  notes?: string | null;
+  reviewedBy?: string | null;
+  reviewedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RoleRequestWithUser extends RoleRequest {
+  user: {
+    id: string;
+    email: string;
+    displayName: string | null;
+    photoUrl: string | null;
+    role: string;
+  };
+}
+
+export const roleRequestsApi = {
+  submit: (role: RequestedRole, fields: Record<string, unknown>, notes?: string) =>
+    apiRequest<RoleRequest>('/roles', {
+      method: 'POST',
+      body: JSON.stringify({ role, fields, notes }),
+    }),
+
+  list: (params?: { status?: RoleRequestStatus; role?: RequestedRole }) => {
+    const q = new URLSearchParams();
+    if (params?.status) q.set('status', params.status);
+    if (params?.role) q.set('role', params.role);
+    const qs = q.toString();
+    return apiRequest<RoleRequest[]>(`/roles${qs ? `?${qs}` : ''}`);
+  },
+
+  get: (id: string) => apiRequest<RoleRequest>(`/roles/${id}`),
+};
+
+// Admin Role Requests API
+export const adminRoleRequestsApi = {
+  list: (params?: {
+    cursor?: string;
+    limit?: number;
+    status?: RoleRequestStatus;
+    role?: RequestedRole;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.cursor) q.set('cursor', params.cursor);
+    if (params?.limit) q.set('limit', String(params.limit));
+    if (params?.status) q.set('status', params.status);
+    if (params?.role) q.set('role', params.role);
+    const qs = q.toString();
+    return apiRequest<{
+      data: RoleRequestWithUser[];
+      total: number;
+      nextCursor: string | null;
+    }>(`/admin/role-requests${qs ? `?${qs}` : ''}`);
+  },
+
+  review: (id: string, status: 'APPROVED' | 'REJECTED', notes?: string) =>
+    apiRequest<RoleRequest>(`/admin/role-requests/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, notes }),
     }),
 };
 
