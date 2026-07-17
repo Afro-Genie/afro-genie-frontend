@@ -73,16 +73,10 @@ const Header: React.FC = () => {
             </Link>
 
             {/* Search, Actions */}
-            <div className="flex items-center space-x-2 sm:space-x-4 flex-1 min-w-0">
+            <div className="flex items-center justify-end sm:justify-start space-x-2 sm:space-x-4 flex-1 min-w-0">
               <div className="flex-1 min-w-0 hidden sm:block">
                 <SearchBar variant="header" />
               </div>
-              <Link
-                to="/artist/signup"
-                className="text-gray-300 hover:text-white px-2 sm:px-3 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-colors hidden lg:block whitespace-nowrap"
-              >
-                For Artists
-              </Link>
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                 className="p-2 rounded-md text-gray-300 hover:bg-[#2a3c30] hover:text-white transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
@@ -144,13 +138,6 @@ const Header: React.FC = () => {
                 className="flex items-center min-h-[44px] pl-4 py-3 text-gray-300 hover:text-white hover:bg-[#2a3c30] rounded-md transition-colors"
               >
                 Request Translation
-              </Link>
-              <Link
-                to="/artist/signup"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center min-h-[44px] pl-4 py-3 text-green-400 hover:text-green-300 hover:bg-[#2a3c30] rounded-md transition-colors font-semibold"
-              >
-                For Artists
               </Link>
             </div>
           </div>

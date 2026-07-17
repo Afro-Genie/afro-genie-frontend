@@ -25,6 +25,7 @@ import UnifiedManager from './pages/admin/UnifiedManager';
 import GenieManager from './pages/admin/GenieManager';
 import SpotifyManager from './pages/admin/SpotifyManager';
 import TranslationRequestsPage from './pages/admin/TranslationRequestsPage';
+import RoleRequestsManager from './pages/admin/RoleRequestsManager';
 import EditSongPage from './pages/admin/EditSongPage';
 import AddSongPage from './pages/admin/AddSongPage';
 import ArtistSignupPage from './pages/ArtistSignupPage';
@@ -101,6 +102,7 @@ function App() {
                 <Route path="languages" element={<LanguagesManager />} />
                 <Route path="community" element={<CommunityManager />} />
                 <Route path="users" element={<UsersManager />} />
+                <Route path="role-requests" element={<RoleRequestsManager />} />
                 <Route path="unified" element={<UnifiedManager />} />
                 <Route path="genie" element={<GenieManager />} />
                 <Route path="spotify" element={<SpotifyManager />} />
