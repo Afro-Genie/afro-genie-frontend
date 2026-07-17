@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 interface LoginModalProps {
@@ -148,6 +149,15 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
               className="w-full px-3 py-2.5 min-h-[44px] text-base bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
               required
             />
+            {!isSignUp && (
+              <Link
+                to="/forgot-password"
+                onClick={onClose}
+                className="text-sm text-green-400 hover:text-green-300 mt-1 inline-block"
+              >
+                Forgot Password?
+              </Link>
+            )}
           </div>
 
           <button

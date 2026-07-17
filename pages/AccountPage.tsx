@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { authApi } from '../services/api';
 import { spotifyAuthService } from '../services/spotifyAuthService';
 
 const AccountPage: React.FC = () => {
@@ -9,6 +10,13 @@ const AccountPage: React.FC = () => {
   const [spotifyProfile, setSpotifyProfile] = useState<{ displayName: string; email: string } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
+
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
 
   useEffect(() => {
     if (!user?.spotifyId) return;
@@ -60,6 +68,45 @@ const AccountPage: React.FC = () => {
   const handleLogout = async () => {
     await logout();
     navigate('/');
+  };
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError('');
+    setPasswordSuccess(false);
+
+    if (newPassword.length < 8) {
+      setPasswordError('New password must be at least 8 characters');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError('New passwords do not match');
+      return;
+    }
+
+    setPasswordLoading(true);
+
+    try {
+      await authApi.changePassword(currentPassword, newPassword);
+      setPasswordSuccess(true);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err: any) {
+      const code = err.code || '';
+      const message = err.message || 'Failed to change password';
+
+      if (code === 'UNAUTHORIZED') {
+        setPasswordError('Current password is incorrect');
+      } else if (code === 'CONFLICT') {
+        setPasswordError('This account does not have a password. Use your sign-in provider to manage your credentials.');
+      } else {
+        setPasswordError(message);
+      }
+    } finally {
+      setPasswordLoading(false);
+    }
   };
 
   if (!user) return null;
@@ -119,6 +166,66 @@ const AccountPage: React.FC = () => {
               <p className="text-white">{formatMemberSince(userProfile?.createdAt)}</p>
             </div>
           </div>
+        </section>
+
+        {/* Change Password */}
+        <section className="bg-gray-800/50 rounded-xl border border-gray-700 p-6">
+          <h2 className="text-lg font-semibold text-white mb-4">Change Password</h2>
+
+          {passwordSuccess && (
+            <div className="bg-green-900/50 border border-green-700 text-green-100 px-4 py-3 rounded-lg mb-4 text-sm">
+              Password updated successfully. You may need to sign in again on other devices.
+            </div>
+          )}
+
+          {passwordError && (
+            <div className="bg-red-900/50 border border-red-700 text-red-100 px-4 py-3 rounded-lg mb-4 text-sm">
+              {passwordError}
+            </div>
+          )}
+
+          <form onSubmit={handlePasswordChange} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Current Password</label>
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                required
+                className="w-full px-3 py-2.5 min-h-[44px] text-base bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">New Password</label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+                minLength={8}
+                className="w-full px-3 py-2.5 min-h-[44px] text-base bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                placeholder="Minimum 8 characters"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Confirm New Password</label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                className="w-full px-3 py-2.5 min-h-[44px] text-base bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                placeholder="Re-enter new password"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={passwordLoading}
+              className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-semibold py-2.5 px-6 rounded-lg transition-colors min-h-[44px]"
+            >
+              {passwordLoading ? 'Updating...' : 'Update Password'}
+            </button>
+          </form>
         </section>
 
         {/* Spotify Connection */}
