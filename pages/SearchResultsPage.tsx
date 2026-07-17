@@ -16,7 +16,7 @@ interface DisplayResult {
   linkTo: string;
 }
 
-const SONGS_PER_PAGE = 10;
+const SONGS_PER_PAGE = 50;
 
 const SearchResultsPage: React.FC = () => {
   const { query } = useParams<{ query: string }>();
@@ -98,7 +98,7 @@ const SearchResultsPage: React.FC = () => {
 
         trackEvent('search_request_submitted', {
           query: decodedQuery,
-          total: (response.songs?.found ?? 0) + (response.artists?.found ?? 0) + (response.genres?.found ?? 0),
+          total: (response.songs?.found ?? 0) + (response.artists?.found ?? 0),
         });
       } catch (err: any) {
         setError(err.message || 'Failed to search');
@@ -130,7 +130,7 @@ const SearchResultsPage: React.FC = () => {
     }
   }, [decodedQuery, songPage, loadingMore, mapHitsToResults]);
 
-  const hasResults = (songFound + artistFound + genreFound) > 0;
+  const hasResults = (songFound + artistFound) > 0;
   const hasMoreSongs = songResults.length < songFound;
 
   useEffect(() => {
@@ -219,7 +219,7 @@ const SearchResultsPage: React.FC = () => {
     );
   }
 
-  const totalResults = songFound + artistFound + genreFound;
+  const totalResults = songFound + artistFound;
 
   return (
     <div className="min-h-screen bg-[#122118]">
@@ -342,6 +342,50 @@ const SearchResultsPage: React.FC = () => {
           </div>
         ) : (
         <div className="space-y-12">
+            {/* Artists Section */}
+          {artistResults.length > 0 && (
+            <section>
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl md:text-3xl font-bold text-white">
+                    Artists <span className="text-green-400">({artistFound})</span>
+                  </h2>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 md:gap-6">
+                  {artistResults.map((r, idx) => {
+                    const content = (
+                      <>
+                        <div className="aspect-square rounded-xl overflow-hidden transition-all duration-300 group-hover:scale-105 shadow-lg bg-gradient-to-br from-green-500/20 to-amber-500/20 border border-gray-700 group-hover:border-green-400/50 mb-3">
+                          {r.image ? (
+                            <img src={r.image} alt={r.title} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-gray-500">
+                              <svg className="w-16 h-16" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clipRule="evenodd" />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+                        <h3 className="font-semibold text-white group-hover:text-green-400 transition-colors">
+                          {r.title}
+                        </h3>
+                        {r.subtitle && (
+                          <p className="text-sm text-gray-400 mt-1">{r.subtitle}</p>
+                        )}
+                      </>
+                    );
+                    const cardClass = "group text-center";
+                    const trackClick = () => trackEvent('search_suggestion_click', { query: decodedQuery, type: 'artist', position: idx, source: 'results_page' });
+
+                    return (
+                      <Link to={r.linkTo} key={r.id} className={cardClass} onClick={trackClick}>
+                        {content}
+                      </Link>
+                    );
+                  })}
+                </div>
+            </section>
+          )}
+
             {/* Songs Section */}
           {songResults.length > 0 && (
             <section>
@@ -403,86 +447,6 @@ const SearchResultsPage: React.FC = () => {
                     </button>
                   </div>
                 )}
-            </section>
-          )}
-
-            {/* Artists Section */}
-          {artistResults.length > 0 && (
-            <section>
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl md:text-3xl font-bold text-white">
-                    Artists <span className="text-green-400">({artistFound})</span>
-                  </h2>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 md:gap-6">
-                  {artistResults.map((r, idx) => {
-                    const content = (
-                      <>
-                        <div className="aspect-square rounded-xl overflow-hidden transition-all duration-300 group-hover:scale-105 shadow-lg bg-gradient-to-br from-green-500/20 to-amber-500/20 border border-gray-700 group-hover:border-green-400/50 mb-3">
-                          {r.image ? (
-                            <img src={r.image} alt={r.title} className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-gray-500">
-                              <svg className="w-16 h-16" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clipRule="evenodd" />
-                              </svg>
-                            </div>
-                          )}
-                        </div>
-                        <h3 className="font-semibold text-white group-hover:text-green-400 transition-colors">
-                          {r.title}
-                        </h3>
-                        {r.subtitle && (
-                          <p className="text-sm text-gray-400 mt-1">{r.subtitle}</p>
-                        )}
-                      </>
-                    );
-                    const cardClass = "group text-center";
-                    const trackClick = () => trackEvent('search_suggestion_click', { query: decodedQuery, type: 'artist', position: idx, source: 'results_page' });
-
-                    return (
-                      <Link to={r.linkTo} key={r.id} className={cardClass} onClick={trackClick}>
-                        {content}
-                      </Link>
-                    );
-                  })}
-                </div>
-            </section>
-          )}
-
-            {/* Genres Section */}
-          {genreResults.length > 0 && (
-            <section>
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl md:text-3xl font-bold text-white">
-                    Genres <span className="text-green-400">({genreFound})</span>
-                  </h2>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 md:gap-6">
-                  {genreResults.map((r, idx) => (
-                    <Link
-                      to={r.linkTo}
-                      key={r.id}
-                      onClick={() => trackEvent('search_suggestion_click', { query: decodedQuery, type: 'genre', position: idx, source: 'results_page' })}
-                      className="group text-center"
-                    >
-                      <div className="aspect-square rounded-xl overflow-hidden transition-all duration-300 group-hover:scale-105 shadow-lg bg-gradient-to-br from-green-500/20 to-amber-500/20 border border-gray-700 group-hover:border-green-400/50 mb-3">
-                        {r.image ? (
-                          <img src={r.image} alt={r.title} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-500">
-                            <svg className="w-16 h-16" fill="currentColor" viewBox="0 0 20 20">
-                              <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
-                            </svg>
-                          </div>
-                        )}
-                      </div>
-                      <h3 className="font-semibold text-white group-hover:text-green-400 transition-colors">
-                        {r.title}
-                      </h3>
-                    </Link>
-                  ))}
-                </div>
             </section>
           )}
         </div>

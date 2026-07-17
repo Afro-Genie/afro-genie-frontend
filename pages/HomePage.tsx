@@ -426,18 +426,10 @@ const HomePage: React.FC = () => {
             {/* Browse Languages Section */}
             <section className="py-16 bg-gradient-to-b from-[#122118] to-[#1a2b22]">
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
+                    <div className="mb-6 sm:mb-8">
                         <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">
                             Browse <span className="text-green-400">Languages</span>
                         </h2>
-                        <Link 
-                            to="/search" 
-                            className="inline-flex items-center min-h-[44px] text-green-400 hover:text-green-300 font-semibold gap-2 self-start"
-                        >
-                            More <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                            </svg>
-                        </Link>
                     </div>
                     <div className="flex md:grid md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 overflow-x-auto pb-2">
                         {languages.map((lang) => (
@@ -539,18 +531,10 @@ const HomePage: React.FC = () => {
             {/* Explore by Genre Section */}
             <section className="py-16 bg-gradient-to-b from-[#1a2b22] to-[#122118]">
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
+                    <div className="mb-6 sm:mb-8">
                         <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">
                             Explore by <span className="text-green-400">Genre</span>
                         </h2>
-                        <Link 
-                            to="/search" 
-                            className="inline-flex items-center min-h-[44px] text-green-400 hover:text-green-300 font-semibold gap-2 self-start"
-                        >
-                            More <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                            </svg>
-                        </Link>
                     </div>
                     {genresLoading ? (
                         <SquareGridSkeleton count={5} />

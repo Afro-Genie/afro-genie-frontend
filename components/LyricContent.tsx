@@ -59,23 +59,8 @@ const LyricContent: React.FC = () => {
     const [songSource, setSongSource] = useState<string | null>(null);
     const [syncedLyricLines, setSyncedLyricLines] = useState<LyricLine[]>([]);
     const [activeLyricIndex, setActiveLyricIndex] = useState<number>(-1);
-    const [showActionMenu, setShowActionMenu] = useState<boolean>(false);
     const lyricsContainerRef = useRef<HTMLDivElement>(null);
     const activeLineRef = useRef<HTMLDivElement>(null);
-    const actionMenuRef = useRef<HTMLDivElement>(null);
-
-    // Close action menu when clicking outside
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (actionMenuRef.current && !actionMenuRef.current.contains(event.target as Node)) {
-                setShowActionMenu(false);
-            }
-        };
-        if (showActionMenu) {
-            document.addEventListener('mousedown', handleClickOutside);
-        }
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [showActionMenu]);
 
     const isSpotifyImageUrl = (url?: string): boolean => {
         if (!url || typeof url !== 'string') return false;
@@ -1112,32 +1097,20 @@ const LyricContent: React.FC = () => {
 
             {/* Reset Translation Button - Show when translation exists */}
             {!loading && !error && hasValidTranslation && (
-                <div className="mb-4 animate-fade-in-up">
-                    <div className="relative overflow-hidden bg-gradient-to-br from-amber-800/20 to-orange-800/20 backdrop-blur-sm border border-amber-500/30 rounded-2xl shadow-2xl p-4 md:p-6">
-                        <div className="relative z-10">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="bg-gray-700/50 p-2 rounded-full border border-amber-500/30">
-                                        <svg className="w-5 h-5 md:w-6 md:h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                        </svg>
-                                    </div>
-                                    <div>
-                                        <h3 className="text-base md:text-lg font-semibold text-white">Translation Available</h3>
-                                        <p className="text-xs md:text-sm text-gray-300">Reset to generate a new translation in a different language</p>
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={handleResetTranslation}
-                                    className="min-h-[44px] bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2.5 px-4 md:px-6 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm md:text-base"
-                                >
-                                    <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                    </svg>
-                                    <span className="hidden sm:inline">Reset Translation</span>
-                                    <span className="sm:hidden">Reset</span>
-                                </button>
+                <div className="mb-4">
+                    <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4">
+                        <div className="flex items-center justify-between gap-4">
+                            <div>
+                                <h3 className="text-base font-semibold text-white">Translation Available</h3>
+                                <p className="text-xs text-gray-400 mt-1">Reset to generate a new translation in a different language</p>
                             </div>
+                            <button
+                                onClick={handleResetTranslation}
+                                className="min-h-[44px] bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm whitespace-nowrap"
+                            >
+                                <span className="hidden sm:inline">Reset Translation</span>
+                                <span className="sm:hidden">Reset</span>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -1370,32 +1343,20 @@ const LyricContent: React.FC = () => {
                 </div>
             )}
 
-            {/* Cultural Context Display - Prominent */}
+            {/* Cultural Context Display */}
             {!loading && !error && culturalContext && culturalContext.trim() && (
-                <div className="mb-6 animate-fade-in-up">
-                    <div className="bg-gradient-to-br from-amber-900/30 to-orange-900/30 backdrop-blur-sm border-2 border-amber-500/40 rounded-2xl shadow-2xl p-6 md:p-8">
-                        <div className="flex items-start gap-4 mb-4">
-                            <div className="flex-shrink-0 bg-amber-500/20 p-3 rounded-full border border-amber-500/30">
-                                <svg className="w-6 h-6 md:w-8 md:h-8 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                                </svg>
-                            </div>
-                            <div className="flex-1">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <h3 className="text-xl md:text-2xl font-bold text-white">Cultural Context</h3>
-                                    <span className="text-xs px-3 py-1 bg-green-600/30 border border-green-500/50 rounded-full text-green-300 font-medium">
-                                        AI-Generated
-                                    </span>
-                                </div>
-                                <p className="text-gray-300 text-sm mb-4">
-                                    Learn about the cultural meanings, slang, and context behind these lyrics
-                                </p>
-                                <div className="bg-gray-900/50 rounded-lg p-4 md:p-6 border border-gray-700/50">
-                                    <pre className="whitespace-pre-wrap break-words font-sans text-gray-200 leading-relaxed text-sm md:text-base">
-                                        {formattedCulturalContext}
-                                    </pre>
-                                </div>
-                            </div>
+                <div className="mb-4">
+                    <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                            <h3 className="text-base font-semibold text-white">Cultural Context</h3>
+                            <span className="text-xs px-2 py-0.5 bg-green-900/50 text-green-300 rounded-full font-medium">
+                                AI-Generated
+                            </span>
+                        </div>
+                        <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700/50">
+                            <pre className="whitespace-pre-wrap break-words font-sans text-gray-200 leading-relaxed text-sm">
+                                {formattedCulturalContext}
+                            </pre>
                         </div>
                     </div>
                 </div>
@@ -1414,96 +1375,37 @@ const LyricContent: React.FC = () => {
                 </div>
             )}
 
-            {/* Action Bar - Mobile: Collapsible, Desktop: All buttons visible */}
+            {/* Action Bar */}
             <div
-                ref={actionMenuRef}
                 className="fixed left-1/2 -translate-x-1/2 w-[min(92vw,360px)] z-40 bottom-[max(1.5rem,env(safe-area-inset-bottom))]"
             >
-                {/* Mobile: Collapsed state - single Actions button */}
-                <div className="md:hidden">
-                    {showActionMenu ? (
-                        <div className="bg-[#2a3c30]/95 backdrop-blur-md p-3 rounded-full border border-white/10 shadow-2xl flex items-center justify-around gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
-                            <button
-                                onClick={() => { handleFavoriteToggle(); setShowActionMenu(false); }}
-                                disabled={favoriteLoading}
-                                className={`flex flex-col items-center justify-center min-w-[44px] min-h-[44px] w-16 h-14 rounded-full hover:bg-white/10 transition-colors touch-manipulation ${isFavorite ? 'text-red-400' : ''}`}
-                            >
-                                <HeartIcon className={`h-5 w-5 ${isFavorite ? 'fill-current' : ''}`} />
-                                <span className="text-[10px] mt-1">{isFavorite ? 'Liked' : 'Like'}</span>
-                            </button>
-                            <button
-                                onClick={() => { handleShare(); setShowActionMenu(false); }}
-                                className="flex flex-col items-center justify-center min-w-[44px] min-h-[44px] w-16 h-14 rounded-full hover:bg-white/10 transition-colors touch-manipulation"
-                            >
-                                <ShareIcon className="h-5 w-5" />
-                                <span className="text-[10px] mt-1">Share</span>
-                            </button>
-                            {song && (
-                                <Link
-                                    to={`/community/create?songId=${song.id}&artistId=${song.artistId}`}
-                                    onClick={() => setShowActionMenu(false)}
-                                    className="flex flex-col items-center justify-center min-w-[44px] min-h-[44px] w-16 h-14 rounded-full hover:bg-white/10 transition-colors text-amber-400 touch-manipulation"
-                                    title="Discuss this song"
-                                >
-                                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                                    </svg>
-                                    <span className="text-[10px] mt-1">Discuss</span>
-                                </Link>
-                            )}
-                            <button
-                                onClick={() => setShowActionMenu(false)}
-                                className="flex flex-col items-center justify-center min-w-[44px] min-h-[44px] w-12 h-14 rounded-full hover:bg-white/10 transition-colors touch-manipulation"
-                                aria-label="Close menu"
-                            >
-                                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                            </button>
-                        </div>
-                    ) : (
-                        <button
-                            onClick={() => setShowActionMenu(true)}
-                            className="w-full flex items-center justify-center gap-2 bg-[#2a3c30]/95 backdrop-blur-md py-3 px-6 rounded-full border border-white/10 shadow-2xl touch-manipulation hover:bg-[#344a3a]/95 transition-colors"
-                        >
-                            <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                            </svg>
-                            <span className="text-sm font-medium text-white">Actions</span>
-                            {isFavorite && (
-                                <HeartIcon className="h-4 w-4 text-red-400 fill-current" />
-                            )}
-                        </button>
-                    )}
-                </div>
-
-                {/* Desktop: All buttons visible */}
-                <div className="hidden md:flex items-center justify-around gap-4 bg-[#2a3c30]/95 backdrop-blur-md p-3 rounded-full border border-white/10 shadow-2xl">
+                {/* Mobile & Desktop: Always show buttons inline */}
+                <div className="bg-[#2a3c30]/95 backdrop-blur-md p-2 rounded-full border border-white/10 shadow-2xl flex items-center justify-around">
                     <button
                         onClick={handleFavoriteToggle}
                         disabled={favoriteLoading}
-                        className={`flex flex-col items-center justify-center min-w-[44px] min-h-[44px] w-20 h-14 rounded-full hover:bg-white/10 transition-colors touch-manipulation ${isFavorite ? 'text-red-400' : ''}`}
+                        className={`flex flex-col items-center justify-center min-w-[44px] min-h-[44px] w-16 md:w-20 h-12 rounded-full hover:bg-white/10 transition-colors touch-manipulation ${isFavorite ? 'text-red-400' : 'text-white'}`}
                     >
-                        <HeartIcon className={`h-6 w-6 ${isFavorite ? 'fill-current' : ''}`} />
-                        <span className="text-xs mt-1">{isFavorite ? 'Liked' : 'Like'}</span>
+                        <HeartIcon className={`h-5 w-5 ${isFavorite ? 'fill-current' : ''}`} />
+                        <span className="text-[10px] mt-0.5">{isFavorite ? 'Liked' : 'Like'}</span>
                     </button>
                     <button
                         onClick={handleShare}
-                        className="flex flex-col items-center justify-center min-w-[44px] min-h-[44px] w-20 h-14 rounded-full hover:bg-white/10 transition-colors touch-manipulation"
+                        className="flex flex-col items-center justify-center min-w-[44px] min-h-[44px] w-16 md:w-20 h-12 rounded-full hover:bg-white/10 transition-colors text-white touch-manipulation"
                     >
-                        <ShareIcon className="h-6 w-6" />
-                        <span className="text-xs mt-1">Share</span>
+                        <ShareIcon className="h-5 w-5" />
+                        <span className="text-[10px] mt-0.5">Share</span>
                     </button>
                     {song && (
                         <Link
                             to={`/community/create?songId=${song.id}&artistId=${song.artistId}`}
-                            className="flex flex-col items-center justify-center min-w-[44px] min-h-[44px] w-20 h-14 rounded-full hover:bg-white/10 transition-colors text-amber-400 touch-manipulation"
+                            className="flex flex-col items-center justify-center min-w-[44px] min-h-[44px] w-16 md:w-20 h-12 rounded-full hover:bg-white/10 transition-colors text-amber-400 touch-manipulation"
                             title="Discuss this song"
                         >
-                            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                             </svg>
-                            <span className="text-xs mt-1">Discuss</span>
+                            <span className="text-[10px] mt-0.5">Discuss</span>
                         </Link>
                     )}
                 </div>
