@@ -1055,116 +1055,56 @@ const LyricContent: React.FC = () => {
 
             {/* Generate Translation Button - Show when original lyrics exist but translation is empty */}
             {!loading && !error && canGenerateTranslation && (
-                <div className="mb-4 animate-fade-in-up">
-                    <div className="relative overflow-hidden bg-gradient-to-br from-green-800/20 to-emerald-800/20 backdrop-blur-sm border border-green-500/30 rounded-2xl shadow-2xl p-4 md:p-6">
-                        {/* Animated background gradient */}
-                        <div className="absolute inset-0 bg-gradient-to-r from-green-500/5 via-emerald-500/5 to-green-500/5 animate-gradient-shift"></div>
-
-                        {/* Content */}
-                        <div className="relative z-10">
-                            <div className="flex items-start gap-4 mb-4">
-                                <div className="flex-shrink-0 relative">
-                                    <div className="absolute inset-0 bg-green-500/20 rounded-full animate-ping"></div>
-                                    <div className="relative bg-gray-700/50 p-3 rounded-full border border-green-500/30">
-                                        <svg className="w-6 h-6 md:w-8 md:h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
-                                        </svg>
-                                    </div>
-                                </div>
-
-                                <div className="flex-1 min-w-0">
-                                    <h3 className="text-lg md:text-xl font-bold text-white mb-2">
-                                        Generate Translation with AI
-                                    </h3>
-                                    <p className="text-gray-300 text-sm md:text-base leading-relaxed mb-4">
-                                        Use AI to automatically translate the original lyrics. The source language will be detected automatically. Select the target language below.
-                                    </p>
-
-                                    {/* Language Selector - Only Target Language */}
-                                    {showLanguageSelector && (
-                                        <div className="mb-4 p-4 bg-gray-800/50 rounded-lg border border-gray-700">
-                                            <div className="mb-3">
-                                                <label className="block text-sm font-medium text-gray-300 mb-2">
-                                                    Target Language (Translate to)
-                                                </label>
-                                                <select
-                                                    value={targetLang}
-                                                    onChange={(e) => setTargetLang(e.target.value)}
-                                                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
-                                                    disabled={translationLoading || detectingLanguage}
-                                                >
-                                                    {languages.map(lang => (
-                                                        <option key={lang.code} value={lang.code}>{lang.name}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                            {sourceLang && sourceLang !== 'en' && (
-                                                <div className="mt-3 p-3 bg-blue-900/20 border border-blue-500/30 rounded-lg">
-                                                    <p className="text-xs text-blue-300">
-                                                        <span className="font-semibold">Source language will be detected automatically</span>
-                                                        {song?.language && (
-                                                            <span className="block mt-1 text-blue-400">
-                                                                (Song metadata suggests: {song.language})
-                                                            </span>
-                                                        )}
-                                                    </p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {/* Generate Button */}
-                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                                        <button
-                                            data-testid="translate-btn"
-                                            onClick={() => {
-                                                if (!showLanguageSelector) {
-                                                    setShowLanguageSelector(true);
-                                                } else {
-                                                    handleGenerateTranslation();
-                                                }
-                                            }}
-                                            disabled={translationLoading || detectingLanguage}
-                                            className="w-full sm:w-auto group relative overflow-hidden bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 disabled:from-gray-800 disabled:to-gray-800 text-white font-semibold py-3 px-6 md:px-8 rounded-xl transition-all duration-300 flex items-center justify-center gap-3 shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            {/* Shine effect on hover */}
-                                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
-
-                                            {translationLoading || detectingLanguage ? (
-                                                <>
-                                                    <span className="h-5 w-5 rounded-full border-2 border-white/60 border-t-transparent animate-pulse" />
-                                                    <span className="relative z-10">
-                                                        {detectingLanguage ? 'Detecting Language...' : 'Generating Translation...'}
-                                                    </span>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <svg className="w-5 h-5 relative z-10 group-hover:rotate-12 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                                    </svg>
-                                                    <span className="relative z-10">
-                                                        {showLanguageSelector ? 'Generate Translation' : 'Translate with AI'}
-                                                    </span>
-                                                    <svg className="w-4 h-4 relative z-10 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                                    </svg>
-                                                </>
-                                            )}
-                                        </button>
-                                    </div>
-
-                                    {/* Fallback: Request Translation link */}
-                                    <div className="mt-3">
-                                        <button
-                                            onClick={handleRequestTranslation}
-                                            disabled={requestLoading}
-                                            className="text-sm text-gray-400 hover:text-gray-300 underline transition-colors disabled:opacity-50"
-                                        >
-                                            {requestLoading ? 'Submitting...' : 'Prefer a human translation? Request one instead'}
-                                        </button>
-                                    </div>
-                                </div>
+                <div className="mb-4">
+                    <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4">
+                        {/* Language Selector - Only Target Language */}
+                        {showLanguageSelector && (
+                            <div className="mb-4 p-3 bg-gray-700/50 rounded-lg border border-gray-600">
+                                <label className="block text-sm font-medium text-gray-300 mb-2">
+                                    Target Language
+                                </label>
+                                <select
+                                    value={targetLang}
+                                    onChange={(e) => setTargetLang(e.target.value)}
+                                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                                    disabled={translationLoading || detectingLanguage}
+                                >
+                                    {languages.map(lang => (
+                                        <option key={lang.code} value={lang.code}>{lang.name}</option>
+                                    ))}
+                                </select>
                             </div>
+                        )}
+
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                            <button
+                                data-testid="translate-btn"
+                                onClick={() => {
+                                    if (!showLanguageSelector) {
+                                        setShowLanguageSelector(true);
+                                    } else {
+                                        handleGenerateTranslation();
+                                    }
+                                }}
+                                disabled={translationLoading || detectingLanguage}
+                                className="w-full sm:w-auto min-h-[44px] bg-green-600 hover:bg-green-700 disabled:bg-gray-700 text-white font-semibold py-2.5 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {translationLoading || detectingLanguage ? (
+                                    <>
+                                        <span className="h-4 w-4 rounded-full border-2 border-white/60 border-t-transparent animate-pulse" />
+                                        <span>{detectingLanguage ? 'Detecting Language...' : 'Generating...'}</span>
+                                    </>
+                                ) : (
+                                    <span>{showLanguageSelector ? 'Generate Translation' : 'Translate with AI'}</span>
+                                )}
+                            </button>
+                            <button
+                                onClick={handleRequestTranslation}
+                                disabled={requestLoading}
+                                className="text-sm text-gray-400 hover:text-gray-300 underline transition-colors disabled:opacity-50"
+                            >
+                                {requestLoading ? 'Submitting...' : 'Prefer a human translation? Request one instead'}
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -1205,69 +1145,38 @@ const LyricContent: React.FC = () => {
 
             {/* Request Translation Button - Show when no lyrics or translation */}
             {!loading && !error && (hasNoLyrics || (hasNoTranslation && !canGenerateTranslation)) && (
-                <div className="mb-4 animate-fade-in-up">
-                    <div className="relative overflow-hidden bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-sm border border-gray-600/50 rounded-2xl shadow-2xl p-6 md:p-8">
-                        {/* Animated background gradient */}
-                        <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-purple-500/5 to-pink-500/5 animate-gradient-shift"></div>
-
-                        {/* Content */}
-                        <div className="relative z-10">
-                            {/* Icon with pulse animation */}
-                            <div className="flex items-start gap-4 mb-4">
-                                <div className="flex-shrink-0 relative">
-                                    <div className="absolute inset-0 bg-blue-500/20 rounded-full animate-ping"></div>
-                                    <div className="relative bg-gray-700/50 p-3 rounded-full border border-gray-600">
-                                        <svg className="w-6 h-6 md:w-8 md:h-8 text-gray-300 animate-bounce-slow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
-                                        </svg>
-                                    </div>
-                                </div>
-
-                                <div className="flex-1 min-w-0">
-                                    <h3 className="text-lg md:text-xl font-bold text-white mb-2">
-                                        {hasNoLyrics && hasNoTranslation
-                                            ? 'Lyrics & Translation Needed'
-                                            : hasNoLyrics
-                                                ? 'Lyrics Needed'
-                                                : 'Translation Needed'}
-                                    </h3>
-                                    <p className="text-gray-300 text-sm md:text-base leading-relaxed">
-                                        {hasNoLyrics && hasNoTranslation
-                                            ? 'This song doesn\'t have lyrics or translation yet. Request one and our team will add it soon!'
-                                            : hasNoLyrics
-                                                ? 'This song doesn\'t have lyrics yet. Request them and our team will add it soon!'
-                                                : 'This song doesn\'t have a translation yet. Request one and our team will add it soon!'}
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* Button with hover animation */}
-                            <button
-                                onClick={handleRequestTranslation}
-                                disabled={requestLoading}
-                                className="w-full md:w-auto min-h-[44px] group relative overflow-hidden bg-gradient-to-r from-gray-700 to-gray-600 hover:from-gray-600 hover:to-gray-500 disabled:from-gray-800 disabled:to-gray-800 text-white font-semibold py-3 px-6 md:px-8 rounded-xl transition-all duration-300 flex items-center justify-center gap-3 shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {/* Shine effect on hover */}
-                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
-
-                                {requestLoading ? (
-                                    <>
-                                        <span className="h-5 w-5 rounded-full border-2 border-white/60 border-t-transparent animate-pulse" />
-                                        <span className="relative z-10">Submitting Request...</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <svg className="w-5 h-5 relative z-10 group-hover:rotate-12 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
-                                        </svg>
-                                        <span className="relative z-10">Request Translation</span>
-                                        <svg className="w-4 h-4 relative z-10 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                        </svg>
-                                    </>
-                                )}
-                            </button>
+                <div className="mb-4">
+                    <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4">
+                        <div className="mb-3">
+                            <h3 className="text-base font-semibold text-white">
+                                {hasNoLyrics && hasNoTranslation
+                                    ? 'Lyrics & Translation Needed'
+                                    : hasNoLyrics
+                                        ? 'Lyrics Needed'
+                                        : 'Translation Needed'}
+                            </h3>
+                            <p className="text-gray-400 text-sm mt-1">
+                                {hasNoLyrics && hasNoTranslation
+                                    ? 'This song doesn\'t have lyrics or translation yet. Request one and our team will add it soon!'
+                                    : hasNoLyrics
+                                        ? 'This song doesn\'t have lyrics yet. Request them and our team will add it soon!'
+                                        : 'This song doesn\'t have a translation yet. Request one and our team will add it soon!'}
+                            </p>
                         </div>
+                        <button
+                            onClick={handleRequestTranslation}
+                            disabled={requestLoading}
+                            className="w-full sm:w-auto min-h-[44px] bg-green-600 hover:bg-green-700 disabled:bg-gray-700 text-white font-semibold py-2.5 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {requestLoading ? (
+                                <>
+                                    <span className="h-4 w-4 rounded-full border-2 border-white/60 border-t-transparent animate-pulse" />
+                                    <span>Submitting...</span>
+                                </>
+                            ) : (
+                                <span>Request Translation</span>
+                            )}
+                        </button>
                     </div>
                 </div>
             )}
