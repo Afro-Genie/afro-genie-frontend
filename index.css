@@ -120,6 +120,23 @@ html {
   animation: fade-in 0.3s ease-out;
 }
 
+/* Hide scrollbar for Chrome, Safari and Opera */
+.overflow-x-auto::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.overflow-x-auto {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Smooth horizontal scrolling */
+.scroll-smooth-x {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
 
 
 

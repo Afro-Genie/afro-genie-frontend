@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../hooks/useNotification';
 import Notification from '../components/Notification';
 import TopicCard from '../components/community/TopicCard';
 import CreateTopicModal from '../components/community/CreateTopicModal';
+import ConfirmDialog from '../components/ConfirmDialog';
 import type { CommunityTopic } from '../types';
 
 type SortBy = 'hot' | 'new' | 'top';
@@ -13,14 +14,14 @@ const CommunityFeedPage: React.FC = () => {
   const { categoryId } = useParams<{ categoryId: string }>();
   const { user, userProfile, authFetch } = useAuth();
   const { notification, showNotification, hideNotification } = useNotification();
+  const navigate = useNavigate();
   const [topics, setTopics] = useState<CommunityTopic[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState<SortBy>('hot');
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
-
-  const canCreate = !!user;
+  const [showSignInDialog, setShowSignInDialog] = useState(false);
 
   const fetchTopics = useCallback(async (pageNum: number, append: boolean = false) => {
     setLoading(true);
@@ -88,14 +89,18 @@ const CommunityFeedPage: React.FC = () => {
               </Link>
               <h1 className="text-2xl font-bold text-gray-100 capitalize">{categoryId} Forum</h1>
             </div>
-            {canCreate && (
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-gray-900 font-semibold rounded-lg transition-colors"
-              >
-                Create Topic
-              </button>
-            )}
+            <button
+              onClick={() => {
+                if (user) {
+                  setShowCreateModal(true);
+                } else {
+                  setShowSignInDialog(true);
+                }
+              }}
+              className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-gray-900 font-semibold rounded-lg transition-colors"
+            >
+              Create Topic
+            </button>
           </div>
 
           <div className="flex gap-2">
@@ -127,14 +132,18 @@ const CommunityFeedPage: React.FC = () => {
           ) : topics.length === 0 ? (
             <div className="bg-gray-800/50 p-8 rounded-lg border border-gray-700 text-center">
               <p className="text-gray-400 text-lg mb-2">No topics yet</p>
-              {canCreate && (
-                <button
-                  onClick={() => setShowCreateModal(true)}
-                  className="text-amber-400 hover:text-amber-300 font-semibold"
-                >
-                  Create the first topic
-                </button>
-              )}
+              <button
+                onClick={() => {
+                  if (user) {
+                    setShowCreateModal(true);
+                  } else {
+                    setShowSignInDialog(true);
+                  }
+                }}
+                className="text-amber-400 hover:text-amber-300 font-semibold"
+              >
+                Create the first topic
+              </button>
             </div>
           ) : (
             <div className="space-y-4">
@@ -164,6 +173,23 @@ const CommunityFeedPage: React.FC = () => {
         open={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onSubmit={handleCreateTopic}
+      />
+      <ConfirmDialog
+        isOpen={showSignInDialog}
+        title="Sign In Required"
+        message="You need to be signed in to create a topic. Please sign in or create an account first."
+        confirmText="Sign In"
+        cancelText="Cancel"
+        onConfirm={() => {
+          setShowSignInDialog(false);
+          navigate('/');
+          setTimeout(() => {
+            const loginButton = document.querySelector('[data-login-button]') as HTMLElement;
+            if (loginButton) loginButton.click();
+          }, 100);
+        }}
+        onCancel={() => setShowSignInDialog(false)}
+        type="info"
       />
       <Notification notification={notification} onClose={hideNotification} />
     </div>

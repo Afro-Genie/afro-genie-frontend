@@ -1,20 +1,23 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../hooks/useNotification';
 import Notification from '../components/Notification';
 import UserProfileCard from '../components/community/UserProfileCard';
 import RegistrationForm from '../components/community/RegistrationForm';
 import CreateTopicForm from '../components/community/CreateTopicForm';
+import ConfirmDialog from '../components/ConfirmDialog';
 import type { CommunityCategory } from '../types';
 
 const CommunityPage: React.FC = () => {
   const { user, authFetch } = useAuth();
   const { notification, showNotification, hideNotification } = useNotification();
   const location = useLocation();
+  const navigate = useNavigate();
   const [categories, setCategories] = useState<CommunityCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showSignInDialog, setShowSignInDialog] = useState(false);
 
   const isCreateView = location.pathname.includes('/create') || location.hash.includes('/create');
 
@@ -60,6 +63,44 @@ const CommunityPage: React.FC = () => {
   };
 
   if (isCreateView) {
+    if (!user) {
+      return (
+        <div className="min-h-screen bg-[#122118]">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="max-w-3xl mx-auto">
+              <div className="mb-6">
+                <Link
+                  to="/community"
+                  className="inline-flex items-center gap-2 text-gray-400 hover:text-amber-400 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  Back to Community
+                </Link>
+              </div>
+              <CreateTopicForm />
+            </div>
+          </div>
+          <ConfirmDialog
+            isOpen={true}
+            title="Sign In Required"
+            message="You need to be signed in to create a topic. Please sign in or create an account first."
+            confirmText="Sign In"
+            cancelText="Cancel"
+            onConfirm={() => {
+              navigate('/');
+              setTimeout(() => {
+                const loginButton = document.querySelector('[data-login-button]') as HTMLElement;
+                if (loginButton) loginButton.click();
+              }, 100);
+            }}
+            onCancel={() => navigate('/community')}
+            type="info"
+          />
+        </div>
+      );
+    }
     return (
       <div className="min-h-screen bg-[#122118]">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -91,12 +132,18 @@ const CommunityPage: React.FC = () => {
             <p className="mt-4 text-base sm:text-lg text-gray-400 max-w-3xl mx-auto">
               Join genre communities to discuss and share your love for African music.
             </p>
-            <Link
-              to="/community/create"
+            <button
+              onClick={() => {
+                if (user) {
+                  navigate('/community/create');
+                } else {
+                  setShowSignInDialog(true);
+                }
+              }}
               className="inline-flex items-center mt-6 px-6 py-3 bg-amber-500 hover:bg-amber-600 text-gray-900 font-semibold rounded-lg transition-colors"
             >
               Create Topic
-            </Link>
+            </button>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
@@ -165,6 +212,23 @@ const CommunityPage: React.FC = () => {
         </div>
       </div>
       <Notification notification={notification} onClose={hideNotification} />
+      <ConfirmDialog
+        isOpen={showSignInDialog}
+        title="Sign In Required"
+        message="You need to be signed in to create a topic. Please sign in or create an account first."
+        confirmText="Sign In"
+        cancelText="Cancel"
+        onConfirm={() => {
+          setShowSignInDialog(false);
+          navigate('/');
+          setTimeout(() => {
+            const loginButton = document.querySelector('[data-login-button]') as HTMLElement;
+            if (loginButton) loginButton.click();
+          }, 100);
+        }}
+        onCancel={() => setShowSignInDialog(false)}
+        type="info"
+      />
     </div>
   );
 };

@@ -44,6 +44,7 @@ import SpotifyLinkDialog from './components/SpotifyLinkDialog';
 import NowPlayingBar from './components/NowPlayingBar';
 import ScrollToTop from './components/ScrollToTop';
 import PlaybackDiagnosticPanel from './components/PlaybackDiagnosticPanel';
+import { featureFlags } from './config/featureFlags';
 
 function App() {
   return (
@@ -115,7 +116,7 @@ function App() {
           <Footer />
           </div>
         </HashRouter>
-        <PlaybackDiagnosticPanel />
+        {featureFlags.playbackDiagnostics && <PlaybackDiagnosticPanel />}
         </AudioProvider>
       </WebPlaybackProvider>
     </AuthProvider>
