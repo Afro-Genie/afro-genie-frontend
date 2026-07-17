@@ -6,7 +6,43 @@ import { useAuth } from '../context/AuthContext';
 import { SearchResultsSkeleton, SongListSkeleton, SquareGridSkeleton } from '../components/PageSkeletons';
 import { SUPPORTED_LANGUAGES, LANGUAGE_FLAGS } from '../constants';
 import { featureFlags } from '../config/featureFlags';
+import ConfirmDialog from '../components/ConfirmDialog';
 import type { Artist, Genre, Song, GenieSettings, Topic } from '../types';
+
+const LANGUAGE_IMAGES: Record<string, string> = {
+  en: 'https://flagcdn.com/w320/gb.png',
+  yo: 'https://flagcdn.com/w320/ng.png',
+  ig: 'https://flagcdn.com/w320/ng.png',
+  ha: 'https://flagcdn.com/w320/ng.png',
+  pcm: 'https://flagcdn.com/w320/ng.png',
+  sw: 'https://flagcdn.com/w320/ke.png',
+  fr: 'https://flagcdn.com/w320/fr.png',
+  es: 'https://flagcdn.com/w320/es.png',
+  pt: 'https://flagcdn.com/w320/pt.png',
+  ar: 'https://flagcdn.com/w320/sa.png',
+  zu: 'https://flagcdn.com/w320/za.png',
+  am: 'https://flagcdn.com/w320/et.png',
+};
+
+const GENRE_IMAGES: Record<string, string> = {
+  Afrobeats: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=400&fit=crop',
+  Amapiano: 'https://images.unsplash.com/photo-1571266028243-3716f02d2d50?w=400&h=400&fit=crop',
+  Highlife: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&h=400&fit=crop',
+  Fuji: 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=400&h=400&fit=crop',
+  Gospel: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop',
+  HipHop: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=400&fit=crop',
+  Jazz: 'https://images.unsplash.com/photo-1511192336575-5a79af67a629?w=400&h=400&fit=crop',
+  Pop: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&h=400&fit=crop',
+  RnB: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=400&fit=crop',
+  Soul: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400&h=400&fit=crop',
+  Reggae: 'https://images.unsplash.com/photo-1504898770365-14faca6a7320?w=400&h=400&fit=crop',
+  Dancehall: 'https://images.unsplash.com/photo-1504898770365-14faca6a7320?w=400&h=400&fit=crop',
+  'Bongo Flava': 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=400&h=400&fit=crop',
+  Gengetone: 'https://images.unsplash.com/photo-1571266028243-3716f02d2d50?w=400&h=400&fit=crop',
+  Kwaito: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&h=400&fit=crop',
+};
+
+const DEFAULT_GENRE_IMAGE = 'https://images.unsplash.com/photo-1514320291840-2e0a9bf2a9ae?w=400&h=400&fit=crop';
 
 const HomePage: React.FC = () => {
     const [artists, setArtists] = useState<Artist[]>([]);
@@ -31,9 +67,10 @@ const HomePage: React.FC = () => {
         size: 'large'
     });
 
-    const { isSpotifyPremium } = useAuth();
+    const { isSpotifyPremium, user } = useAuth();
     const { loadTrackById, currentTrack, isPlaying, togglePlayPause } = useAudioPlayer();
     const navigate = useNavigate();
+    const [showSignInDialog, setShowSignInDialog] = useState(false);
 
     // Languages supported — built from canonical source
     const languages = SUPPORTED_LANGUAGES
@@ -177,12 +214,18 @@ const HomePage: React.FC = () => {
                                 </svg>
                                 Join Community
                             </Link>
-                            <Link 
-                                to="/artist/signup" 
+                            <button 
+                                onClick={() => {
+                                    if (user) {
+                                        navigate('/account');
+                                    } else {
+                                        setShowSignInDialog(true);
+                                    }
+                                }}
                                 className="w-full sm:w-auto min-h-[44px] bg-transparent border-2 border-green-400 hover:bg-green-400/10 text-green-400 hover:text-green-300 font-semibold py-3 px-6 sm:px-8 rounded-full transition-all duration-300 flex items-center justify-center text-base sm:text-lg"
                             >
-                                For Artists
-                            </Link>
+                                Request Role
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -212,7 +255,7 @@ const HomePage: React.FC = () => {
                             <p className="text-gray-400 mb-4">
                                 Get accurate translations that preserve cultural context and meaning
                             </p>
-                            <Link to="/search" className="inline-flex items-center min-h-[44px] text-green-400 hover:text-green-300 font-semibold text-sm gap-1">
+                            <Link to="/request-translation" className="inline-flex items-center min-h-[44px] text-green-400 hover:text-green-300 font-semibold text-sm gap-1">
                                 Try Now <span>→</span>
                             </Link>
                         </div>
@@ -244,7 +287,7 @@ const HomePage: React.FC = () => {
                             <p className="text-gray-400 mb-4">
                                 Access thousands of African songs across multiple languages and genres
                             </p>
-                            <Link to="/search" className="inline-flex items-center min-h-[44px] text-green-400 hover:text-green-300 font-semibold text-sm gap-1">
+                            <Link to="/songs" className="inline-flex items-center min-h-[44px] text-green-400 hover:text-green-300 font-semibold text-sm gap-1">
                                 Browse <span>→</span>
                             </Link>
                         </div>
@@ -383,18 +426,10 @@ const HomePage: React.FC = () => {
             {/* Browse Languages Section */}
             <section className="py-16 bg-gradient-to-b from-[#122118] to-[#1a2b22]">
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
+                    <div className="mb-6 sm:mb-8">
                         <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">
                             Browse <span className="text-green-400">Languages</span>
                         </h2>
-                        <Link 
-                            to="/search" 
-                            className="inline-flex items-center min-h-[44px] text-green-400 hover:text-green-300 font-semibold gap-2 self-start"
-                        >
-                            More <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                            </svg>
-                        </Link>
                     </div>
                     <div className="flex md:grid md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 overflow-x-auto pb-2">
                         {languages.map((lang) => (
@@ -410,7 +445,16 @@ const HomePage: React.FC = () => {
                                 }}
                                 className="group min-w-[150px] md:min-w-0 bg-gray-800/50 hover:bg-gray-700/50 rounded-xl p-4 sm:p-6 border border-gray-700 hover:border-green-400/50 transition-all duration-300 text-center min-h-[44px] flex flex-col items-center justify-center"
                             >
-                                <div className="text-4xl mb-3">{lang.flag}</div>
+                                {LANGUAGE_IMAGES[lang.code] ? (
+                                    <img
+                                        src={LANGUAGE_IMAGES[lang.code]}
+                                        alt={`${lang.name} flag`}
+                                        className="w-12 h-8 sm:w-14 sm:h-9 rounded-sm object-cover mb-3 shadow-md border border-gray-600"
+                                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                    />
+                                ) : (
+                                    <div className="text-4xl mb-3">{lang.flag}</div>
+                                )}
                                 <h3 className="font-semibold text-white group-hover:text-green-400 transition-colors text-sm sm:text-base">
                                     {lang.name}
                                 </h3>
@@ -487,18 +531,10 @@ const HomePage: React.FC = () => {
             {/* Explore by Genre Section */}
             <section className="py-16 bg-gradient-to-b from-[#1a2b22] to-[#122118]">
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
+                    <div className="mb-6 sm:mb-8">
                         <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">
                             Explore by <span className="text-green-400">Genre</span>
                         </h2>
-                        <Link 
-                            to="/search" 
-                            className="inline-flex items-center min-h-[44px] text-green-400 hover:text-green-300 font-semibold gap-2 self-start"
-                        >
-                            More <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                            </svg>
-                        </Link>
                     </div>
                     {genresLoading ? (
                         <SquareGridSkeleton count={5} />
@@ -510,28 +546,30 @@ const HomePage: React.FC = () => {
                         </div>
                     ) : (
                         <div className="flex md:grid md:grid-cols-5 gap-4 md:gap-6 overflow-x-auto pb-2">
-                            {genres.map((genre) => (
+                            {genres.map((genre) => {
+                                const genreImage = genre.image || GENRE_IMAGES[genre.name] || DEFAULT_GENRE_IMAGE;
+                                return (
                                 <Link 
                                     to={featureFlags.genrePages ? `/genre/${encodeURIComponent(genre.name)}` : `/search/${genre.name}`} 
                                     key={genre.id} 
                                     className="group cursor-pointer min-w-[150px] md:min-w-0"
                                 >
-                                    <div className="aspect-square rounded-xl overflow-hidden transition-all duration-300 group-hover:scale-105 shadow-lg bg-gradient-to-br from-green-500/20 to-amber-500/20 border border-gray-700 group-hover:border-green-400/50">
-                                        {genre.image ? (
-                                            <img src={genre.image} alt={genre.name} onError={onImageError} className="w-full h-full object-cover" />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-gray-500">
-                                                <svg className="w-12 h-12" fill="currentColor" viewBox="0 0 20 20">
-                                                    <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
-                                                </svg>
-                                            </div>
-                                        )}
+                                    <div className="aspect-square rounded-xl overflow-hidden transition-all duration-300 group-hover:scale-105 shadow-lg border border-gray-700 group-hover:border-green-400/50">
+                                        <img
+                                            src={genreImage}
+                                            alt={genre.name}
+                                            className="w-full h-full object-cover"
+                                            onError={(e) => {
+                                                (e.target as HTMLImageElement).src = DEFAULT_GENRE_IMAGE;
+                                            }}
+                                        />
                                     </div>
                                     <h3 className="mt-3 font-semibold text-white group-hover:text-green-400 transition-colors text-center text-sm sm:text-base">
                                         {genre.name}
                                     </h3>
                                 </Link>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
                 </div>
@@ -646,6 +684,24 @@ const HomePage: React.FC = () => {
                     ` : ''}
                 }
             `}} />
+
+            <ConfirmDialog
+                isOpen={showSignInDialog}
+                title="Sign In Required"
+                message="You need to be signed in to request a role. Please sign in or create an account first."
+                confirmText="Sign In"
+                cancelText="Cancel"
+                onConfirm={() => {
+                    setShowSignInDialog(false);
+                    navigate('/');
+                    setTimeout(() => {
+                        const loginButton = document.querySelector('[data-login-button]') as HTMLElement;
+                        if (loginButton) loginButton.click();
+                    }, 100);
+                }}
+                onCancel={() => setShowSignInDialog(false)}
+                type="info"
+            />
         </div>
     );
 };

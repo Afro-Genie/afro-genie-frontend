@@ -15,6 +15,7 @@ import type { AppNotification } from '../types';
 const Header: React.FC = () => {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [toast, setToast] = useState<NotificationData | null>(null);
   const { user, loading } = useAuth();
 
@@ -46,7 +47,6 @@ const Header: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // Wait for AuthContext to finish initializing so Firestore has an auth token.
     if (loading) return;
     if (!user?.uid || !featureFlags.requestCompletionNotifications) return;
     let seen = new Set<string>();
@@ -72,11 +72,14 @@ const Header: React.FC = () => {
               <span className="text-lg sm:text-xl font-bold text-white">AfroGenie</span>
             </Link>
 
-            {/* Search, Actions */}
-            <div className="flex items-center justify-end sm:justify-start space-x-2 sm:space-x-4 flex-1 min-w-0">
-              <div className="flex-1 min-w-0 hidden sm:block">
-                <SearchBar variant="header" />
-              </div>
+            {/* Right side: Search + Menu + User */}
+            <div className="flex items-center justify-end space-x-1 sm:space-x-2 flex-1 min-w-0">
+              <SearchBar
+                variant="header"
+                isOpen={isSearchOpen}
+                onOpen={() => setIsSearchOpen(true)}
+                onClose={() => setIsSearchOpen(false)}
+              />
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                 className="p-2 rounded-md text-gray-300 hover:bg-[#2a3c30] hover:text-white transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
@@ -86,10 +89,6 @@ const Header: React.FC = () => {
               </button>
               <UserMenu onLoginClick={() => setIsLoginModalOpen(true)} />
             </div>
-          </div>
-          {/* Mobile Search Bar */}
-          <div className="sm:hidden pb-3">
-            <SearchBar variant="header" />
           </div>
         </div>
 
