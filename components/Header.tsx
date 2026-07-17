@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import LogoIcon from './icons/LogoIcon';
-import MenuIcon from './icons/MenuIcon';
 import SearchBar from './SearchBar';
 import UserMenu from './auth/UserMenu';
 import LoginModal from './auth/LoginModal';
@@ -14,19 +13,9 @@ import type { AppNotification } from '../types';
 
 const Header: React.FC = () => {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [toast, setToast] = useState<NotificationData | null>(null);
   const { user, loading } = useAuth();
-
-  useEffect(() => {
-    if (!isMobileMenuOpen) return;
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setIsMobileMenuOpen(false);
-    };
-    window.addEventListener('keydown', handleEscape);
-    return () => window.removeEventListener('keydown', handleEscape);
-  }, [isMobileMenuOpen]);
 
   useEffect(() => {
     const handleAuthExpired = () => {
@@ -66,82 +55,28 @@ const Header: React.FC = () => {
       <header className="bg-[#1A2B22]/80 backdrop-blur-sm sticky top-0 z-50 border-b border-white/10 flex-shrink-0">
         <div className="container mx-auto px-3 sm:px-4 lg:px-8">
           <div className="flex items-center justify-between h-14 sm:h-16 gap-2 sm:gap-4">
-            {/* Logo */}
-            <Link to="/" className="flex items-center space-x-1.5 sm:space-x-2 flex-shrink-0">
-              <LogoIcon className="h-4 w-4 sm:h-5 sm:w-5 text-green-400" />
-              <span className="text-lg sm:text-xl font-bold text-white">AfroGenie</span>
-            </Link>
+            {/* Logo - hidden when search is open */}
+            {!isSearchOpen && (
+              <Link to="/" className="flex items-center space-x-1.5 sm:space-x-2 flex-shrink-0">
+                <LogoIcon className="h-4 w-4 sm:h-5 sm:w-5 text-green-400" />
+                <span className="text-lg sm:text-xl font-bold text-white">AfroGenie</span>
+              </Link>
+            )}
 
-            {/* Right side: Search + Menu + User */}
-            <div className="flex items-center justify-end space-x-1 sm:space-x-2 flex-1 min-w-0">
+            {/* Right side: Search + User */}
+            <div className={`flex items-center justify-end space-x-1 sm:space-x-2 flex-1 min-w-0 ${isSearchOpen ? '' : ''}`}>
               <SearchBar
                 variant="header"
                 isOpen={isSearchOpen}
                 onOpen={() => setIsSearchOpen(true)}
                 onClose={() => setIsSearchOpen(false)}
               />
-              <button
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="p-2 rounded-md text-gray-300 hover:bg-[#2a3c30] hover:text-white transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
-                aria-label="Toggle menu"
-              >
-                <MenuIcon className="h-5 w-5 sm:h-6 sm:w-6" />
-              </button>
-              <UserMenu onLoginClick={() => setIsLoginModalOpen(true)} />
+              {!isSearchOpen && (
+                <UserMenu onLoginClick={() => setIsLoginModalOpen(true)} />
+              )}
             </div>
           </div>
         </div>
-
-        {/* Mobile Menu */}
-        {isMobileMenuOpen && (
-          <>
-            <button
-              type="button"
-              aria-label="Close menu"
-              className="fixed inset-0 z-40 lg:hidden"
-              onClick={() => setIsMobileMenuOpen(false)}
-            />
-            <div className="lg:hidden bg-[#1A2B22] border-t border-white/10 relative z-50">
-            <div className="container mx-auto px-4 py-4 space-y-1">
-              <Link
-                to="/"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center min-h-[44px] pl-4 py-3 text-gray-300 hover:text-white hover:bg-[#2a3c30] rounded-md transition-colors"
-              >
-                Home
-              </Link>
-              <Link
-                to="/songs"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center min-h-[44px] pl-4 py-3 text-gray-300 hover:text-white hover:bg-[#2a3c30] rounded-md transition-colors"
-              >
-                Browse Songs
-              </Link>
-              <Link
-                to="/search"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center min-h-[44px] pl-4 py-3 text-gray-300 hover:text-white hover:bg-[#2a3c30] rounded-md transition-colors"
-              >
-                Search
-              </Link>
-              <Link
-                to="/community"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center min-h-[44px] pl-4 py-3 text-gray-300 hover:text-white hover:bg-[#2a3c30] rounded-md transition-colors"
-              >
-                Community
-              </Link>
-              <Link
-                to="/request-translation"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center min-h-[44px] pl-4 py-3 text-gray-300 hover:text-white hover:bg-[#2a3c30] rounded-md transition-colors"
-              >
-                Request Translation
-              </Link>
-            </div>
-          </div>
-          </>
-        )}
       </header>
 
       <LoginModal

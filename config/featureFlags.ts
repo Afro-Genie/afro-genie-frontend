@@ -42,6 +42,9 @@ export const featureFlags = {
 
   // Phase 9: role request workflow in account settings
   roleApplicationWorkflow: asBoolean(import.meta.env.VITE_FLAG_ROLE_APPLICATION_WORKFLOW as FlagValue, false),
+
+  // Playback diagnostics panel (hidden by default, enable via VITE_FLAG_PLAYBACK_DIAGNOSTICS=true)
+  playbackDiagnostics: asBoolean(import.meta.env.VITE_FLAG_PLAYBACK_DIAGNOSTICS as FlagValue, false),
 };
 
 export const spotifyProxyBaseUrl =

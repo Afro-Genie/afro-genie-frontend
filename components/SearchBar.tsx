@@ -91,7 +91,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ variant = 'header', isOpen, onOpe
   }
 
   return (
-    <div ref={containerRef} className="animate-slide-in-from-left flex-1 min-w-0">
+    <div ref={containerRef} className="animate-slide-in-from-left flex-1 min-w-0 max-w-full lg:max-w-[50%]">
       <div className="relative">
         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
           <SearchIcon className="h-5 w-5 text-gray-400" />
@@ -114,6 +114,15 @@ const SearchBar: React.FC<SearchBarProps> = ({ variant = 'header', isOpen, onOpe
           className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-green-600 hover:bg-green-500 text-white text-xs font-semibold px-3 py-1.5 rounded transition-colors min-h-[32px] whitespace-nowrap"
         >
           Search
+        </button>
+        <button
+          onClick={() => onClose?.()}
+          className="absolute right-[72px] top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors min-h-[32px] min-w-[32px] flex items-center justify-center"
+          aria-label="Close search"
+        >
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
         </button>
       </div>
     </div>

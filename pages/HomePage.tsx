@@ -339,7 +339,7 @@ const HomePage: React.FC = () => {
                             <div className="text-red-400 text-center py-8">{songsError}</div>
                         ) : (
                             <div className="bg-gray-800/50 rounded-xl border border-gray-700 p-4">
-                                <div className="flex md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-1 max-h-[600px] overflow-x-auto md:overflow-y-auto pr-2 pb-2">
+                                <div className="flex md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-1 max-h-[600px] overflow-x-auto md:overflow-y-auto pr-2 pb-2 scroll-smooth-x">
                                     {songs.slice(0, 100).map((song, index) => {
                                         const artistName = song.artist || '';
                                         const isThisPlaying = currentTrack?.id === song.spotifyId && isPlaying;
@@ -431,7 +431,7 @@ const HomePage: React.FC = () => {
                             Browse <span className="text-green-400">Languages</span>
                         </h2>
                     </div>
-                    <div className="flex md:grid md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 overflow-x-auto pb-2">
+                    <div className="flex md:grid md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 overflow-x-auto pb-2 scroll-smooth-x">
                         {languages.map((lang) => (
                             <button
                                 key={lang.code}
@@ -497,7 +497,7 @@ const HomePage: React.FC = () => {
                     ) : artists.length === 0 ? (
                         <SquareGridSkeleton count={6} />
                     ) : (
-                        <div className="flex md:grid md:grid-cols-4 lg:grid-cols-6 gap-4 md:gap-6 overflow-x-auto pb-2">
+                        <div className="flex md:grid md:grid-cols-4 lg:grid-cols-6 gap-4 md:gap-6 overflow-x-auto pb-2 scroll-smooth-x">
                             {artists.map((artist) => (
                                 <Link 
                                     to={`/artist/${artist.id}`} 
@@ -545,7 +545,7 @@ const HomePage: React.FC = () => {
                             No genres yet. <Link to="/admin/genres" className="text-green-400 hover:underline">Add some in the admin panel!</Link>
                         </div>
                     ) : (
-                        <div className="flex md:grid md:grid-cols-5 gap-4 md:gap-6 overflow-x-auto pb-2">
+                        <div className="flex md:grid md:grid-cols-5 gap-4 md:gap-6 overflow-x-auto pb-2 scroll-smooth-x">
                             {genres.map((genre) => {
                                 const genreImage = genre.image || GENRE_IMAGES[genre.name] || DEFAULT_GENRE_IMAGE;
                                 return (
