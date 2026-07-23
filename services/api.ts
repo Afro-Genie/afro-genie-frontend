@@ -327,6 +327,13 @@ export const translationsApi = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+
+  health: () => apiRequest<any>("/translations/health"),
+
+  testSdk: () =>
+    apiRequest<any>("/translations/test", {
+      method: "POST",
+    }),
 };
 
 // Role Requests API
