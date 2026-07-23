@@ -45,6 +45,9 @@ export const featureFlags = {
 
   // Playback diagnostics panel (hidden by default, enable via VITE_FLAG_PLAYBACK_DIAGNOSTICS=true)
   playbackDiagnostics: asBoolean(import.meta.env.VITE_FLAG_PLAYBACK_DIAGNOSTICS as FlagValue, false),
+
+  // Translation diagnostics panel (hidden by default, enable via VITE_FLAG_TRANSLATION_DIAGNOSTICS=true)
+  translationDiagnostics: asBoolean(import.meta.env.VITE_FLAG_TRANSLATION_DIAGNOSTICS as FlagValue, false),
 };
 
 export const spotifyProxyBaseUrl =

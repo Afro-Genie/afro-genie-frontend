@@ -55,6 +55,8 @@ const LyricContent: React.FC = () => {
     const [showCorrectionForm, setShowCorrectionForm] = useState(false);
     const [correctionText, setCorrectionText] = useState('');
     const [correctionReason, setCorrectionReason] = useState('');
+    const [elapsedSeconds, setElapsedSeconds] = useState(0);
+    const elapsedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const [sourceProvider, setSourceProvider] = useState<string | null>(null);
     const [songSource, setSongSource] = useState<string | null>(null);
     const [syncedLyricLines, setSyncedLyricLines] = useState<LyricLine[]>([]);
@@ -415,6 +417,9 @@ const LyricContent: React.FC = () => {
                 throw new Error('Please sign in to generate translations');
             }
 
+            // Start elapsed timer for UI feedback
+            startElapsedTimer();
+
             // Language detection: stored metadata first, then lyric-based detection
             setDetectingLanguage(true);
             try {
@@ -576,15 +581,30 @@ const LyricContent: React.FC = () => {
             setTimeout(() => setNotification(null), 4000);
         } catch (err: any) {
             console.error('Translation generation error:', err);
+            stopElapsedTimer();
             if (String(err?.message || '').toLowerCase().includes('session expired')) {
                 setShowLoginPrompt(true);
             }
-            setNotification({
-                message: 'Failed to generate translation: ' + (err.message || 'Unknown error'),
-                type: 'error'
-            });
-            setTimeout(() => setNotification(null), 5000);
+            // Provide specific error messages based on failure reason
+            const msg = String(err?.message || '').toLowerCase();
+            let userMessage = 'Failed to generate translation';
+            if (msg.includes('rate') || msg.includes('429') || msg.includes('quota')) {
+                userMessage = 'Translation service is experiencing high demand. Please try again in a few minutes.';
+            } else if (msg.includes('budget') || msg.includes('token') || msg.includes('capacity')) {
+                userMessage = 'Translation service has reached its usage limit. Please try again later or request a human translation.';
+            } else if (msg.includes('no lyrics') || msg.includes('lyrics required')) {
+                userMessage = 'No lyrics found for this song. Please ensure lyrics are available before translating.';
+            } else if (msg.includes('failed after') || msg.includes('timeout')) {
+                userMessage = 'Translation timed out. The song may be too long or the service is busy. Please try again.';
+            } else if (msg.includes('session expired') || msg.includes('unauthorized')) {
+                userMessage = 'Your session has expired. Please sign in again.';
+            } else if (err.message) {
+                userMessage = `Failed to generate translation: ${err.message}`;
+            }
+            setNotification({ message: userMessage, type: 'error' });
+            setTimeout(() => setNotification(null), 6000);
         } finally {
+            stopElapsedTimer();
             setTranslationLoading(false);
             setDetectingLanguage(false);
         }
@@ -742,6 +762,43 @@ const LyricContent: React.FC = () => {
     const hasNoTranslation = cleanTranslatedLyrics === 'No translation available yet. Use "Reveal the Meaning" to generate one.' || !cleanTranslatedLyrics.trim();
     const hasOriginalLyrics = !hasNoLyrics;
     const canGenerateTranslation = hasOriginalLyrics && hasNoTranslation;
+
+    // Estimate translation time based on lyrics character count (Gemini 3.5 Flash characteristics)
+    const estimateTranslationTime = (chars: number): { seconds: number; label: string } => {
+        if (chars < 1000) return { seconds: 10, label: '~10 seconds' };
+        if (chars < 3000) return { seconds: 15, label: '~15 seconds' };
+        if (chars < 8000) return { seconds: 25, label: '~25 seconds' };
+        return { seconds: 40, label: '~40+ seconds' };
+    };
+
+    // Format elapsed seconds to a human-readable string
+    const formatElapsed = (secs: number): string => {
+        if (secs < 60) return `${secs}s`;
+        const m = Math.floor(secs / 60);
+        const s = secs % 60;
+        return `${m}m ${s}s`;
+    };
+
+    // Start/stop elapsed timer helper
+    const startElapsedTimer = () => {
+        setElapsedSeconds(0);
+        elapsedTimerRef.current = setInterval(() => {
+            setElapsedSeconds((prev) => prev + 1);
+        }, 1000);
+    };
+    const stopElapsedTimer = () => {
+        if (elapsedTimerRef.current) {
+            clearInterval(elapsedTimerRef.current);
+            elapsedTimerRef.current = null;
+        }
+    };
+
+    // Cleanup timer on unmount
+    useEffect(() => {
+        return () => {
+            if (elapsedTimerRef.current) clearInterval(elapsedTimerRef.current);
+        };
+    }, []);
     const hasValidTranslation = cleanTranslatedLyrics &&
         cleanTranslatedLyrics.trim() &&
         cleanTranslatedLyrics !== 'No translation available yet. Use "Reveal the Meaning" to generate one.';
@@ -1077,7 +1134,12 @@ const LyricContent: React.FC = () => {
                                 {translationLoading || detectingLanguage ? (
                                     <>
                                         <span className="h-4 w-4 rounded-full border-2 border-white/60 border-t-transparent animate-pulse" />
-                                        <span>{detectingLanguage ? 'Detecting Language...' : 'Generating...'}</span>
+                                        <span>
+                                            {detectingLanguage
+                                                ? 'Detecting Language...'
+                                                : `Translating... ${formatElapsed(elapsedSeconds)}`
+                                            }
+                                        </span>
                                     </>
                                 ) : (
                                     <span>{showLanguageSelector ? 'Generate Translation' : 'Translate with AI'}</span>
@@ -1090,6 +1152,12 @@ const LyricContent: React.FC = () => {
                             >
                                 {requestLoading ? 'Submitting...' : 'Prefer a human translation? Request one instead'}
                             </button>
+                            {/* Estimated time hint - shown when language selector is visible */}
+                            {showLanguageSelector && !translationLoading && !detectingLanguage && hasOriginalLyrics && (
+                                <span className="text-xs text-gray-500 hidden sm:inline">
+                                    Estimated: {estimateTranslationTime(cleanOriginalLyrics.length).label}
+                                </span>
+                            )}
                         </div>
                     </div>
                 </div>
