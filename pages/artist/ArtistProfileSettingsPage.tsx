@@ -7,6 +7,7 @@ import ProfileContact from '../../components/artist/profile/ProfileContact';
 import ProfileSocial from '../../components/artist/profile/ProfileSocial';
 import Achievements from '../../components/artist/profile/Achievements';
 import RecentActivity from '../../components/artist/profile/RecentActivity';
+import ImageUpload from '../../components/ImageUpload';
 
 interface ArtistProfile {
   id: string;
@@ -101,6 +102,22 @@ const ArtistProfileSettingsPage: React.FC = () => {
     setProfile((prev) => (prev ? { ...prev, spotifyArtistId } : prev));
   };
 
+  const handleUploadProfileImage = async (url: string) => {
+    await apiRequest('/artists/me/profile', {
+      method: 'PUT',
+      body: JSON.stringify({ profileImageUrl: url }),
+    });
+    setProfile((prev) => (prev ? { ...prev, profileImageUrl: url } : prev));
+  };
+
+  const handleUploadBannerImage = async (url: string) => {
+    await apiRequest('/artists/me/profile', {
+      method: 'PUT',
+      body: JSON.stringify({ bannerImageUrl: url }),
+    });
+    setProfile((prev) => (prev ? { ...prev, bannerImageUrl: url } : prev));
+  };
+
   const handleSpotifySearch = async (query: string): Promise<SpotifyResult[]> => {
     const raw = await apiRequest<{ artists: any[] }>('/artists/me/spotify-search', {
       method: 'POST',
@@ -148,6 +165,19 @@ const ArtistProfileSettingsPage: React.FC = () => {
 
         {/* Right column */}
         <div className="space-y-6">
+          <div className="bg-gray-900/50 border border-gray-700/50 rounded-xl p-5 space-y-4">
+            <h3 className="text-sm font-semibold text-white">Profile Images</h3>
+            <ImageUpload
+              label="Profile Photo"
+              currentUrl={profile?.profileImageUrl}
+              onUploaded={handleUploadProfileImage}
+            />
+            <ImageUpload
+              label="Banner Image"
+              currentUrl={profile?.bannerImageUrl}
+              onUploaded={handleUploadBannerImage}
+            />
+          </div>
           <ProfileSocial
             socialLinks={profile?.socialLinks ?? {}}
             spotifyArtistId={profile?.spotifyArtistId}

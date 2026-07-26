@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { artistsApi, songsApi } from '../../services/api';
 import { normalizeArtist, normalizeSong } from '../../utils/apiHelpers';
+import { uploadImage } from '../../services/uploadService';
 import { 
   MusicNoteIcon, 
   ArtistIcon, 
@@ -36,21 +37,6 @@ const updateGenre = async (_id: string, _data: any) => {
 
 const deleteGenre = async (_id: string) => {
   console.warn('deleteGenre: Not yet implemented in backend API');
-};
-
-const uploadArtistImage = async (_file: File, _itemId: string): Promise<string> => {
-  console.warn('uploadArtistImage: Not yet implemented in backend API');
-  return '';
-};
-
-const uploadSongImage = async (_file: File, _itemId: string): Promise<string> => {
-  console.warn('uploadSongImage: Not yet implemented in backend API');
-  return '';
-};
-
-const uploadGenreImage = async (_file: File, _itemId: string): Promise<string> => {
-  console.warn('uploadGenreImage: Not yet implemented in backend API');
-  return '';
 };
 
 type ContentType = 'artists' | 'songs' | 'genres';
@@ -199,15 +185,8 @@ const UnifiedManager: React.FC = () => {
 
   const handleImageUpload = async (file: File, type: ContentType) => {
     try {
-      let downloadURL = '';
       const itemId = editingItem?.id || 'new';
-      if (type === 'artists') {
-        downloadURL = await uploadArtistImage(file, itemId);
-      } else if (type === 'songs') {
-        downloadURL = await uploadSongImage(file, itemId);
-      } else if (type === 'genres') {
-        downloadURL = await uploadGenreImage(file, itemId);
-      }
+      const downloadURL = await uploadImage(file, `${type}/${itemId}`);
       setFormData(prev => ({ ...prev, image: downloadURL }));
     } catch (error) {
       console.error('Error uploading image:', error);

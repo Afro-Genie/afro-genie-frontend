@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { GenieSettings } from '../../types';
+import { uploadImage } from '../../services/uploadService';
 
 const getGenieSettings = async (): Promise<GenieSettings | null> => {
   return {
@@ -14,11 +15,6 @@ const getGenieSettings = async (): Promise<GenieSettings | null> => {
 
 const updateGenieSettings = async (_settings: Partial<GenieSettings>) => {
   console.warn('updateGenieSettings: Not yet implemented in backend API');
-};
-
-const uploadGenieImage = async (_file: File) => {
-  console.warn('uploadGenieImage: File upload not yet implemented in backend API');
-  return '';
 };
 import { AdminFormPageSkeleton } from '../../components/PageSkeletons';
 
@@ -83,8 +79,8 @@ const GenieManager: React.FC = () => {
       };
       reader.readAsDataURL(file);
 
-      // Upload to Firebase Storage
-      const imageUrl = await uploadGenieImage(file);
+      // Upload to server
+      const imageUrl = await uploadImage(file, 'genie');
       
       // Update settings with new image URL
       setSettings(prev => ({ ...prev, imageUrl }));

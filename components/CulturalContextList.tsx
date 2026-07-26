@@ -46,9 +46,11 @@ const CulturalContextList: React.FC<CulturalContextListProps> = ({
                   {item.number}
                 </span>
                 <div className="min-w-0">
-                  <h4 className="text-sm font-semibold text-green-300 mb-1">
-                    {item.term}
-                  </h4>
+                  {item.term && (
+                    <h4 className="text-sm font-semibold text-green-300 mb-1">
+                      {item.term}
+                    </h4>
+                  )}
                   <p className="text-sm text-gray-300 leading-relaxed">
                     {item.explanation}
                   </p>
@@ -57,10 +59,37 @@ const CulturalContextList: React.FC<CulturalContextListProps> = ({
             </div>
           ))
         ) : (
-          <div className="text-center py-8">
-            <Globe className="w-10 h-10 text-gray-600 mx-auto mb-3" />
-            <p className="text-sm text-gray-500">No cultural context available for this song.</p>
-          </div>
+          (() => {
+            const paragraphs = culturalContext
+              .split(/\n\s*\n/)
+              .map((p) => p.trim())
+              .filter(Boolean);
+
+            if (paragraphs.length === 0) {
+              return (
+                <div className="text-center py-8">
+                  <Globe className="w-10 h-10 text-gray-600 mx-auto mb-3" />
+                  <p className="text-sm text-gray-500">No cultural context available for this song.</p>
+                </div>
+              );
+            }
+
+            return paragraphs.map((paragraph, i) => (
+              <div
+                key={i}
+                className="bg-gray-800/50 border border-gray-700 rounded-xl p-4"
+              >
+                <div className="flex items-start gap-3">
+                  <span className="flex-shrink-0 w-7 h-7 rounded-full bg-green-900/60 text-green-400 text-xs font-bold flex items-center justify-center mt-0.5">
+                    {i + 1}
+                  </span>
+                  <p className="text-sm text-gray-300 leading-relaxed">
+                    {paragraph}
+                  </p>
+                </div>
+              </div>
+            ));
+          })()
         )}
       </div>
     </div>
