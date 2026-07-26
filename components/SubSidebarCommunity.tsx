@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, FileText, Eye } from 'lucide-react';
+import { ArrowLeft, Eye } from 'lucide-react';
 
 interface SubSidebarCommunityProps {
   onBack: () => void;
@@ -28,23 +28,6 @@ const SubSidebarCommunity: React.FC<SubSidebarCommunityProps> = ({
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
-        {/* Request Translation */}
-        <section>
-          <Link
-            to="/request-translation"
-            onClick={onNavigate}
-            className="flex items-center gap-3 p-4 rounded-lg bg-gray-800/50 border border-gray-700 hover:bg-gray-800 hover:border-gray-600 transition-colors"
-          >
-            <div className="w-10 h-10 rounded-lg bg-green-900/60 flex items-center justify-center flex-shrink-0">
-              <FileText className="w-5 h-5 text-green-400" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-white">Request Translation</p>
-              <p className="text-xs text-gray-400 mt-0.5">Submit a song for translation</p>
-            </div>
-          </Link>
-        </section>
-
         {/* Review Translations */}
         <section>
           <Link

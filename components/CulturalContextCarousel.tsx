@@ -10,7 +10,19 @@ interface CulturalContextItem {
 export function parseCulturalContext(raw: string): CulturalContextItem[] {
   if (!raw || !raw.trim()) return [];
 
-  // Split on numbered patterns: "1. ", "2. ", etc.
+  // Strategy 1: Split on numbered patterns: "1. ", "2. ", etc.
+  const items = parseNumberedItems(raw);
+  if (items.length > 0) return items;
+
+  // Strategy 2: Split on quoted terms like "Mara", "Barawo", etc.
+  const quotedItems = parseQuotedTerms(raw);
+  if (quotedItems.length > 0) return quotedItems;
+
+  // Strategy 3: Split on sentence boundaries
+  return parseSentences(raw);
+}
+
+function parseNumberedItems(raw: string): CulturalContextItem[] {
   const items: CulturalContextItem[] = [];
   const lines = raw.split('\n');
   let currentItem: Partial<CulturalContextItem> | null = null;
@@ -19,10 +31,8 @@ export function parseCulturalContext(raw: string): CulturalContextItem[] {
     const trimmed = line.trim();
     if (!trimmed) continue;
 
-    // Match numbered items like "1. Term: explanation" or "1) Term: explanation"
     const numberedMatch = trimmed.match(/^(\d+)[.)]\s*(.+)/);
     if (numberedMatch) {
-      // Save previous item
       if (currentItem && currentItem.number !== undefined) {
         items.push(currentItem as CulturalContextItem);
       }
@@ -30,7 +40,6 @@ export function parseCulturalContext(raw: string): CulturalContextItem[] {
       const num = parseInt(numberedMatch[1], 10);
       const content = numberedMatch[2];
 
-      // Try to split on first colon to get term and explanation
       const colonIndex = content.indexOf(':');
       if (colonIndex > 0) {
         currentItem = {
@@ -46,17 +55,122 @@ export function parseCulturalContext(raw: string): CulturalContextItem[] {
         };
       }
     } else if (currentItem) {
-      // Continuation of previous item
       currentItem.explanation = (currentItem.explanation || '') + ' ' + trimmed;
     }
   }
 
-  // Push last item
   if (currentItem && currentItem.number !== undefined) {
     items.push(currentItem as CulturalContextItem);
   }
 
   return items;
+}
+
+function parseQuotedTerms(raw: string): CulturalContextItem[] {
+  // Split on sentence boundaries, accounting for closing quotes after punctuation
+  const sentences = raw.split(/(?<=[.!?][""\u201d''\u2019]?)\s+(?=[A-Z""\u201c''\u2018])/);
+  if (sentences.length === 0) return [];
+
+  const termAtStart = /^[''\u2018""\u201c]([^''\u2019""\u201d]+)[''\u2019""\u201d]/;
+  const termAfterTrigger = /(?:idiom|saying|phrase|term|title|called|known as)\s+[''\u2018""\u201c]([^''\u2019""\u201d]+)[''\u2019""\u201d]/i;
+
+  const items: CulturalContextItem[] = [];
+  let currentTerm = '';
+  let currentExplanation = '';
+
+  for (const sentence of sentences) {
+    const startMatch = sentence.match(termAtStart);
+    const triggerMatch = !startMatch ? sentence.match(termAfterTrigger) : null;
+
+    if (startMatch || triggerMatch) {
+      if (currentTerm) {
+        items.push({
+          number: items.length + 1,
+          term: currentTerm,
+          explanation: currentExplanation.trim(),
+        });
+      }
+      currentTerm = (startMatch || triggerMatch)![1];
+      currentExplanation = startMatch
+        ? sentence.substring(startMatch[0].length)
+        : sentence;
+    } else if (currentTerm) {
+      currentExplanation += ' ' + sentence;
+    }
+  }
+
+  if (currentTerm) {
+    items.push({
+      number: items.length + 1,
+      term: currentTerm,
+      explanation: currentExplanation.trim(),
+    });
+  }
+
+  return items;
+}
+
+function parseSentences(raw: string): CulturalContextItem[] {
+  // Split on sentence endings and semicolons (commas only before capitalized terms)
+  const parts = raw.split(/(?<=[.!?;])\s+(?=[A-Z""\u201c''\u2018])/);
+
+  // Group into chunks of ~100-200 chars for readable slides
+  const chunks: string[] = [];
+  let buffer = '';
+  for (const part of parts) {
+    const candidate = buffer ? buffer + ' ' + part : part;
+    if (candidate.length > 180 && buffer.length > 60) {
+      chunks.push(buffer.trim());
+      buffer = part;
+    } else {
+      buffer = candidate;
+    }
+  }
+  if (buffer.trim()) chunks.push(buffer.trim());
+
+  // If still only 1 chunk and text is long, force-split
+  if (chunks.length <= 1 && raw.length > 300) {
+    return forceSplit(raw);
+  }
+
+  if (chunks.length === 0) return [];
+
+  return chunks.map((chunk, i) => ({
+    number: i + 1,
+    term: '',
+    explanation: chunk,
+  }));
+}
+
+function forceSplit(raw: string): CulturalContextItem[] {
+  const targetChunkSize = 200;
+  const chunks: string[] = [];
+  let remaining = raw;
+
+  while (remaining.length > 0) {
+    if (remaining.length <= targetChunkSize) {
+      chunks.push(remaining);
+      break;
+    }
+    // Find a good break point: period, comma, or space near the target
+    let breakAt = -1;
+    for (const sep of ['. ', ', ', ' ']) {
+      const idx = remaining.lastIndexOf(sep, targetChunkSize);
+      if (idx > targetChunkSize * 0.4) {
+        breakAt = idx + sep.length;
+        break;
+      }
+    }
+    if (breakAt <= 0) breakAt = targetChunkSize;
+    chunks.push(remaining.substring(0, breakAt).trim());
+    remaining = remaining.substring(breakAt).trim();
+  }
+
+  return chunks.map((chunk, i) => ({
+    number: i + 1,
+    term: '',
+    explanation: chunk,
+  }));
 }
 
 interface CulturalContextCarouselProps {
@@ -104,18 +218,37 @@ const CulturalContextCarousel: React.FC<CulturalContextCarouselProps> = ({ cultu
   }, [items.length, isPaused]);
 
   if (items.length === 0) {
-    // Fallback: show raw text if parsing fails
+    // Fallback: split plain text into paragraphs and render as cards
+    const paragraphs = culturalContext
+      .split(/\n\s*\n/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+
+    if (paragraphs.length === 0) return null;
+
     return (
       <div className="mb-4">
-        <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-3">
+        <div className="bg-gray-800/50 border border-gray-700 rounded-xl overflow-hidden">
+          <div className="flex items-center gap-2 px-4 pt-4 pb-2">
             <Globe className="w-5 h-5 text-green-400" />
             <h3 className="text-base font-semibold text-white">Cultural Context</h3>
           </div>
-          <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700/50">
-            <pre className="whitespace-pre-wrap break-words font-sans text-gray-200 leading-relaxed text-sm">
-              {culturalContext}
-            </pre>
+          <div className="px-4 pb-4 space-y-2">
+            {paragraphs.map((paragraph, i) => (
+              <div
+                key={i}
+                className="bg-gray-900/50 border border-gray-700/50 rounded-lg p-4"
+              >
+                <div className="flex items-start gap-3">
+                  <span className="flex-shrink-0 w-7 h-7 rounded-full bg-green-900/60 text-green-400 text-xs font-bold flex items-center justify-center">
+                    {i + 1}
+                  </span>
+                  <p className="text-sm text-gray-300 leading-relaxed">
+                    {paragraph}
+                  </p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -160,9 +293,11 @@ const CulturalContextCarousel: React.FC<CulturalContextCarouselProps> = ({ cultu
                         {item.number}
                       </span>
                       <div className="min-w-0">
-                        <h4 className="text-sm font-semibold text-green-300 mb-1">
-                          {item.term}
-                        </h4>
+                        {item.term && (
+                          <h4 className="text-sm font-semibold text-green-300 mb-1">
+                            {item.term}
+                          </h4>
+                        )}
                         <p className="text-sm text-gray-300 leading-relaxed">
                           {item.explanation}
                         </p>

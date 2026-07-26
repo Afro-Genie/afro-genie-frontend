@@ -62,7 +62,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ variant = 'header', isOpen, onOpe
             data-testid="search-bar"
             type="text"
             placeholder="Search for artist, song, or genre"
-            className="w-full min-h-[44px] bg-white/10 backdrop-blur-md text-white placeholder-gray-300 text-base sm:text-lg rounded-full py-4 pl-16 pr-32 focus:outline-none focus:ring-2 focus:ring-green-400 border border-white/20"
+            className="w-full min-h-[44px] bg-white/10 backdrop-blur-md text-white placeholder-gray-300 text-base sm:text-lg rounded-full py-4 pl-16 pr-32 focus:outline-none focus:ring-1 focus:ring-green-500/30 border border-white/10 hover:border-white/20 transition-colors"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
@@ -101,7 +101,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ variant = 'header', isOpen, onOpe
           data-testid="search-bar"
           type="text"
           placeholder="Search artists, songs, genres..."
-          className="bg-[#2a3c30] text-white placeholder-gray-400 rounded-md py-2.5 min-h-[44px] pl-10 pr-24 w-full text-base focus:outline-none focus:ring-2 focus:ring-green-400"
+          className="bg-[#2a3c30] text-white placeholder-gray-400 rounded-md py-2.5 min-h-[44px] pl-10 pr-24 w-full text-base focus:outline-none focus:ring-1 focus:ring-green-500/30 transition-colors"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => {

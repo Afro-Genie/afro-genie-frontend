@@ -1,5 +1,5 @@
 import React from 'react';
-import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { AudioProvider } from './context/AudioContext';
 import { WebPlaybackProvider } from './context/WebPlaybackContext';
@@ -8,7 +8,6 @@ import Footer from './components/Footer';
 import HomePage from './pages/HomePage';
 import TranslationPage from './pages/TranslationPage';
 import SearchResultsPage from './pages/SearchResultsPage';
-import RequestTranslationPage from './pages/RequestTranslationPage';
 import CommunityPage from './pages/CommunityPage';
 import CommunityFeedPage from './pages/CommunityFeedPage';
 import TopicDetailPage from './pages/TopicDetailPage';
@@ -73,6 +72,7 @@ function AppRoutes() {
   const location = useLocation();
   const isArtistDashboard = location.pathname.startsWith('/artist');
   const isSongPlayback = /\/songs?\/[^/]+/.test(location.pathname);
+  const isHomePage = location.pathname === '/';
   const showChrome = !isArtistDashboard && !isSongPlayback;
 
   return (
@@ -97,7 +97,7 @@ function AppRoutes() {
               <Route path="/genre/:name" element={<GenreResultPage />} />
               <Route path="/language/:code" element={<LanguageResultPage />} />
               <Route path="/artists" element={<ArtistsPage />} />
-              <Route path="/request-translation" element={<RequestTranslationPage />} />
+              <Route path="/request-translation" element={<Navigate to="/songs" replace />} />
               <Route path="/community" element={<CommunityPage />} />
               <Route path="/community/create" element={<CommunityPage />} />
               <Route path="/community/topic/:topicId" element={<TopicDetailPage />} />
@@ -147,7 +147,7 @@ function AppRoutes() {
             <SpotifyLinkDialog />
             <NowPlayingBar />
           </main>
-          {showChrome && <Footer />}
+          {isHomePage && <Footer />}
           </div>
     </>
   );

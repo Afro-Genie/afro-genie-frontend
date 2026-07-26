@@ -3,8 +3,6 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../hooks/useNotification';
 import Notification from '../components/Notification';
-import UserProfileCard from '../components/community/UserProfileCard';
-import RegistrationForm from '../components/community/RegistrationForm';
 import CreateTopicForm from '../components/community/CreateTopicForm';
 import ConfirmDialog from '../components/ConfirmDialog';
 import type { CommunityCategory } from '../types';
@@ -147,7 +145,7 @@ const CommunityPage: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-            <div className="lg:col-span-2">
+            <div className="lg:col-span-3">
               {loading ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   {[1, 2, 3, 4].map(i => (
@@ -204,9 +202,6 @@ const CommunityPage: React.FC = () => {
                   ))}
                 </div>
               )}
-            </div>
-            <div className="lg:col-span-1">
-              {user ? <UserProfileCard /> : <RegistrationForm />}
             </div>
           </div>
         </div>

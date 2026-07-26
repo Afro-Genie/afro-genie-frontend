@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { Genre } from '../../types';
+import { uploadImage } from '../../services/uploadService';
 
 const getAllGenres = async (): Promise<Genre[]> => {
   return [];
@@ -16,11 +17,6 @@ const updateGenre = async (_genreId: string, _updates: any) => {
 
 const deleteGenre = async (_genreId: string) => {
   console.warn('deleteGenre: Not yet implemented in backend API');
-};
-
-const uploadGenreImage = async (_file: File, _path: string) => {
-  console.warn('uploadGenreImage: File upload not yet implemented in backend API');
-  return '';
 };
 
 const GenresManager: React.FC = () => {
@@ -58,7 +54,7 @@ const GenresManager: React.FC = () => {
       // Upload image if provided
       if (imageFile) {
         const imagePath = `genres/${Date.now()}-${imageFile.name}`;
-        imageUrl = await uploadGenreImage(imageFile, imagePath);
+        imageUrl = await uploadImage(imageFile, imagePath);
       }
 
       if (editingGenre) {

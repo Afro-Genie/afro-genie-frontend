@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { songsApi } from '../../services/api';
+import { uploadImage } from '../../services/uploadService';
 import { getAllLanguages, addLanguage } from '../../services/languageService';
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../context/AuthContext';
@@ -159,8 +160,7 @@ const EditSongPage: React.FC = () => {
 
       // Upload image if provided
       if (imageFile) {
-        console.warn('uploadSongImage: File upload not yet implemented in backend API');
-        imageUrl = '';
+        imageUrl = await uploadImage(imageFile, `songs/${id || 'new'}`);
       }
 
       await authFetch('/api/songs/' + id, {

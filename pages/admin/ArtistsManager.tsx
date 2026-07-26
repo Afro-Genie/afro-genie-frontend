@@ -2,12 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { getArtists } from '../../lib/apiClient';
 import { AdminListPageSkeleton } from '../../components/PageSkeletons';
+import { uploadImage } from '../../services/uploadService';
 import type { Artist } from '../../types';
-
-const uploadArtistImage = async (_file: File, _path: string): Promise<string> => {
-  console.warn('uploadArtistImage: Not yet implemented in backend API');
-  return '';
-};
 
 const ArtistsManager: React.FC = () => {
   const { authFetch } = useAuth();
@@ -64,7 +60,7 @@ const ArtistsManager: React.FC = () => {
       // Upload image if provided
       if (imageFile) {
         const imagePath = `artists/${Date.now()}-${imageFile.name}`;
-        imageUrl = await uploadArtistImage(imageFile, imagePath);
+        imageUrl = await uploadImage(imageFile, imagePath);
       }
 
       if (editingArtist) {

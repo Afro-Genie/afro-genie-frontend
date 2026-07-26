@@ -70,6 +70,7 @@ const HomePage: React.FC = () => {
         opacity: 20,
         size: 'large'
     });
+    const [showTranslationInfo, setShowTranslationInfo] = useState(false);
 
     const { isSpotifyPremium, user } = useAuth();
     const { loadTrackById, currentTrack, isPlaying, togglePlayPause } = useAudioPlayer();
@@ -247,9 +248,9 @@ const HomePage: React.FC = () => {
                             <p className="text-gray-400 mb-4">
                                 Get accurate translations that preserve cultural context and meaning
                             </p>
-                            <Link to="/request-translation" className="inline-flex items-center min-h-[44px] text-green-400 hover:text-green-300 font-semibold text-sm gap-1">
+                            <button onClick={() => setShowTranslationInfo(true)} className="inline-flex items-center min-h-[44px] text-green-400 hover:text-green-300 font-semibold text-sm gap-1">
                                 Try Now <span>→</span>
-                            </Link>
+                            </button>
                         </div>
 
                         {/* Feature Card 2 */}
@@ -729,6 +730,45 @@ const HomePage: React.FC = () => {
                     ` : ''}
                 }
             `}} />
+
+            {/* Translation Info Popup */}
+            {showTranslationInfo && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md p-6 space-y-4">
+                        <div className="flex items-center gap-2">
+                            <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+                            </svg>
+                            <h3 className="text-lg font-semibold text-white">Translation Requests Are Now On Song Pages</h3>
+                        </div>
+                        <p className="text-sm text-gray-300 leading-relaxed">
+                            Navigate to any song page to request a translation, generate one with AI, or view existing translations. Each song page has built-in translation tools.
+                        </p>
+                        <div className="flex gap-3 pt-2">
+                            <Link
+                                to="/songs"
+                                onClick={() => setShowTranslationInfo(false)}
+                                className="flex-1 px-4 py-2.5 bg-green-600 hover:bg-green-500 text-white text-sm font-medium rounded-lg transition-colors text-center min-h-[44px] flex items-center justify-center"
+                            >
+                                Browse Songs
+                            </Link>
+                            <Link
+                                to="/search"
+                                onClick={() => setShowTranslationInfo(false)}
+                                className="flex-1 px-4 py-2.5 bg-gray-800 border border-gray-700 hover:border-gray-600 text-gray-300 hover:text-white text-sm font-medium rounded-lg transition-colors text-center min-h-[44px] flex items-center justify-center"
+                            >
+                                Search for a Song
+                            </Link>
+                        </div>
+                        <button
+                            onClick={() => setShowTranslationInfo(false)}
+                            className="w-full text-center text-xs text-gray-500 hover:text-gray-400 transition-colors pt-1"
+                        >
+                            Dismiss
+                        </button>
+                    </div>
+                </div>
+            )}
 
         </div>
     );
