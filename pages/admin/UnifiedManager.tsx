@@ -1,21 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  getAllArtists, 
-  getAllSongs, 
-  getAllGenres, 
-  addArtist, 
-  addSong, 
-  addGenre,
-  updateArtist,
-  updateSong,
-  updateGenre,
-  deleteArtist,
-  deleteSong,
-  deleteGenre,
-  uploadArtistImage,
-  uploadSongImage,
-  uploadGenreImage
-} from '../../services/firebaseService';
+import { artistsApi, songsApi } from '../../services/api';
+import { normalizeArtist, normalizeSong } from '../../utils/apiHelpers';
 import { 
   MusicNoteIcon, 
   ArtistIcon, 
@@ -34,6 +19,39 @@ import {
 } from '../../components/icons/FlatIcons';
 import { AdminTabbedPageSkeleton } from '../../components/PageSkeletons';
 import type { Artist, Song, Genre } from '../../types';
+
+const getAllGenres = async (): Promise<Genre[]> => {
+  console.warn('getAllGenres: Not yet implemented in backend API');
+  return [];
+};
+
+const addGenre = async (_data: any): Promise<string> => {
+  console.warn('addGenre: Not yet implemented in backend API');
+  return '';
+};
+
+const updateGenre = async (_id: string, _data: any) => {
+  console.warn('updateGenre: Not yet implemented in backend API');
+};
+
+const deleteGenre = async (_id: string) => {
+  console.warn('deleteGenre: Not yet implemented in backend API');
+};
+
+const uploadArtistImage = async (_file: File, _itemId: string): Promise<string> => {
+  console.warn('uploadArtistImage: Not yet implemented in backend API');
+  return '';
+};
+
+const uploadSongImage = async (_file: File, _itemId: string): Promise<string> => {
+  console.warn('uploadSongImage: Not yet implemented in backend API');
+  return '';
+};
+
+const uploadGenreImage = async (_file: File, _itemId: string): Promise<string> => {
+  console.warn('uploadGenreImage: Not yet implemented in backend API');
+  return '';
+};
 
 type ContentType = 'artists' | 'songs' | 'genres';
 type ViewMode = 'grid' | 'list';
@@ -80,13 +98,15 @@ const UnifiedManager: React.FC = () => {
   const fetchAllData = async () => {
     setLoading(true);
     try {
-      const [fetchedArtists, fetchedSongs, fetchedGenres] = await Promise.all([
-        getAllArtists(),
-        getAllSongs(),
+      const [artistsResult, songsResult, fetchedGenres] = await Promise.all([
+        artistsApi.getAll(),
+        songsApi.getAll(),
         getAllGenres()
       ]);
-      setArtists(fetchedArtists);
-      setSongs(fetchedSongs);
+      const fetchedArtists = Array.isArray(artistsResult) ? artistsResult : (artistsResult?.data || []);
+      const fetchedSongs = Array.isArray(songsResult) ? songsResult : (songsResult?.data || []);
+      setArtists(fetchedArtists.map(normalizeArtist));
+      setSongs(fetchedSongs.map(normalizeSong));
       setGenres(fetchedGenres);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -159,10 +179,10 @@ const UnifiedManager: React.FC = () => {
 
     try {
       if (activeTab === 'artists') {
-        await deleteArtist(item.id);
+        await artistsApi.delete(item.id);
         setArtists(artists.filter(a => a.id !== item.id));
       } else if (activeTab === 'songs') {
-        await deleteSong(item.id);
+        await songsApi.delete(item.id);
         setSongs(songs.filter(s => s.id !== item.id));
       } else if (activeTab === 'genres') {
         await deleteGenre(item.id);
@@ -207,10 +227,13 @@ const UnifiedManager: React.FC = () => {
         };
         
         if (editingItem) {
-          await updateArtist(editingItem.id, artistData);
+          await artistsApi.update(editingItem.id, artistData);
           setArtists(artists.map(a => a.id === editingItem.id ? { ...a, ...artistData } : a));
         } else {
-          const newId = await addArtist(artistData);
+          const newId = await artistsApi.create({
+            name: formData.name,
+            genres: formData.genre ? [formData.genre] : [],
+          });
           setArtists([...artists, { id: newId, ...artistData } as Artist]);
         }
       } else if (activeTab === 'songs') {
@@ -224,10 +247,14 @@ const UnifiedManager: React.FC = () => {
         };
         
         if (editingItem) {
-          await updateSong(editingItem.id, songData);
+          await songsApi.update(editingItem.id, songData);
           setSongs(songs.map(s => s.id === editingItem.id ? { ...s, ...songData } : s));
         } else {
-          const newId = await addSong(songData);
+          const newId = await songsApi.create({
+            title: formData.title,
+            artist: formData.artist,
+            artistId: formData.artistId,
+          });
           setSongs([...songs, { id: newId, ...songData } as Song]);
         }
       } else if (activeTab === 'genres') {

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { usePendingRequests } from '../../hooks/usePendingRequests';
 import UserIcon from '../icons/UserIcon';
 import PremiumBadge from '../PremiumBadge';
 import { useNotification } from '../../hooks/useNotification';
@@ -12,9 +13,13 @@ interface UserMenuProps {
 
 const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
   const { user, isAdmin, isArtist, isSpotifyPremium, logout } = useAuth();
+  const { artistApplication, roleRequests, loading: pendingLoading } = usePendingRequests();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const { notification, showNotification, hideNotification } = useNotification();
+
+  const hasPendingArtistApplication = !isArtist && !!artistApplication;
+  const hasPendingModeratorRequest = !isAdmin && roleRequests.some((r) => r.role === 'MODERATOR');
 
   const handleLogout = async () => {
     try {
@@ -38,16 +43,16 @@ const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
         <div className="hidden md:flex items-center space-x-2">
           <span className="text-sm text-gray-300 max-w-[160px] truncate">{user.displayName || user.email || 'User'}</span>
           {isArtist && (
-            <Link 
-              to="/artist/dashboard" 
+            <Link
+              to="/artist"
               className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors min-h-[44px] flex items-center"
             >
               Artist Dashboard
             </Link>
           )}
           {isAdmin && (
-            <Link 
-              to="/admin" 
+            <Link
+              to="/admin"
               className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors min-h-[44px] flex items-center"
             >
               Admin
@@ -55,7 +60,7 @@ const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
           )}
         </div>
         <div className="relative">
-          <button 
+          <button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
             className="flex items-center justify-center min-h-[44px] min-w-[44px] rounded-md text-gray-300 hover:text-white focus:outline-none focus:ring-2 focus:ring-green-400"
             aria-label="User menu"
@@ -73,10 +78,10 @@ const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
                 </span>
               </div>
             )}
-            <svg 
+            <svg
               className={`w-4 h-4 ml-1 hidden sm:block transition-transform ${isMenuOpen ? 'rotate-180' : ''}`}
-              fill="none" 
-              stroke="currentColor" 
+              fill="none"
+              stroke="currentColor"
               viewBox="0 0 24 24"
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -87,11 +92,11 @@ const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
           {isMenuOpen && (
             <>
               {/* Backdrop to close menu when clicking outside */}
-              <div 
-                className="fixed inset-0 z-10" 
+              <div
+                className="fixed inset-0 z-10"
                 onClick={() => setIsMenuOpen(false)}
               />
-              
+
               {/* Menu */}
               <div className="absolute right-0 mt-2 w-56 bg-gray-800 rounded-lg shadow-xl py-1 z-20 border border-gray-700">
                 {/* User Info */}
@@ -152,9 +157,55 @@ const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
                     Request Translation
                   </Link>
 
+                  {!isArtist && !isAdmin && (
+                    hasPendingArtistApplication ? (
+                      <div className="flex items-center min-h-[44px] px-4 py-3 text-sm text-gray-500 cursor-not-allowed">
+                        <svg className="w-4 h-4 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" />
+                        </svg>
+                        <span>Artist Application Pending</span>
+                        <span className="ml-auto w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
+                      </div>
+                    ) : (
+                      <Link
+                        to="/apply/artist"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex items-center min-h-[44px] px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
+                      >
+                        <svg className="w-4 h-4 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" />
+                        </svg>
+                        Genie for Artistes
+                      </Link>
+                    )
+                  )}
+
+                  {!isAdmin && !isArtist && (
+                    hasPendingModeratorRequest ? (
+                      <div className="flex items-center min-h-[44px] px-4 py-3 text-sm text-gray-500 cursor-not-allowed">
+                        <svg className="w-4 h-4 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                        <span>Moderator Request Pending</span>
+                        <span className="ml-auto w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
+                      </div>
+                    ) : (
+                      <Link
+                        to="/apply/moderator"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex items-center min-h-[44px] px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
+                      >
+                        <svg className="w-4 h-4 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                        Become a Moderator
+                      </Link>
+                    )
+                  )}
+
                   {isArtist && (
                     <Link
-                      to="/artist/dashboard"
+                      to="/artist"
                       onClick={() => setIsMenuOpen(false)}
                       className="flex items-center min-h-[44px] px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
                     >

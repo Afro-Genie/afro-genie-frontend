@@ -1,13 +1,25 @@
 // Industry-Standard API Integration System
 // Supports multiple data sources with admin controls, rate limiting, caching, and validation
 
-import {
-  saveSyncJob,
-  updateSyncJob,
-  getAllSyncJobs,
-  getSyncJob,
-  type SyncJobData,
-} from "./firebaseService";
+import type { SyncJobData } from "../types";
+
+const saveSyncJob = async (_job: SyncJobData) => {
+  console.warn('saveSyncJob: Not yet implemented in backend API');
+};
+
+const updateSyncJob = async (_id: string, _data: Partial<SyncJobData>) => {
+  console.warn('updateSyncJob: Not yet implemented in backend API');
+};
+
+const getAllSyncJobs = async (_userId?: string): Promise<SyncJobData[]> => {
+  console.warn('getAllSyncJobs: Not yet implemented in backend API');
+  return [];
+};
+
+const getSyncJob = async (_id: string): Promise<SyncJobData | null> => {
+  console.warn('getSyncJob: Not yet implemented in backend API');
+  return null;
+};
 
 interface APIConfig {
   id: string;

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import lyricAPIService from '../../services/lyricAPIService';
 import lyricDataProcessor from '../../services/lyricDataProcessor';
-import { saveFullSongPackage, updateFullSongPackage } from '../../services/firebaseService';
+import { saveFullSongPackage, updateFullSongPackage } from '../../utils/songPackage';
 import DuplicateResolver from '../../components/admin/DuplicateResolver';
 import type { APISearchResult, FullSongData, DuplicateCheckResult, Song } from '../../types';
 

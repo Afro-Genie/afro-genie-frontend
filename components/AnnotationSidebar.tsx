@@ -1,7 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { getSongAnnotations, addAnnotation } from '../services/firebaseService';
 import { useAuth } from '../context/AuthContext';
-import type { Annotation } from '../services/firebaseService';
+import type { Annotation } from '../types';
+
+const getSongAnnotations = async (_songId: string): Promise<Annotation[]> => {
+  return [];
+};
+
+const addAnnotation = async (_annotation: Omit<Annotation, 'id' | 'createdAt'>): Promise<string> => {
+  console.warn('addAnnotation: Not yet implemented');
+  return 'stub-id';
+};
 
 interface AnnotationSidebarProps {
   songId: string;

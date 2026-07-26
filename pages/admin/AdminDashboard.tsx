@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getAllArtists, getAllSongs, getAllGenres, getAllUsers, getTopics, getCategories, getPendingTranslationRequestCount, getTranslationRequests, getPendingSongRequestCount, getSongRequests } from '../../services/firebaseService';
+import { artistsApi, songsApi } from '../../services/api';
+import { normalizeArtist, normalizeSong } from '../../utils/apiHelpers';
 import { apiFetch } from '../../lib/apiClient';
 import { 
   MusicNoteIcon, 
@@ -38,32 +39,27 @@ const AdminDashboard: React.FC = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const [artists, songs, genres, users, topics, categories, pendingTranslationCount, translationRequests, pendingSongCount, songRequests] = await Promise.all([
-          getAllArtists(),
-          getAllSongs(),
-          getAllGenres(),
-          getAllUsers(),
-          getTopics(undefined, 'latest', 1000).catch(() => []),
-          getCategories().catch(() => []),
-          getPendingTranslationRequestCount().catch(() => 0),
-          getTranslationRequests('pending').catch(() => []),
-          getPendingSongRequestCount().catch(() => 0),
-          getSongRequests('pending').catch(() => [])
+        const [artistsResult, songsResult] = await Promise.all([
+          artistsApi.getAll({ limit: 200 }),
+          songsApi.getAll({ limit: 500 }),
         ]);
+
+        const artists = (artistsResult.data || []).map((a: any) => normalizeArtist(a)).filter(Boolean);
+        const songs = (songsResult.songs || songsResult.data || []).map((s: any) => normalizeSong(s)).filter(Boolean);
 
         setStats({
           artists: artists.length,
           songs: songs.length,
-          genres: genres.length,
-          users: users.length,
-          translations: 0, // You can add this if you have a translations count
-          topics: topics.length,
-          categories: categories.length,
-          pendingTranslationRequests: pendingTranslationCount,
-          pendingSongRequests: pendingSongCount
+          genres: 0,
+          users: 0,
+          translations: 0,
+          topics: 0,
+          categories: 0,
+          pendingTranslationRequests: 0,
+          pendingSongRequests: 0
         });
-        setRecentTranslationRequests(translationRequests.slice(0, 5));
-        setRecentSongRequests(songRequests.slice(0, 5));
+        setRecentTranslationRequests([]);
+        setRecentSongRequests([]);
       } catch (error) {
         console.error('Error fetching stats:', error);
       } finally {
@@ -87,38 +83,29 @@ const AdminDashboard: React.FC = () => {
   }, []);
 
   const handleImportComplete = () => {
-    // Refresh stats after import
     const fetchStats = async () => {
       try {
-        const [artists, songs, genres, users, topics, categories] = await Promise.all([
-          getAllArtists(),
-          getAllSongs(),
-          getAllGenres(),
-          getAllUsers(),
-          getTopics(undefined, 'latest', 1000).catch(() => []),
-          getCategories().catch(() => [])
+        const [artistsResult, songsResult] = await Promise.all([
+          artistsApi.getAll({ limit: 200 }),
+          songsApi.getAll({ limit: 500 }),
         ]);
 
-        const [pendingTranslationCount, translationRequests, pendingSongCount, songRequests] = await Promise.all([
-          getPendingTranslationRequestCount().catch(() => 0),
-          getTranslationRequests('pending').catch(() => []),
-          getPendingSongRequestCount().catch(() => 0),
-          getSongRequests('pending').catch(() => [])
-        ]);
+        const artists = (artistsResult.data || []).map((a: any) => normalizeArtist(a)).filter(Boolean);
+        const songs = (songsResult.songs || songsResult.data || []).map((s: any) => normalizeSong(s)).filter(Boolean);
         
         setStats({
           artists: artists.length,
           songs: songs.length,
-          genres: genres.length,
-          users: users.length,
+          genres: 0,
+          users: 0,
           translations: 0,
-          topics: topics.length,
-          categories: categories.length,
-          pendingTranslationRequests: pendingTranslationCount,
-          pendingSongRequests: pendingSongCount
+          topics: 0,
+          categories: 0,
+          pendingTranslationRequests: 0,
+          pendingSongRequests: 0
         });
-        setRecentTranslationRequests(translationRequests.slice(0, 5));
-        setRecentSongRequests(songRequests.slice(0, 5));
+        setRecentTranslationRequests([]);
+        setRecentSongRequests([]);
       } catch (error) {
         console.error('Error fetching stats:', error);
       }

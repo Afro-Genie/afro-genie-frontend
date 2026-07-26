@@ -1,25 +1,48 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { SUPPORTED_LANGUAGES } from '../../constants';
-import {
-  getAllTranslations,
-  getAllSongs,
-  getAllArtists,
-  saveTranslation,
-  updateTranslation,
-  deleteTranslation,
-  approveTranslation,
-  rejectTranslation,
-  saveFullSongPackage,
-  updateFullSongPackage,
-  addSong,
-  getSong
-} from '../../services/firebaseService';
+import { translationsApi, songsApi } from '../../services/api';
+import { saveFullSongPackage, updateFullSongPackage } from '../../utils/songPackage';
 import lyricAPIService from '../../services/lyricAPIService';
 import lyricDataProcessor from '../../services/lyricDataProcessor';
 import DuplicateResolver from '../../components/admin/DuplicateResolver';
 import { AdminTabbedPageSkeleton } from '../../components/PageSkeletons';
 import type { Translation, Song, Artist, APISearchResult, FullSongData } from '../../types';
+
+const getAllTranslations = async (): Promise<Translation[]> => {
+  console.warn('getAllTranslations: Not yet implemented in backend API');
+  return [];
+};
+
+const getAllArtists = async (): Promise<Artist[]> => {
+  console.warn('getAllArtists: Not yet implemented in backend API');
+  return [];
+};
+
+const saveTranslation = async (_data: any) => {
+  console.warn('saveTranslation: Not yet implemented in backend API');
+};
+
+const updateTranslation = async (_id: string, _data: any) => {
+  console.warn('updateTranslation: Not yet implemented in backend API');
+};
+
+const deleteTranslation = async (_id: string) => {
+  console.warn('deleteTranslation: Not yet implemented in backend API');
+};
+
+const approveTranslation = async (_id: string, _uid: string) => {
+  console.warn('approveTranslation: Not yet implemented in backend API');
+};
+
+const rejectTranslation = async (_id: string, _uid: string, _reason?: string) => {
+  console.warn('rejectTranslation: Not yet implemented in backend API');
+};
+
+const addSong = async (_data: any): Promise<{ id: string }> => {
+  console.warn('addSong: Not yet implemented in backend API');
+  return { id: '' };
+};
 
 type TabType = 'all' | 'manual' | 'api' | 'requests' | 'translations';
 
@@ -85,12 +108,13 @@ const LyricsManager: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [translationsData, songsData, artistsData] = await Promise.all([
+      const [translationsData, songsResult, artistsData] = await Promise.all([
         getAllTranslations(),
-        getAllSongs(),
+        songsApi.getAll(),
         getAllArtists()
       ]);
       
+      const songsData = Array.isArray(songsResult) ? songsResult : (songsResult?.data || []);
       setAllTranslations(translationsData);
       setSongs(songsData);
       setArtists(artistsData);

@@ -1,6 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { getGenieSettings, updateGenieSettings, uploadGenieImage } from '../../services/firebaseService';
 import type { GenieSettings } from '../../types';
+
+const getGenieSettings = async (): Promise<GenieSettings | null> => {
+  return {
+    imageUrl: '/Images/gene.png',
+    animationType: 'float',
+    animationDuration: 3,
+    animationDelay: 0,
+    opacity: 20,
+    size: 'large'
+  };
+};
+
+const updateGenieSettings = async (_settings: Partial<GenieSettings>) => {
+  console.warn('updateGenieSettings: Not yet implemented in backend API');
+};
+
+const uploadGenieImage = async (_file: File) => {
+  console.warn('uploadGenieImage: File upload not yet implemented in backend API');
+  return '';
+};
 import { AdminFormPageSkeleton } from '../../components/PageSkeletons';
 
 const GenieManager: React.FC = () => {

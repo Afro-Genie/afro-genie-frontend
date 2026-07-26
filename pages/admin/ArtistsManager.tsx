@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { uploadArtistImage } from '../../services/firebaseService';
 import { useAuth } from '../../context/AuthContext';
 import { getArtists } from '../../lib/apiClient';
 import { AdminListPageSkeleton } from '../../components/PageSkeletons';
 import type { Artist } from '../../types';
+
+const uploadArtistImage = async (_file: File, _path: string): Promise<string> => {
+  console.warn('uploadArtistImage: Not yet implemented in backend API');
+  return '';
+};
 
 const ArtistsManager: React.FC = () => {
   const { authFetch } = useAuth();

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getAllSongs, getUserFavorites, getUserHistory } from '../services/firebaseService';
+import { songsApi } from '../services/api';
+import { normalizeSong } from '../utils/apiHelpers';
 import { useAuth } from '../context/AuthContext';
 import { featureFlags } from '../config/featureFlags';
 import ChevronDownIcon from './icons/ChevronDownIcon';
@@ -16,17 +17,16 @@ const LeftSidebar: React.FC = () => {
     const fetchData = async () => {
       try {
         // Get trending songs (most recent)
-        const allSongs = await getAllSongs();
+        const result = await songsApi.getAll({ limit: 500 });
+        const raw = result.songs || result.data || [];
+        const allSongs = raw.map((s: any) => normalizeSong(s)).filter(Boolean);
         setTrendingSongs(allSongs.slice(0, 5));
 
         // Get user-specific data if logged in
         if (user) {
-          const [userFavorites, userHistory] = await Promise.all([
-            getUserFavorites(user.uid),
-            getUserHistory(user.uid, 5)
-          ]);
-          setFavorites(userFavorites);
-          setHistory(userHistory);
+          // Stubs: getUserFavorites and getUserHistory not yet implemented
+          setFavorites([]);
+          setHistory([]);
         }
       } catch (error) {
         console.error('Error fetching sidebar data:', error);

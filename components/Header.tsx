@@ -6,7 +6,17 @@ import UserMenu from './auth/UserMenu';
 import LoginModal from './auth/LoginModal';
 import Notification, { NotificationData } from './Notification';
 import { useAuth } from '../context/AuthContext';
-import { markNotificationAsRead, subscribeToUnreadNotifications } from '../services/firebaseService';
+const markNotificationAsRead = async (_notificationId: string) => {
+  console.warn('markNotificationAsRead: Not yet implemented');
+};
+
+const subscribeToUnreadNotifications = (
+  _userId: string,
+  onUpdate: (items: AppNotification[]) => void
+) => {
+  onUpdate([]);
+  return () => {};
+};
 import { featureFlags } from '../config/featureFlags';
 import { trackEvent } from '../services/telemetryService';
 import type { AppNotification } from '../types';

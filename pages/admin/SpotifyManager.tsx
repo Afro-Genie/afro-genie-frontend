@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { spotifyService, SpotifyArtist, SpotifyTrack, SpotifyAlbum } from '../../services/spotifyService';
-import { addArtist, addSong, updateArtist, updateSong } from '../../services/firebaseService';
+import { artistsApi, songsApi } from '../../services/api';
 import type { Artist, Song } from '../../types';
 
 const SpotifyManager: React.FC = () => {
@@ -85,7 +85,7 @@ const SpotifyManager: React.FC = () => {
         image: spotifyArtist.images?.[0]?.url || ''
       };
 
-      await addArtist(artistData);
+      await artistsApi.create(artistData);
       setImported(prev => new Set([...prev, spotifyArtist.id]));
       setNotification({ message: `Artist "${spotifyArtist.name}" imported successfully!`, type: 'success' });
       setTimeout(() => setNotification(null), 4000);
@@ -112,7 +112,7 @@ const SpotifyManager: React.FC = () => {
           genre: 'Unknown',
           image: track.artists[0]?.images?.[0]?.url || ''
         };
-        artistId = await addArtist(artistData);
+        artistId = (await artistsApi.create(artistData)).id;
       } catch (err) {
         // Artist might already exist, you'd handle this better in production
         throw new Error('Failed to create artist. Please import the artist first.');
@@ -125,7 +125,7 @@ const SpotifyManager: React.FC = () => {
         image: track.album?.images?.[0]?.url || ''
       };
 
-      await addSong(songData);
+      await songsApi.create(songData);
       setImported(prev => new Set([...prev, track.id]));
       setNotification({ message: `Song "${track.name}" by ${artistName} imported successfully!`, type: 'success' });
       setTimeout(() => setNotification(null), 4000);

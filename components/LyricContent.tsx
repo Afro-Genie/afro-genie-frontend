@@ -1043,7 +1043,7 @@ const LyricContent: React.FC = () => {
                             </p>
                             {song.artistId && (
                                 <Link
-                                    to={`/artist/${song.artistId}`}
+                                    to={`/artists/${song.artistId}`}
                                     className="text-green-400 hover:text-green-300 text-xs underline"
                                 >
                                     View Artist

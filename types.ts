@@ -369,3 +369,74 @@ export interface AppNotification {
   read: boolean;
   createdAt?: any;
 }
+
+export interface Annotation {
+  id?: string;
+  songId: string;
+  userId: string;
+  userName: string;
+  userAvatar?: string;
+  comment: string;
+  createdAt?: any;
+}
+
+export interface Favorite {
+  id?: string;
+  userId: string;
+  songId: string;
+  createdAt?: any;
+}
+
+export interface History {
+  id?: string;
+  userId: string;
+  songId: string;
+  viewedAt?: any;
+}
+
+export interface UserProfile {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  photoURL: string | null;
+  role: 'user' | 'admin' | 'moderator' | 'artist';
+  createdAt?: any;
+  lastLogin?: any;
+  artistProfile?: {
+    stageName: string;
+    genre: string;
+    bio: string;
+    location?: string;
+    website?: string;
+    socialLinks?: {
+      instagram?: string;
+      twitter?: string;
+      facebook?: string;
+      youtube?: string;
+    };
+    verified: boolean;
+    verifiedAt?: any;
+  };
+}
+
+export interface BulkSaveResult {
+  songId: string;
+  artistId: string;
+  translationId?: string;
+  success: boolean;
+  error?: string;
+}
+
+export interface SyncJobData {
+  id: string;
+  type: 'manual' | 'scheduled' | 'auto';
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  progress: number;
+  startTime: any;
+  endTime?: any;
+  results: { artists: number; songs: number; genres: number; errors: number };
+  resultData: { artists: any[]; songs: any[]; genres: any[] };
+  logs?: string[];
+  userId?: string;
+  query?: string;
+}

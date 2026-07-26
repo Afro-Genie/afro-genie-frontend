@@ -21,6 +21,7 @@ const AdminLayout: React.FC = () => {
   const navigation = [
     { name: 'Dashboard', href: '/admin', icon: StatsIcon },
     { name: 'Unified Manager', href: '/admin/unified', icon: GridIcon },
+    { name: 'Artist Applications', href: '/admin/artist-applications', icon: ArtistIcon },
     { name: 'Artists', href: '/admin/artists', icon: ArtistIcon },
     { name: 'Songs', href: '/admin/songs', icon: MusicNoteIcon },
     { name: 'Genres', href: '/admin/genres', icon: GenreIcon },

@@ -46,6 +46,7 @@ const DEFAULT_GENRE_IMAGE = 'https://images.unsplash.com/photo-1514320291840-2e0
 
 const HomePage: React.FC = () => {
     const [artists, setArtists] = useState<Artist[]>([]);
+    const [featuredArtists, setFeaturedArtists] = useState<Artist[]>([]);
     const [genres, setGenres] = useState<Genre[]>([]);
     const [songs, setSongs] = useState<Song[]>([]);
     const [trendingTopics, setTrendingTopics] = useState<Topic[]>([]);
@@ -116,6 +117,7 @@ const HomePage: React.FC = () => {
                     });
                     setSongs(sortedSongs.slice(0, 100));
                     setArtists((data.artists || []).slice(0, 12));
+                    setFeaturedArtists((data.featuredArtists || []).slice(0, 8));
                     setGenres((data.genres || []).slice(0, 10));
                 })
                 .catch((err: any) => {
@@ -500,7 +502,7 @@ const HomePage: React.FC = () => {
                         <div className="flex md:grid md:grid-cols-4 lg:grid-cols-6 gap-4 md:gap-6 overflow-x-auto pb-2 scroll-smooth-x">
                             {artists.map((artist) => (
                                 <Link 
-                                    to={`/artist/${artist.id}`} 
+                                    to={`/artists/${artist.id}`} 
                                     key={artist.id} 
                                     className="group cursor-pointer min-w-[150px] md:min-w-0"
                                 >
@@ -527,6 +529,59 @@ const HomePage: React.FC = () => {
                     )}
                 </div>
             </section>
+
+            {/* Featured Artists Section */}
+            {featuredArtists.length > 0 && (
+                <section className="py-16 bg-gradient-to-b from-[#1a2b22] to-[#122118]">
+                    <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
+                            <div>
+                                <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">
+                                    Featured <span className="text-amber-400">Artists</span>
+                                </h2>
+                                <p className="text-gray-400 mt-2 text-sm">
+                                    Handpicked artists by our editorial team
+                                </p>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+                            {featuredArtists.map((artist) => (
+                                <Link
+                                    to={`/artists/${artist.id}`}
+                                    key={artist.id}
+                                    className="group cursor-pointer"
+                                >
+                                    <div className="aspect-square rounded-xl overflow-hidden transition-all duration-300 group-hover:scale-105 shadow-lg bg-gradient-to-br from-amber-500/20 to-green-500/20 border border-amber-500/30 group-hover:border-amber-400/50 relative">
+                                        {artist.image ? (
+                                            <img src={artist.image} alt={artist.name} onError={onImageError} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-gray-500">
+                                                <svg className="w-12 h-12" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clipRule="evenodd" />
+                                                </svg>
+                                            </div>
+                                        )}
+                                        <div className="absolute top-2 right-2">
+                                            <span className="bg-amber-500 text-white text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                                </svg>
+                                                Featured
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <h3 className="mt-3 font-semibold text-white group-hover:text-amber-400 transition-colors text-center text-sm sm:text-base">
+                                        {artist.name}
+                                    </h3>
+                                    {artist.genre && (
+                                        <p className="text-xs sm:text-sm text-gray-400 text-center">{artist.genre}</p>
+                                    )}
+                                </Link>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+            )}
 
             {/* Explore by Genre Section */}
             <section className="py-16 bg-gradient-to-b from-[#1a2b22] to-[#122118]">

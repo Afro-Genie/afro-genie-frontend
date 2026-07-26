@@ -13,8 +13,10 @@
   },
   "dependencies": {
     "@google/genai": "^1.19.0",
+    "lucide-react": "^1.26.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
+    "react-is": "^19.2.8",
     "react-router-dom": "^6.25.1",
     "recharts": "^3.10.0",
     "wavesurfer.js": "^7.12.10"

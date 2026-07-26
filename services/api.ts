@@ -338,7 +338,7 @@ export const translationsApi = {
 
 // Role Requests API
 export type RoleRequestStatus = 'PENDING' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED';
-export type RequestedRole = 'ARTIST' | 'MODERATOR';
+export type RequestedRole = 'MODERATOR';
 
 export interface RoleRequest {
   id: string;
@@ -379,6 +379,36 @@ export const roleRequestsApi = {
   },
 
   get: (id: string) => apiRequest<RoleRequest>(`/roles/${id}`),
+
+  getPending: () =>
+    apiRequest<{ requests: Array<{ id: string; role: string; status: string; createdAt: string }> }>(
+      '/roles/pending',
+    ),
+
+  cancel: (id: string) =>
+    apiRequest<{ success: boolean }>(`/roles/${id}`, { method: 'DELETE' }),
+};
+
+// Artist Application Status API
+export const artistApplicationApi = {
+  getStatus: () =>
+    apiRequest<{ application: { id: string; status: string; stageName: string; createdAt: string } | null }>(
+      '/artists/me/application-status',
+    ),
+
+  cancel: () =>
+    apiRequest<{ success: boolean }>('/artists/me/application', { method: 'DELETE' }),
+};
+
+// Artist Listener Regions API
+export const artistListenerRegionsApi = {
+  getRegions: (rangeDays: 30 | 90 = 30) =>
+    apiRequest<{
+      rangeDays: number;
+      totalListeners: number;
+      regions: { name: string; listeners: number; plays: number; percentage: number }[];
+      cities: { name: string; country: string; listeners: number; plays: number; percentage: number }[];
+    }>(`/artists/me/listener-regions?rangeDays=${rangeDays}`),
 };
 
 // Admin Role Requests API
