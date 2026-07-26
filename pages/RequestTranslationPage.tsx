@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { SUPPORTED_LANGUAGES } from '../constants';
-import { saveTranslation } from '../services/firebaseService';
+import { translationsApi } from '../services/api';
 import UserProfileCard from '../components/community/UserProfileCard';
 import RegistrationForm from '../components/community/RegistrationForm';
 import { useNotification } from '../hooks/useNotification';
@@ -58,16 +58,16 @@ const RequestTranslationPage: React.FC = () => {
     if (!result) return;
 
     try {
-      await saveTranslation({
-        songId: `${artist}-${title}`.toLowerCase().replace(/\s+/g, '-'),
-        userId: user.uid,
+      const songId = `${artist}-${title}`.toLowerCase().replace(/\s+/g, '-');
+      // If translated lyrics are already provided, persist directly without queuing AI
+      await translationsApi.directSave({
+        songId,
         originalLyrics: lyrics || 'Lyrics not provided',
         translatedLyrics: result.translatedLyrics,
-        culturalContext: result.culturalContext,
         sourceLang,
         targetLang,
-        status: 'pending',
-        source: 'user_request'
+        culturalContext: result.culturalContext,
+        status: 'PENDING',
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);

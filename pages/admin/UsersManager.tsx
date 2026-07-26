@@ -1,7 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { getAllUsers, updateUserRole, deleteUser } from '../../services/firebaseService';
 import { AdminListPageSkeleton } from '../../components/PageSkeletons';
-import type { UserProfile } from '../../services/firebaseService';
+import type { UserProfile } from '../../types';
+
+const getAllUsers = async (): Promise<UserProfile[]> => {
+  console.warn('getAllUsers: Not yet implemented in backend API');
+  return [];
+};
+
+const updateUserRole = async (_userId: string, _role: 'user' | 'admin' | 'moderator' | 'artist') => {
+  console.warn('updateUserRole: Not yet implemented in backend API');
+};
+
+const deleteUser = async (_userId: string) => {
+  console.warn('deleteUser: Not yet implemented in backend API');
+};
 
 const UsersManager: React.FC = () => {
   const [users, setUsers] = useState<UserProfile[]>([]);

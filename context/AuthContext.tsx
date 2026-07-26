@@ -491,6 +491,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const signIn = async (email: string, password: string) => {
     const result = await authApi.login(email, password);
     initFromAuthResult(result);
+
+    if (result.user.role === 'ARTIST') {
+      window.location.href = '/artist';
+    }
   };
 
   const signUp = async (
@@ -532,6 +536,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       photoURL: artistData.photoURL,
     });
     initFromAuthResult(result);
+
+    if (result.user.role === 'ARTIST') {
+      window.location.href = '/artist';
+    }
   };
 
   const signInWithGoogle = async () => {

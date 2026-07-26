@@ -1,12 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getTranslationRequests, updateTranslationRequest, getSong } from '../../services/firebaseService';
 import { useNotification } from '../../hooks/useNotification';
 import { useConfirm } from '../../hooks/useConfirm';
 import Notification from '../../components/Notification';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import { AdminListPageSkeleton } from '../../components/PageSkeletons';
 import type { TranslationRequest } from '../../types';
+
+const getTranslationRequests = async (_status?: TranslationRequest['status']): Promise<TranslationRequest[]> => {
+  return [];
+};
+
+const updateTranslationRequest = async (
+  _requestId: string,
+  _updates: Partial<Omit<TranslationRequest, 'id'>>
+) => {
+  console.warn('updateTranslationRequest: Not yet implemented');
+};
+
+const getSong = async (_songId: string) => {
+  console.warn('getSong: Not yet implemented');
+  return null;
+};
 
 const TranslationRequestsPage: React.FC = () => {
   const { notification, showNotification, hideNotification } = useNotification();

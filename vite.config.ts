@@ -22,7 +22,7 @@ function getHttpsConfig() {
   }
 
   // Fallback: let Vite generate a self-signed cert automatically
-  return true;
+  return {} as Record<string, unknown>;
 }
 
 export default defineConfig(({ mode }) => {

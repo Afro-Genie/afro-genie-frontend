@@ -128,9 +128,6 @@ const RoleRequestsManager: React.FC = () => {
               <button className={tabClass(roleTab === 'all')} onClick={() => setRoleTab('all')}>
                 All Roles
               </button>
-              <button className={tabClass(roleTab === 'ARTIST')} onClick={() => setRoleTab('ARTIST')}>
-                Artist
-              </button>
               <button className={tabClass(roleTab === 'MODERATOR')} onClick={() => setRoleTab('MODERATOR')}>
                 Moderator
               </button>

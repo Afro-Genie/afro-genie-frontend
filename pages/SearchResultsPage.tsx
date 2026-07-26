@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { createSongRequest } from '../services/firebaseService';
+import { apiRequest } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { SearchResultsSkeleton } from '../components/PageSkeletons';
 import { featureFlags } from '../config/featureFlags';
@@ -57,7 +57,7 @@ const SearchResultsPage: React.FC = () => {
           title: doc.name || 'Artist',
           subtitle: Array.isArray(doc.genres) ? doc.genres[0] : doc.genres || '',
           image: doc.imageUrl || '',
-          linkTo: `/artist/${doc.id}`,
+          linkTo: `/artists/${doc.id}`,
         };
       }
       return {
@@ -151,13 +151,8 @@ const SearchResultsPage: React.FC = () => {
 
     setRequestLoading(true);
     try {
-      await createSongRequest({
-        songTitle,
-        artist,
-        userId: user?.uid || 'anonymous',
-        userEmail: user?.email || 'anonymous@example.com',
-        searchQuery: decodedQuery || `${songTitle} ${artist}`.trim()
-      });
+      console.warn('createSongRequest: Not yet implemented');
+      await Promise.resolve();
       trackEvent('search_request_submitted', {
         query: decodedQuery,
         hasUser: Boolean(user?.uid)
@@ -258,7 +253,7 @@ const SearchResultsPage: React.FC = () => {
                 {artists.slice(0, 6).map((artist) => (
                   <Link
                     key={artist.id}
-                    to={`/artist/${artist.id}`}
+                    to={`/artists/${artist.id}`}
                     className="px-4 py-2 bg-gray-800/50 hover:bg-gray-700/50 text-white rounded-full text-sm transition-colors border border-gray-700 hover:border-green-400/50"
                   >
                     {artist.name}

@@ -1,6 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { getAllGenres, addGenre, updateGenre, deleteGenre, uploadGenreImage } from '../../services/firebaseService';
 import type { Genre } from '../../types';
+
+const getAllGenres = async (): Promise<Genre[]> => {
+  return [];
+};
+
+const addGenre = async (_genre: Omit<Genre, 'id'>) => {
+  console.warn('addGenre: Not yet implemented in backend API');
+  return 'stub-id';
+};
+
+const updateGenre = async (_genreId: string, _updates: any) => {
+  console.warn('updateGenre: Not yet implemented in backend API');
+};
+
+const deleteGenre = async (_genreId: string) => {
+  console.warn('deleteGenre: Not yet implemented in backend API');
+};
+
+const uploadGenreImage = async (_file: File, _path: string) => {
+  console.warn('uploadGenreImage: File upload not yet implemented in backend API');
+  return '';
+};
 
 const GenresManager: React.FC = () => {
   const [genres, setGenres] = useState<Genre[]>([]);

@@ -1,5 +1,5 @@
 import React from 'react';
-import { HashRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { AudioProvider } from './context/AudioContext';
 import { WebPlaybackProvider } from './context/WebPlaybackContext';
@@ -28,9 +28,17 @@ import TranslationRequestsPage from './pages/admin/TranslationRequestsPage';
 import RoleRequestsManager from './pages/admin/RoleRequestsManager';
 import EditSongPage from './pages/admin/EditSongPage';
 import AddSongPage from './pages/admin/AddSongPage';
-import ArtistSignupPage from './pages/ArtistSignupPage';
-import ArtistDashboard from './pages/ArtistDashboard';
+import ArtistApplicationPage from './pages/ArtistApplicationPage';
+import ModeratorRequestPage from './pages/ModeratorRequestPage';
 import ArtistDetailPage from './pages/ArtistDetailPage';
+import ArtistDashboardLayout from './components/artist/ArtistDashboardLayout';
+import ArtistHomePage from './pages/artist/ArtistHomePage';
+import ArtistMusicPage from './pages/artist/ArtistMusicPage';
+import ArtistAnalyticsPage from './pages/artist/ArtistAnalyticsPage';
+import ArtistProfileSettingsPage from './pages/artist/ArtistProfileSettingsPage';
+import ArtistListenersPage from './pages/artist/ArtistListenersPage';
+import ArtistSettingsPage from './pages/artist/ArtistSettingsPage';
+import ArtistApplicationsManager from './pages/admin/ArtistApplicationsManager';
 import ArtistsPage from './pages/ArtistsPage';
 import SongsCatalogPage from './pages/SongsCatalogPage';
 import GenreResultPage from './pages/GenreResultPage';
@@ -53,10 +61,26 @@ function App() {
       <WebPlaybackProvider>
         <AudioProvider>
         <HashRouter future={{ v7_startTransition: true }}>
-          <ScrollToTop />
-          <div className="text-white font-sans bg-[#122118] min-h-screen flex flex-col">
-            <Header />
-            <main className="flex-grow pb-16">
+          <AppRoutes />
+        </HashRouter>
+        {featureFlags.playbackDiagnostics && <PlaybackDiagnosticPanel />}
+        {featureFlags.translationDiagnostics && <TranslationDiagnosticPanel />}
+        </AudioProvider>
+      </WebPlaybackProvider>
+    </AuthProvider>
+  );
+}
+
+function AppRoutes() {
+  const location = useLocation();
+  const isArtistDashboard = location.pathname.startsWith('/artist');
+
+  return (
+    <>
+      <ScrollToTop />
+      {!isArtistDashboard && <Header />}
+      <div className="text-white font-sans bg-[#122118] min-h-screen flex flex-col">
+        <main className="flex-grow pb-16">
             <Routes>
               <Route path="/terms" element={<TermsOfUsePage />} />
               <Route path="/privacy" element={<PrivacyPolicyPage />} />
@@ -66,7 +90,7 @@ function App() {
               <Route path="/" element={<HomePage />} />
               <Route path="/song/:id" element={<TranslationPage />} />
               <Route path="/songs/:id" element={<TranslationPage />} />
-              <Route path="/artist/:id" element={<ArtistDetailPage />} />
+              <Route path="/artists/:id" element={<ArtistDetailPage />} />
               <Route path="/songs" element={<SongsCatalogPage />} />
               <Route path="/search" element={<SearchResultsPage />} />
               <Route path="/search/:query" element={<SearchResultsPage />} />
@@ -78,15 +102,23 @@ function App() {
               <Route path="/community/create" element={<CommunityPage />} />
               <Route path="/community/topic/:topicId" element={<TopicDetailPage />} />
               <Route path="/community/:categoryId" element={<CommunityFeedPage />} />
-              <Route path="/artist/signup" element={<ArtistSignupPage />} />
+              <Route path="/apply/artist" element={<ArtistApplicationPage />} />
+              <Route path="/apply/moderator" element={<ModeratorRequestPage />} />
               <Route
-                path="/artist/dashboard"
+                path="/artist"
                 element={
                   <ProtectedRoute requireArtist>
-                    <ArtistDashboard />
+                    <ArtistDashboardLayout />
                   </ProtectedRoute>
                 }
-              />
+              >
+                <Route index element={<ArtistHomePage />} />
+                <Route path="music" element={<ArtistMusicPage />} />
+                <Route path="analytics" element={<ArtistAnalyticsPage />} />
+                <Route path="listeners" element={<ArtistListenersPage />} />
+                <Route path="profile" element={<ArtistProfileSettingsPage />} />
+                <Route path="settings" element={<ArtistSettingsPage />} />
+              </Route>
               <Route
                 path="/admin/*"
                 element={
@@ -109,19 +141,15 @@ function App() {
                 <Route path="genie" element={<GenieManager />} />
                 <Route path="spotify" element={<SpotifyManager />} />
                 <Route path="translation-requests" element={<TranslationRequestsPage />} />
+                <Route path="artist-applications" element={<ArtistApplicationsManager />} />
               </Route>
             </Routes>
             <SpotifyLinkDialog />
             <NowPlayingBar />
           </main>
-          <Footer />
+          {!isArtistDashboard && <Footer />}
           </div>
-        </HashRouter>
-        {featureFlags.playbackDiagnostics && <PlaybackDiagnosticPanel />}
-        {featureFlags.translationDiagnostics && <TranslationDiagnosticPanel />}
-        </AudioProvider>
-      </WebPlaybackProvider>
-    </AuthProvider>
+    </>
   );
 }
 
