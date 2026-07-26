@@ -25,21 +25,24 @@ const LANGUAGE_IMAGES: Record<string, string> = {
 };
 
 const GENRE_IMAGES: Record<string, string> = {
-  Afrobeats: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=400&fit=crop',
-  Amapiano: 'https://images.unsplash.com/photo-1571266028243-3716f02d2d50?w=400&h=400&fit=crop',
-  Highlife: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&h=400&fit=crop',
-  Fuji: 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=400&h=400&fit=crop',
-  Gospel: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop',
-  HipHop: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=400&fit=crop',
-  Jazz: 'https://images.unsplash.com/photo-1511192336575-5a79af67a629?w=400&h=400&fit=crop',
-  Pop: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&h=400&fit=crop',
-  RnB: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=400&fit=crop',
-  Soul: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400&h=400&fit=crop',
-  Reggae: 'https://images.unsplash.com/photo-1504898770365-14faca6a7320?w=400&h=400&fit=crop',
-  Dancehall: 'https://images.unsplash.com/photo-1504898770365-14faca6a7320?w=400&h=400&fit=crop',
-  'Bongo Flava': 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=400&h=400&fit=crop',
-  Gengetone: 'https://images.unsplash.com/photo-1571266028243-3716f02d2d50?w=400&h=400&fit=crop',
-  Kwaito: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&h=400&fit=crop',
+  Afrobeats: 'https://mosaic.scdn.co/300/ab67616d00001e026ce38b8456d050add58b6596ab67616d00001830cb1fee0d294cd21a4099c99cdab3',
+  Afropop: 'https://image-cdn-fa.spotifycdn.com/image/ab67706c0000da8414a9daa469d226a918129302',
+  'Afro-fusion': 'https://image-cdn-fa.spotifycdn.com/image/ab67706c0000da84f9f2dacaa1082b00cf0aee67',
+  Amapiano: 'https://mosaic.scdn.co/300/ab67616d00001e02631830a657b778edceecf4b3ab67616d000019675c1f17664635c2ebae2f585805ec',
+  'Alt-R&B': 'https://image-cdn-fa.spotifycdn.com/image/ab67706c0000da843b33e567701c9dcb3445a5e1',
+  'R&B': 'https://mosaic.scdn.co/300/ab67616d00001e02985ee0c2df0f785e5f3e2178ab67616d00001785b11c0a65b13e690656bb5678a44',
+  Highlife: 'https://mosaic.scdn.co/300/ab67616d00001e02023e99e65056c5222b5ce94aab67616d0000162c070b0465b1c6a7216da30e31a22',
+  Banku: 'https://image-cdn-fa.spotifycdn.com/image/ab67706c0000da8414a9daa469d226a918129302',
+  Dancehall: 'https://mosaic.scdn.co/300/ab67616d00001e022921493b27cb2fb7683e255eab67616d000013be29b0b64b0a8e86ebd33c65a84a9',
+  Gqom: 'https://image-cdn-ak.spotifycdn.com/image/ab67706c0000da84980a21e3d82dfcdf3bdf7d49',
+  'Hip-Hop': 'https://image-cdn-ak.spotifycdn.com/image/ab67706c0000da84fe0c80baf05ee1b592dde56a',
+  Jazz: 'https://image-cdn-ak.spotifycdn.com/image/ab67706c0000da8427f353f690d9180d2c6aef4f',
+  Latin: 'https://image-cdn-ak.spotifycdn.com/image/ab67706c0000da843d1b3df4044287314d61c6e0',
+  Makossa: 'https://mosaic.scdn.co/300/ab67616d00001e0288dcaa53eeb697b7684cd761ab67616d00001497e0e7d71b81e47b9ce742f425a27',
+  Pop: 'https://image-cdn-ak.spotifycdn.com/image/ab67706c0000da84090c04ed26e3782d380e9be2',
+  Reggae: 'https://image-cdn-fa.spotifycdn.com/image/ab67706c0000d72cc9c3ae77c2c832d11fbdaf6e',
+  Soul: 'https://mosaic.scdn.co/300/ab67616d00001e0241488bc8116f6a62c4290020ab67616d0000151551830e3483b2e29a59aa468291a',
+  'Bongo Flava': 'https://mosaic.scdn.co/300/ab67616d00001e02023e99e65056c5222b5ce94aab67616d0000162c070b0465b1c6a7216da30e31a22',
 };
 
 const DEFAULT_GENRE_IMAGE = 'https://images.unsplash.com/photo-1514320291840-2e0a9bf2a9ae?w=400&h=400&fit=crop';
@@ -71,7 +74,6 @@ const HomePage: React.FC = () => {
     const { isSpotifyPremium, user } = useAuth();
     const { loadTrackById, currentTrack, isPlaying, togglePlayPause } = useAudioPlayer();
     const navigate = useNavigate();
-    const [showSignInDialog, setShowSignInDialog] = useState(false);
 
     // Languages supported — built from canonical source
     const languages = SUPPORTED_LANGUAGES
@@ -216,18 +218,6 @@ const HomePage: React.FC = () => {
                                 </svg>
                                 Join Community
                             </Link>
-                            <button 
-                                onClick={() => {
-                                    if (user) {
-                                        navigate('/account');
-                                    } else {
-                                        setShowSignInDialog(true);
-                                    }
-                                }}
-                                className="w-full sm:w-auto min-h-[44px] bg-transparent border-2 border-green-400 hover:bg-green-400/10 text-green-400 hover:text-green-300 font-semibold py-3 px-6 sm:px-8 rounded-full transition-all duration-300 flex items-center justify-center text-base sm:text-lg"
-                            >
-                                Request Role
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -740,23 +730,6 @@ const HomePage: React.FC = () => {
                 }
             `}} />
 
-            <ConfirmDialog
-                isOpen={showSignInDialog}
-                title="Sign In Required"
-                message="You need to be signed in to request a role. Please sign in or create an account first."
-                confirmText="Sign In"
-                cancelText="Cancel"
-                onConfirm={() => {
-                    setShowSignInDialog(false);
-                    navigate('/');
-                    setTimeout(() => {
-                        const loginButton = document.querySelector('[data-login-button]') as HTMLElement;
-                        if (loginButton) loginButton.click();
-                    }, 100);
-                }}
-                onCancel={() => setShowSignInDialog(false)}
-                type="info"
-            />
         </div>
     );
 };

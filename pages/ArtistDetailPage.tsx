@@ -77,7 +77,7 @@ const ArtistDetailPage: React.FC = () => {
   if (!artist) return null;
 
   const normalizedDb = normalizeArtistData(artist);
-  const dbImage = normalizedDb.image || artist.image;
+  const dbImage = normalizedDb.image || (artist as any).imageUrl || (artist as any).profileImageUrl || artist.image || '';
   const displayImage = dbImage;
   const dbGenres = normalizedDb.genres?.length
     ? normalizedDb.genres
@@ -85,7 +85,8 @@ const ArtistDetailPage: React.FC = () => {
   const displayGenres = dbGenres.length > 0 ? dbGenres : [];
   const displayPopularity = normalizedDb.popularity || (artist as any).popularity || 0;
   const displayFollowers = normalizedDb.followers || (artist as any).followers || 0;
-  const displayBio = normalizedDb.bio || (artist as any).bio || '';
+  const rawBio = normalizedDb.bio || (artist as any).bio || '';
+  const displayBio = rawBio.replace(/\s*Read more on Last\.fm\s*$/i, '').trim();
   const isVerified = (artist as any).verified;
   const isSuspended = (artist as any).suspended;
 
@@ -138,7 +139,12 @@ const ArtistDetailPage: React.FC = () => {
               <div className="flex-shrink-0">
                 <div className="w-32 h-32 md:w-48 md:h-48 rounded-2xl overflow-hidden bg-gray-700 shadow-2xl">
                   {displayImage ? (
-                    <img src={displayImage} alt={artist.name} className="w-full h-full object-cover" />
+                    <img
+                      src={displayImage}
+                      alt={artist.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-gray-500">
                       <svg className="w-16 h-16" fill="currentColor" viewBox="0 0 20 20">

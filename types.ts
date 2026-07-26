@@ -370,16 +370,6 @@ export interface AppNotification {
   createdAt?: any;
 }
 
-export interface Annotation {
-  id?: string;
-  songId: string;
-  userId: string;
-  userName: string;
-  userAvatar?: string;
-  comment: string;
-  createdAt?: any;
-}
-
 export interface Favorite {
   id?: string;
   userId: string;

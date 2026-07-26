@@ -1,28 +1,30 @@
-import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useAudioPlayer } from '../context/AudioContext';
+import { usePlaybackSettings } from '../context/PlaybackSettingsContext';
 import { getSongById, getSongTranslations } from '../lib/apiClient';
-import { lyricsApi, type LyricLine } from '../services/api';
 import { SUPPORTED_LANGUAGES } from '../constants';
 import HeartIcon from './icons/HeartIcon';
 import ShareIcon from './icons/ShareIcon';
-import FontSizeIcon from './icons/FontSizeIcon';
 import SpotifyPlayer from './SpotifyPlayer';
-import type { Song, TranslationViewMode } from '../types';
+import CulturalContextCarousel from './CulturalContextCarousel';
+import type { Song } from '../types';
 
 // Strip LRC timestamp prefixes like [01:23.45] or [01:23.456] from lyrics text
 const stripTimestamps = (text: string): string => {
   return text.replace(/^\[\d{1,3}:\d{2}\.\d{2,3}\]\s*/gm, '');
 };
 
-const LyricContent: React.FC = () => {
+interface LyricContentProps {
+  onCulturalContextLoaded?: (context: string) => void;
+}
+
+const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) => {
     const { user: currentUser, authFetch } = useAuth();
-    const { currentTime, isPlaying } = useAudioPlayer();
+    const { fontSize } = usePlaybackSettings();
     const [showLoginPrompt, setShowLoginPrompt] = useState(false);
     const { id: songIdParam } = useParams<{ id: string }>();
     const songId = useMemo(() => songIdParam ?? '', [songIdParam]);
-    const [viewMode, setViewMode] = useState<TranslationViewMode>('side-by-side');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string>('');
     const [title, setTitle] = useState<string>('');
@@ -35,10 +37,6 @@ const LyricContent: React.FC = () => {
     const [favoriteId, setFavoriteId] = useState<string | null>(null);
     const [favoriteLoading, setFavoriteLoading] = useState(false);
     const [song, setSong] = useState<Song | null>(null);
-    const [fontSize, setFontSize] = useState<number>(16);
-    const [splitPosition, setSplitPosition] = useState<number>(50); // For split-screen mode
-    const [hoveredLine, setHoveredLine] = useState<number | null>(null);
-    const [showTranslation, setShowTranslation] = useState<boolean>(false); // For toggle mode
     const [requestLoading, setRequestLoading] = useState(false);
     const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
     const [translationLoading, setTranslationLoading] = useState(false);
@@ -48,21 +46,11 @@ const LyricContent: React.FC = () => {
     const [existingTranslationId, setExistingTranslationId] = useState<string | null>(null);
     const [languages, setLanguages] = useState<Array<{ code: string; name: string }>>([]);
     const [detectingLanguage, setDetectingLanguage] = useState(false);
-    const [userVote, setUserVote] = useState<'upvote' | 'downvote' | null>(null);
-    const [upvotes, setUpvotes] = useState<number>(0);
-    const [downvotes, setDownvotes] = useState<number>(0);
-    const [votingLoading, setVotingLoading] = useState(false);
-    const [showCorrectionForm, setShowCorrectionForm] = useState(false);
-    const [correctionText, setCorrectionText] = useState('');
-    const [correctionReason, setCorrectionReason] = useState('');
+
     const [elapsedSeconds, setElapsedSeconds] = useState(0);
     const elapsedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const [sourceProvider, setSourceProvider] = useState<string | null>(null);
     const [songSource, setSongSource] = useState<string | null>(null);
-    const [syncedLyricLines, setSyncedLyricLines] = useState<LyricLine[]>([]);
-    const [activeLyricIndex, setActiveLyricIndex] = useState<number>(-1);
-    const lyricsContainerRef = useRef<HTMLDivElement>(null);
-    const activeLineRef = useRef<HTMLDivElement>(null);
 
     const isSpotifyImageUrl = (url?: string): boolean => {
         if (!url || typeof url !== 'string') return false;
@@ -169,22 +157,6 @@ const LyricContent: React.FC = () => {
         loadLanguages();
     }, []);
 
-    // Load view mode preference from localStorage
-    useEffect(() => {
-        const savedMode = localStorage.getItem('translationViewMode') as TranslationViewMode;
-        if (savedMode && ['tabs', 'side-by-side', 'top-bottom', 'hover', 'split-screen', 'inline', 'toggle'].includes(savedMode)) {
-            setViewMode(savedMode);
-        } else {
-            // Set default to side-by-side if no saved preference
-            setViewMode('side-by-side');
-        }
-    }, []);
-
-    // Save view mode preference
-    useEffect(() => {
-        localStorage.setItem('translationViewMode', viewMode);
-    }, [viewMode]);
-
     useEffect(() => {
         let cancelled = false;
         async function load() {
@@ -241,17 +213,6 @@ const LyricContent: React.FC = () => {
                     setSourceProvider(lyricsSource);
                 }
 
-                // Fetch structured lyrics for synchronized display
-                try {
-                    const structuredLyrics = await lyricsApi.getForSong(songId);
-                    if (structuredLyrics?.lyricLines && structuredLyrics.lyricLines.length > 0 && !cancelled) {
-                        setSyncedLyricLines(structuredLyrics.lyricLines);
-                    }
-                } catch (lyricsErr) {
-                    // Non-fatal: synced lyrics are optional, plain text lyrics still work
-                    console.warn('Could not load synced lyrics:', lyricsErr);
-                }
-
                 const translationResponse = await getSongTranslations(songId).catch(() => null);
                 const availableTranslations = normalizeAndRankTranslations(extractTranslations(translationResponse));
                 // Pick the best translation: one with non-empty translated text preferred
@@ -259,11 +220,10 @@ const LyricContent: React.FC = () => {
 
                 if (bestTranslation && !cancelled) {
                     setOriginalLyrics(bestTranslation.originalLyrics || songLyrics || 'No lyrics available yet for this song.');
-                    setTranslatedLyrics(pickTranslationText(bestTranslation) || 'No translation available yet. Use "Reveal the Meaning" to generate one.');
+                    setTranslatedLyrics(pickTranslationText(bestTranslation) || 'No translation available yet. Use "Translate Lyrics" to generate one.');
                     setCulturalContext(bestTranslation.culturalContext || '');
                     setExistingTranslationId(bestTranslation.id || bestTranslation.translationId || null);
-                    setUpvotes(bestTranslation.upvotes || bestTranslation.voteStats?.upvotes || 0);
-                    setDownvotes(bestTranslation.downvotes || bestTranslation.voteStats?.downvotes || 0);
+
                     // Resolve source language: translation metadata > song metadata > 'en'
                     setSourceLang(resolveSourceLang(bestTranslation, normalizedSong));
                     if (bestTranslation.targetLang) {
@@ -271,7 +231,7 @@ const LyricContent: React.FC = () => {
                     }
                 } else if (!cancelled) {
                     setOriginalLyrics(songLyrics || 'No lyrics available yet for this song.');
-                    setTranslatedLyrics('No translation available yet. Use "Reveal the Meaning" to generate one.');
+                    setTranslatedLyrics('No translation available yet. Use "Translate Lyrics" to generate one.');
                     setExistingTranslationId(null);
                     // Resolve source language from song metadata
                     setSourceLang(resolveSourceLang(null, normalizedSong));
@@ -306,6 +266,15 @@ const LyricContent: React.FC = () => {
         return () => { cancelled = true; };
     }, [songId, currentUser]);
 
+    // Notify parent when cultural context is loaded
+    useEffect(() => {
+        if (culturalContext && onCulturalContextLoaded) {
+            onCulturalContextLoaded(culturalContext);
+        }
+    }, [culturalContext, onCulturalContextLoaded]);
+
+    const FAVORITES_LIMIT = 5;
+
     const handleFavoriteToggle = async () => {
         if (!currentUser) {
             setNotification({ message: 'Please sign in to add favorites', type: 'error' });
@@ -323,6 +292,14 @@ const LyricContent: React.FC = () => {
                 setNotification({ message: 'Removed from favorites', type: 'success' });
                 setTimeout(() => setNotification(null), 3000);
             } else {
+                const favoritesData = await authFetch('/api/users/favorites').catch(() => []);
+                const favs = Array.isArray(favoritesData) ? favoritesData : favoritesData?.favorites ?? [];
+                if (favs.length >= FAVORITES_LIMIT) {
+                    setNotification({ message: `Favorites limit reached (${FAVORITES_LIMIT}). Remove one first.`, type: 'error' });
+                    setTimeout(() => setNotification(null), 4000);
+                    setFavoriteLoading(false);
+                    return;
+                }
                 const result = await authFetch('/api/users/favorites', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -400,7 +377,7 @@ const LyricContent: React.FC = () => {
         // Check if translation already exists and is not empty
         const hasValidTranslation = translatedLyrics &&
             translatedLyrics.trim() &&
-            translatedLyrics !== 'No translation available yet. Use "Reveal the Meaning" to generate one.';
+            translatedLyrics !== 'No translation available yet. Use "Translate Lyrics" to generate one.';
 
         if (hasValidTranslation) {
             setNotification({ message: 'Translation already exists. Please reset it first to generate a new translation.', type: 'error' });
@@ -610,84 +587,7 @@ const LyricContent: React.FC = () => {
         }
     };
 
-    const handleVote = async (voteType: 'upvote' | 'downvote') => {
-        if (!currentUser || !currentUser.uid) {
-            setNotification({ message: 'Please sign in to vote', type: 'error' });
-            setTimeout(() => setNotification(null), 4000);
-            return;
-        }
-        if (!existingTranslationId) return;
 
-        setVotingLoading(true);
-        try {
-            await authFetch('/api/translations/' + existingTranslationId + '/vote', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ voteType: voteType === 'upvote' ? 'UPVOTE' : 'DOWNVOTE' }),
-            });
-
-            setUserVote(voteType);
-            if (voteType === 'upvote') {
-                setUpvotes((prev) => prev + (userVote === 'upvote' ? 0 : 1));
-                if (userVote === 'downvote') {
-                    setDownvotes((prev) => Math.max(0, prev - 1));
-                }
-            } else {
-                setDownvotes((prev) => prev + (userVote === 'downvote' ? 0 : 1));
-                if (userVote === 'upvote') {
-                    setUpvotes((prev) => Math.max(0, prev - 1));
-                }
-            }
-            setNotification({
-                message: `Your ${voteType} has been recorded`,
-                type: 'success'
-            });
-            setTimeout(() => setNotification(null), 3000);
-        } catch (err: any) {
-            console.error('Voting error:', err);
-            if (String(err?.message || '').toLowerCase().includes('session expired')) {
-                setShowLoginPrompt(true);
-            }
-            const errorMessage = err.message || 'Failed to vote. Please try again.';
-            setNotification({ message: errorMessage, type: 'error' });
-            setTimeout(() => setNotification(null), 4000);
-        } finally {
-            setVotingLoading(false);
-        }
-    };
-
-    const handleSubmitCorrection = async () => {
-        if (!currentUser) {
-            setNotification({ message: 'Please sign in to suggest corrections', type: 'error' });
-            setTimeout(() => setNotification(null), 4000);
-            return;
-        }
-        if (!existingTranslationId || !correctionText.trim()) {
-            setNotification({ message: 'Please provide a correction', type: 'error' });
-            setTimeout(() => setNotification(null), 4000);
-            return;
-        }
-
-        try {
-            await authFetch('/api/translations/' + existingTranslationId + '/correction', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    originalText: translatedLyrics,
-                    suggestedText: correctionText,
-                    reason: correctionReason || undefined,
-                }),
-            });
-            setNotification({ message: 'Correction submitted! Thank you for your contribution.', type: 'success' });
-            setTimeout(() => setNotification(null), 4000);
-            setCorrectionText('');
-            setCorrectionReason('');
-            setShowCorrectionForm(false);
-        } catch (err: any) {
-            setNotification({ message: err.message || 'Failed to submit correction', type: 'error' });
-            setTimeout(() => setNotification(null), 4000);
-        }
-    };
 
     const handleResetTranslation = async () => {
         if (!existingTranslationId) {
@@ -707,7 +607,7 @@ const LyricContent: React.FC = () => {
                 body: JSON.stringify({ translatedLyrics: '' }),
             });
 
-            setTranslatedLyrics('No translation available yet. Use "Reveal the Meaning" to generate one.');
+            setTranslatedLyrics('No translation available yet. Use "Translate Lyrics" to generate one.');
             setNotification({
                 message: 'Translation reset. You can now generate a new translation.',
                 type: 'success'
@@ -726,40 +626,8 @@ const LyricContent: React.FC = () => {
     const cleanOriginalLyrics = useMemo(() => stripTimestamps(originalLyrics), [originalLyrics]);
     const cleanTranslatedLyrics = useMemo(() => stripTimestamps(translatedLyrics), [translatedLyrics]);
 
-    // Track active lyric line based on playback time
-    useEffect(() => {
-        if (syncedLyricLines.length === 0 || !isPlaying) {
-            return;
-        }
-
-        // Find the current line based on time
-        let currentIndex = -1;
-        for (let i = syncedLyricLines.length - 1; i >= 0; i--) {
-            if (currentTime >= syncedLyricLines[i].time) {
-                currentIndex = i;
-                break;
-            }
-        }
-        setActiveLyricIndex(currentIndex);
-    }, [currentTime, isPlaying, syncedLyricLines]);
-
-    // Auto-scroll to active lyric line
-    useEffect(() => {
-        if (activeLyricIndex >= 0 && activeLineRef.current && lyricsContainerRef.current) {
-            const container = lyricsContainerRef.current;
-            const line = activeLineRef.current;
-            const containerRect = container.getBoundingClientRect();
-            const lineRect = line.getBoundingClientRect();
-
-            // Check if line is outside visible area
-            if (lineRect.top < containerRect.top || lineRect.bottom > containerRect.bottom) {
-                line.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-        }
-    }, [activeLyricIndex]);
-
     const hasNoLyrics = cleanOriginalLyrics === 'No lyrics available yet for this song.' || !cleanOriginalLyrics.trim();
-    const hasNoTranslation = cleanTranslatedLyrics === 'No translation available yet. Use "Reveal the Meaning" to generate one.' || !cleanTranslatedLyrics.trim();
+    const hasNoTranslation = cleanTranslatedLyrics === 'No translation available yet. Use "Translate Lyrics" to generate one.' || !cleanTranslatedLyrics.trim();
     const hasOriginalLyrics = !hasNoLyrics;
     const canGenerateTranslation = hasOriginalLyrics && hasNoTranslation;
 
@@ -801,213 +669,30 @@ const LyricContent: React.FC = () => {
     }, []);
     const hasValidTranslation = cleanTranslatedLyrics &&
         cleanTranslatedLyrics.trim() &&
-        cleanTranslatedLyrics !== 'No translation available yet. Use "Reveal the Meaning" to generate one.';
+        cleanTranslatedLyrics !== 'No translation available yet. Use "Translate Lyrics" to generate one.';
 
-    // Split lyrics into lines for hover and inline modes
+    // Split lyrics into lines for inline mode
     const originalLines = cleanOriginalLyrics.split('\n');
     const translatedLines = cleanTranslatedLyrics.split('\n');
 
-    // Determine if we should use synced lyrics view
-    const hasSyncedLyrics = syncedLyricLines.length > 0;
-
-    // Render lyrics based on view mode
+    // Render lyrics in inline view
     const renderLyrics = () => {
-        // If we have synced lyrics, show synchronized view for supported modes
-        if (hasSyncedLyrics && (viewMode === 'tabs' || viewMode === 'toggle' || viewMode === 'side-by-side' || viewMode === 'top-bottom')) {
-            return (
-                <div
-                    ref={lyricsContainerRef}
-                    className="max-h-[50vh] md:max-h-[60vh] overflow-y-auto scroll-smooth rounded-lg bg-gray-900/30 p-3 md:p-4"
-                >
-                    <div className="space-y-1">
-                        {syncedLyricLines.map((line, index) => (
-                            <div
-                                key={index}
-                                ref={index === activeLyricIndex ? activeLineRef : null}
-                                className={`py-2 px-3 rounded-lg transition-all duration-300 cursor-pointer ${
-                                    index === activeLyricIndex
-                                        ? 'bg-green-600/30 text-white font-semibold scale-[1.02] shadow-lg'
-                                        : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/50'
-                                }`}
-                                style={{ fontSize: `${fontSize}px` }}
-                                onClick={() => {
-                                    // Click to seek to this line's time
-                                    if (line.time !== undefined) {
-                                        // seek(line.time); // Would need to expose seek from context
-                                    }
-                                }}
-                            >
-                                {line.text}
-                            </div>
-                        ))}
+        return (
+            <div className="space-y-4" style={{ fontSize: '20px' }}>
+                {originalLines.map((line, index) => (
+                    <div key={index} className="space-y-1">
+                        <p className="font-sans whitespace-pre-wrap text-gray-200 leading-loose">
+                            {line}
+                        </p>
+                        {translatedLines[index] && (
+                            <p className="font-sans whitespace-pre-wrap text-green-400 leading-loose text-sm italic ml-4" style={{ fontSize: '18px' }}>
+                                {translatedLines[index]}
+                            </p>
+                        )}
                     </div>
-                </div>
-            );
-        }
-
-        switch (viewMode) {
-            case 'tabs':
-                return (
-                    <>
-                        <div className="flex border-b-2 border-gray-700 mb-6 bg-gray-800/30 rounded-t-lg p-1">
-                            <button
-                                onClick={() => setShowTranslation(false)}
-                                className={`flex-1 py-3 px-4 font-semibold transition-all rounded-lg ${!showTranslation
-                                    ? 'text-white bg-gray-700/50 shadow-lg'
-                                    : 'text-gray-400 hover:text-gray-300'
-                                    }`}
-                            >
-                                Original
-                            </button>
-                            <button
-                                onClick={() => setShowTranslation(true)}
-                                className={`flex-1 py-3 px-4 font-semibold transition-all rounded-lg ${showTranslation
-                                    ? 'text-white bg-green-600/20 border border-green-500/30 shadow-lg'
-                                    : 'text-gray-400 hover:text-gray-300'
-                                    }`}
-                            >
-                                Translation
-                            </button>
-                        </div>
-                        <div className="text-gray-200 text-lg leading-loose min-h-[400px]">
-                            {!showTranslation ? (
-                                <pre className="font-sans whitespace-pre-wrap" style={{ fontSize: `${fontSize}px` }}>{cleanOriginalLyrics}</pre>
-                            ) : (
-                                <pre className="font-sans whitespace-pre-wrap" style={{ fontSize: `${fontSize}px` }}>{cleanTranslatedLyrics}</pre>
-                            )}
-                        </div>
-                    </>
-                );
-
-            case 'side-by-side':
-                return (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <h3 className="font-bold text-white mb-3">Original</h3>
-                            <pre className="font-sans whitespace-pre-wrap text-gray-200 leading-loose" style={{ fontSize: `${fontSize}px` }}>{cleanOriginalLyrics}</pre>
-                        </div>
-                        <div>
-                            <h3 className="font-bold text-white mb-3">Translation</h3>
-                            <pre className="font-sans whitespace-pre-wrap text-gray-200 leading-loose" style={{ fontSize: `${fontSize}px` }}>{cleanTranslatedLyrics}</pre>
-                        </div>
-                    </div>
-                );
-
-            case 'top-bottom':
-                return (
-                    <div className="space-y-8">
-                        <div>
-                            <h3 className="font-bold text-white mb-3">Original</h3>
-                            <pre className="font-sans whitespace-pre-wrap text-gray-200 leading-loose" style={{ fontSize: `${fontSize}px` }}>{cleanOriginalLyrics}</pre>
-                        </div>
-                        <div>
-                            <h3 className="font-bold text-white mb-3">Translation</h3>
-                            <pre className="font-sans whitespace-pre-wrap text-gray-200 leading-loose" style={{ fontSize: `${fontSize}px` }}>{cleanTranslatedLyrics}</pre>
-                        </div>
-                    </div>
-                );
-
-            case 'hover':
-                return (
-                    <div className="space-y-2">
-                        {originalLines.map((line, index) => (
-                            <div
-                                key={index}
-                                className="relative group"
-                                onMouseEnter={() => setHoveredLine(index)}
-                                onMouseLeave={() => setHoveredLine(null)}
-                            >
-                                <pre className="font-sans whitespace-pre-wrap text-gray-200 leading-loose" style={{ fontSize: `${fontSize}px` }}>
-                                    {line}
-                                </pre>
-                                {hoveredLine === index && translatedLines[index] && (
-                                    <div className="absolute left-0 top-full mt-2 bg-gray-800 border border-green-400 rounded-lg p-3 shadow-lg z-10 max-w-md">
-                                        <p className="text-green-400 font-semibold mb-1">Translation:</p>
-                                        <p className="text-gray-200 text-sm">{translatedLines[index]}</p>
-                                    </div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                );
-
-            case 'split-screen':
-                return (
-                    <div className="relative" style={{ height: '600px' }}>
-                        <div className="absolute inset-0 flex">
-                            <div
-                                className="overflow-y-auto pr-4"
-                                style={{ width: `${splitPosition}%` }}
-                            >
-                                <h3 className="font-bold text-white mb-3 sticky top-0 bg-[#122118] py-2">Original</h3>
-                                <pre className="font-sans whitespace-pre-wrap text-gray-200 leading-loose" style={{ fontSize: `${fontSize}px` }}>{cleanOriginalLyrics}</pre>
-                            </div>
-                            <div
-                                className="w-1 bg-gray-600 cursor-col-resize hover:bg-green-400 transition-colors"
-                                onMouseDown={(e) => {
-                                    const startX = e.clientX;
-                                    const startWidth = splitPosition;
-                                    const handleMouseMove = (e: MouseEvent) => {
-                                        const delta = e.clientX - startX;
-                                        const containerWidth = (e.target as HTMLElement).closest('.relative')?.clientWidth || 1000;
-                                        const newPosition = Math.max(20, Math.min(80, startWidth + (delta / containerWidth) * 100));
-                                        setSplitPosition(newPosition);
-                                    };
-                                    const handleMouseUp = () => {
-                                        document.removeEventListener('mousemove', handleMouseMove);
-                                        document.removeEventListener('mouseup', handleMouseUp);
-                                    };
-                                    document.addEventListener('mousemove', handleMouseMove);
-                                    document.addEventListener('mouseup', handleMouseUp);
-                                }}
-                            />
-                            <div
-                                className="overflow-y-auto pl-4"
-                                style={{ width: `${100 - splitPosition}%` }}
-                            >
-                                <h3 className="font-bold text-white mb-3 sticky top-0 bg-[#122118] py-2">Translation</h3>
-                                <pre className="font-sans whitespace-pre-wrap text-gray-200 leading-loose" style={{ fontSize: `${fontSize}px` }}>{cleanTranslatedLyrics}</pre>
-                            </div>
-                        </div>
-                    </div>
-                );
-
-            case 'inline':
-                return (
-                    <div className="space-y-4">
-                        {originalLines.map((line, index) => (
-                            <div key={index} className="space-y-1">
-                                <pre className="font-sans whitespace-pre-wrap text-gray-200 leading-loose" style={{ fontSize: `${fontSize}px` }}>
-                                    {line}
-                                </pre>
-                                {translatedLines[index] && (
-                                    <pre className="font-sans whitespace-pre-wrap text-green-400 leading-loose text-sm italic ml-4" style={{ fontSize: `${fontSize - 2}px` }}>
-                                        {translatedLines[index]}
-                                    </pre>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                );
-
-            case 'toggle':
-                return (
-                    <div className="text-gray-200 text-lg leading-loose">
-                        <button
-                            onClick={() => setShowTranslation(!showTranslation)}
-                            className="mb-4 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-                        >
-                            {showTranslation ? 'Show Original' : 'Show Translation'}
-                        </button>
-                        <pre className="font-sans whitespace-pre-wrap" style={{ fontSize: `${fontSize}px` }}>
-                            {showTranslation ? cleanTranslatedLyrics : cleanOriginalLyrics}
-                        </pre>
-                    </div>
-                );
-
-            default:
-                return null;
-        }
+                ))}
+            </div>
+        );
     };
 
     return (
@@ -1050,6 +735,25 @@ const LyricContent: React.FC = () => {
                                 </Link>
                             )}
                         </div>
+                    </div>
+
+                    {/* Like & Share Buttons */}
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                        <button
+                            onClick={handleFavoriteToggle}
+                            disabled={favoriteLoading}
+                            className={`flex items-center justify-center min-w-[44px] min-h-[44px] rounded-full hover:bg-white/10 transition-colors touch-manipulation ${isFavorite ? 'text-red-400' : 'text-gray-400 hover:text-white'}`}
+                            title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                        >
+                            <HeartIcon className={`h-6 w-6 ${isFavorite ? 'fill-current' : ''}`} />
+                        </button>
+                        <button
+                            onClick={handleShare}
+                            className="flex items-center justify-center min-w-[44px] min-h-[44px] rounded-full hover:bg-white/10 transition-colors text-gray-400 hover:text-white touch-manipulation"
+                            title="Share this song"
+                        >
+                            <ShareIcon className="h-6 w-6" />
+                        </button>
                     </div>
 
                     {/* Compact Spotify Player */}
@@ -1142,7 +846,7 @@ const LyricContent: React.FC = () => {
                                         </span>
                                     </>
                                 ) : (
-                                    <span>{showLanguageSelector ? 'Generate Translation' : 'Translate with AI'}</span>
+                                    <span>{showLanguageSelector ? 'Generate Translation' : 'Translate Lyrics'}</span>
                                 )}
                             </button>
                             <button
@@ -1222,212 +926,11 @@ const LyricContent: React.FC = () => {
                 </div>
             )}
 
-            {/* Voting and Community Actions */}
-            {!loading && !error && hasValidTranslation && existingTranslationId && (
-                <div className="mb-4 bg-gray-800/30 rounded-lg p-4 border border-gray-700/50">
-                    <div className="flex flex-wrap items-center justify-between gap-4">
-                        {/* Voting Section */}
-                        <div className="flex items-center gap-4">
-                            <span className="text-gray-300 text-sm font-medium">Rate this translation:</span>
-                            {currentUser ? (
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={() => handleVote('upvote')}
-                                        disabled={votingLoading}
-                                        className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${userVote === 'upvote'
-                                            ? 'bg-green-600 text-white'
-                                            : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                                            } disabled:opacity-50`}
-                                    >
-                                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                            <path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.43a2 2 0 001.106 1.79l.05.025A4 4 0 008.943 18h5.416a2 2 0 001.962-1.608l1.2-6A2 2 0 0015.56 8H12V4a2 2 0 00-2-2 1 1 0 00-1 1v.667a4 4 0 01-.8 2.4L6.8 7.933a4 4 0 00-.8 2.4z" />
-                                        </svg>
-                                        <span className="text-sm font-medium">{upvotes}</span>
-                                    </button>
-                                    <button
-                                        onClick={() => handleVote('downvote')}
-                                        disabled={votingLoading}
-                                        className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${userVote === 'downvote'
-                                            ? 'bg-red-600 text-white'
-                                            : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                                            } disabled:opacity-50`}
-                                    >
-                                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                            <path d="M18 9.5a1.5 1.5 0 11-3 0v-6a1.5 1.5 0 013 0v6zM14 9.667v-5.43a2 2 0 00-1.105-1.79l-.05-.025A4 4 0 0011.055 2H5.64a2 2 0 00-1.962 1.608l-1.2 6A2 2 0 004.44 12H8v4a2 2 0 002 2 1 1 0 001-1v-.667a4 4 0 01.8-2.4l1.4-1.866a4 4 0 00.8-2.4z" />
-                                        </svg>
-                                        <span className="text-sm font-medium">{downvotes}</span>
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className="flex items-center gap-2 text-gray-400 text-sm">
-                                    <span>{upvotes} upvotes • {downvotes} downvotes</span>
-                                    <Link
-                                        to="/"
-                                        className="text-green-400 hover:text-green-300 underline"
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            // Trigger login modal - you may need to adjust this based on your login flow
-                                            window.location.hash = '#/';
-                                            setTimeout(() => {
-                                                const loginButton = document.querySelector('[data-login-button]') as HTMLElement;
-                                                if (loginButton) loginButton.click();
-                                            }, 100);
-                                        }}
-                                    >
-                                        Sign in to vote
-                                    </Link>
-                                </div>
-                            )}
-                        </div>
-                        {/* Correction Button */}
-                        {currentUser ? (
-                            <button
-                                onClick={() => setShowCorrectionForm(!showCorrectionForm)}
-                                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
-                            >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                                Suggest Correction
-                            </button>
-                        ) : (
-                            <button
-                                onClick={() => {
-                                    setShowLoginPrompt(true);
-                                    setTimeout(() => setShowLoginPrompt(false), 5000);
-                                }}
-                                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
-                            >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                                Sign in to suggest
-                            </button>
-                        )}
-                    </div>
-                    {/* Correction Form */}
-                    {showCorrectionForm && (
-                        <div className="mt-4 p-4 bg-gray-700/50 rounded-lg border border-gray-600">
-                            <h4 className="text-white font-medium mb-3">Suggest a Correction</h4>
-                            <textarea
-                                value={correctionText}
-                                onChange={(e) => setCorrectionText(e.target.value)}
-                                placeholder="Enter your suggested correction for the translation..."
-                                rows={4}
-                                className="w-full px-4 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
-                            />
-                            <input
-                                type="text"
-                                value={correctionReason}
-                                onChange={(e) => setCorrectionReason(e.target.value)}
-                                placeholder="Reason (optional)"
-                                className="w-full px-4 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
-                            />
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={handleSubmitCorrection}
-                                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm font-medium"
-                                >
-                                    Submit Correction
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setShowCorrectionForm(false);
-                                        setCorrectionText('');
-                                        setCorrectionReason('');
-                                    }}
-                                    className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors text-sm font-medium"
-                                >
-                                    Cancel
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            )}
 
-            {/* View Mode Selector - Moved up to be with lyrics */}
-            {!loading && !error && !hasNoLyrics && !hasNoTranslation && (
-                <div className="mb-4 flex flex-wrap items-center gap-3 sm:gap-4 bg-gray-800/30 rounded-lg p-3 sm:p-4 border border-gray-700/50">
-                    <div className="flex items-center gap-2">
-                        <label className="text-gray-300 text-sm font-medium">View:</label>
-                        <select
-                            value={viewMode}
-                            onChange={(e) => setViewMode(e.target.value as TranslationViewMode)}
-                            className="min-h-[44px] bg-gray-800 border border-gray-600 text-white text-sm px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                        >
-                            <option value="tabs">Tabs</option>
-                            <option value="side-by-side">Side-by-Side</option>
-                            <option value="top-bottom">Top & Bottom</option>
-                            <option value="hover">Mouse-over</option>
-                            <option value="split-screen">Split-Screen</option>
-                            <option value="inline">Inline</option>
-                            <option value="toggle">Toggle</option>
-                        </select>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <label className="text-gray-300 text-sm">Font:</label>
-                        <input
-                            type="range"
-                            min="12"
-                            max="24"
-                            value={fontSize}
-                            onChange={(e) => setFontSize(Number(e.target.value))}
-                            className="w-24 min-w-[120px] sm:w-28"
-                        />
-                        <span className="text-gray-400 text-xs">{fontSize}px</span>
-                    </div>
-                    {/* Compact Status Indicators */}
-                    {song && (cleanOriginalLyrics !== 'No lyrics available yet for this song.' || cleanTranslatedLyrics !== 'No translation available yet. Use "Reveal the Meaning" to generate one.') && (
-                        <div className="ml-auto flex items-center gap-2 text-xs">
-                            {cleanOriginalLyrics !== 'No lyrics available yet for this song.' && (
-                                <span className="text-green-400 flex items-center gap-1">
-                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                    </svg>
-                                    Original
-                                </span>
-                            )}
-                            {cleanTranslatedLyrics !== 'No translation available yet. Use "Reveal the Meaning" to generate one.' && (
-                                <span className="text-amber-400 flex items-center gap-1">
-                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                    </svg>
-                                    Translation
-                                </span>
-                            )}
-                            {sourceProvider && (
-                                <span className="px-2 py-0.5 bg-gray-700/80 border border-gray-600 rounded-full text-gray-300 font-medium">
-                                    {sourceProvider === 'MANUAL' && 'Manual'}
-                                    {sourceProvider === 'MUSICMATCH' && 'Musixmatch'}
-                                    {sourceProvider === 'LYRICFIND' && 'LyricFind'}
-                                    {sourceProvider === 'GENIUS' && 'Genius'}
-                                    {sourceProvider === 'ARTIST' && 'Artist'}
-                                    {!['MANUAL', 'MUSICMATCH', 'LYRICFIND', 'GENIUS', 'ARTIST'].includes(sourceProvider) && sourceProvider}
-                                </span>
-                            )}
-                        </div>
-                    )}
-                </div>
-            )}
 
             {/* Cultural Context Display */}
             {!loading && !error && culturalContext && culturalContext.trim() && (
-                <div className="mb-4">
-                    <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4">
-                        <div className="flex items-center gap-2 mb-3">
-                            <h3 className="text-base font-semibold text-white">Cultural Context</h3>
-                            <span className="text-xs px-2 py-0.5 bg-green-900/50 text-green-300 rounded-full font-medium">
-                                AI-Generated
-                            </span>
-                        </div>
-                        <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700/50">
-                            <pre className="whitespace-pre-wrap break-words font-sans text-gray-200 leading-relaxed text-sm">
-                                {formattedCulturalContext}
-                            </pre>
-                        </div>
-                    </div>
-                </div>
+                <CulturalContextCarousel culturalContext={culturalContext} />
             )}
 
             {/* Lyrics Display - Main Focus */}
@@ -1443,41 +946,6 @@ const LyricContent: React.FC = () => {
                 </div>
             )}
 
-            {/* Action Bar */}
-            <div
-                className="fixed left-1/2 -translate-x-1/2 w-[min(92vw,360px)] z-40 bottom-[max(1.5rem,env(safe-area-inset-bottom))]"
-            >
-                {/* Mobile & Desktop: Always show buttons inline */}
-                <div className="bg-[#2a3c30]/95 backdrop-blur-md p-2 rounded-full border border-white/10 shadow-2xl flex items-center justify-around">
-                    <button
-                        onClick={handleFavoriteToggle}
-                        disabled={favoriteLoading}
-                        className={`flex flex-col items-center justify-center min-w-[44px] min-h-[44px] w-16 md:w-20 h-12 rounded-full hover:bg-white/10 transition-colors touch-manipulation ${isFavorite ? 'text-red-400' : 'text-white'}`}
-                    >
-                        <HeartIcon className={`h-5 w-5 ${isFavorite ? 'fill-current' : ''}`} />
-                        <span className="text-[10px] mt-0.5">{isFavorite ? 'Liked' : 'Like'}</span>
-                    </button>
-                    <button
-                        onClick={handleShare}
-                        className="flex flex-col items-center justify-center min-w-[44px] min-h-[44px] w-16 md:w-20 h-12 rounded-full hover:bg-white/10 transition-colors text-white touch-manipulation"
-                    >
-                        <ShareIcon className="h-5 w-5" />
-                        <span className="text-[10px] mt-0.5">Share</span>
-                    </button>
-                    {song && (
-                        <Link
-                            to={`/community/create?songId=${song.id}&artistId=${song.artistId}`}
-                            className="flex flex-col items-center justify-center min-w-[44px] min-h-[44px] w-16 md:w-20 h-12 rounded-full hover:bg-white/10 transition-colors text-amber-400 touch-manipulation"
-                            title="Discuss this song"
-                        >
-                            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                            </svg>
-                            <span className="text-[10px] mt-0.5">Discuss</span>
-                        </Link>
-                    )}
-                </div>
-            </div>
 
             {/* Custom Notification Toast */}
             {notification && (

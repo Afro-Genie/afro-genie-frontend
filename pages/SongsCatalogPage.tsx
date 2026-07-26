@@ -403,7 +403,7 @@ const SongsCatalogPage: React.FC = () => {
                   >
                     <div className="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 bg-gradient-to-br from-green-500/20 to-amber-500/20 rounded-lg overflow-hidden">
                       {song.image ? (
-                        <img src={song.image} alt={song.title} className="w-full h-full object-cover" />
+                        <img src={song.image} alt={song.title} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
                           <svg className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-green-400" fill="currentColor" viewBox="0 0 20 20">
