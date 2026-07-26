@@ -86,6 +86,16 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
   const initStartTimeRef = useRef<number>(Date.now());
   const timelineTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const destroyPlayer = useCallback(() => {
+    const p = playerRef.current;
+    if (!p) return;
+    for (const evt of ['ready', 'not_ready', 'player_state_changed', 'authentication_error', 'account_error', 'playback_error']) {
+      p.removeListener(evt);
+    }
+    p.disconnect();
+    playerRef.current = null;
+  }, []);
+
   const [isReady, setIsReady] = useState(false);
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -240,10 +250,7 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
       setIsReady(false);
       setDeviceId(null);
       deviceIdRef.current = null;
-      if (playerRef.current) {
-        playerRef.current.disconnect();
-        playerRef.current = null;
-      }
+      destroyPlayer();
       if (tokenRefreshTimerRef.current) {
         clearInterval(tokenRefreshTimerRef.current);
         tokenRefreshTimerRef.current = null;
@@ -495,10 +502,7 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
         clearInterval(tokenRefreshTimerRef.current);
         tokenRefreshTimerRef.current = null;
       }
-      if (playerRef.current) {
-        playerRef.current.disconnect();
-        playerRef.current = null;
-      }
+      destroyPlayer();
       delete window.onSpotifyWebPlaybackSDKReady;
       pushEvent('cleanup', 'Provider effect cleaned up');
       setIsReady(false);
@@ -508,7 +512,7 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
       setSdkPlaybackError(null);
       deviceIdRef.current = null;
     };
-  }, [isSpotifyPremium, getFreshToken, getOAuthTokenForSdk, ensureFreshToken, refreshTokenPeriodically, pushEvent, snapshotDiagnostics]);
+  }, [isSpotifyPremium, getFreshToken, getOAuthTokenForSdk, ensureFreshToken, refreshTokenPeriodically, pushEvent, snapshotDiagnostics, destroyPlayer]);
 
   const playTrack = useCallback(async (uri: string): Promise<boolean> => {
     const player = playerRef.current;

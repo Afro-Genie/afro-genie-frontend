@@ -206,7 +206,7 @@ const GenreResultPage: React.FC = () => {
                     <Link to={`/songs/${song.id}`} className="flex-1 min-w-0 flex items-center gap-3">
                       <div className="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-green-500/20 to-amber-500/20 rounded-lg overflow-hidden">
                         {song.image ? (
-                          <img src={song.image} alt={song.title} className="w-full h-full object-cover" />
+                          <img src={song.image} alt={song.title} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
                             <svg className="w-6 h-6 text-green-400" fill="currentColor" viewBox="0 0 20 20">

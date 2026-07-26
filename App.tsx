@@ -52,7 +52,6 @@ import SpotifyLinkDialog from './components/SpotifyLinkDialog';
 import NowPlayingBar from './components/NowPlayingBar';
 import ScrollToTop from './components/ScrollToTop';
 import PlaybackDiagnosticPanel from './components/PlaybackDiagnosticPanel';
-import TranslationDiagnosticPanel from './components/TranslationDiagnosticPanel';
 import { featureFlags } from './config/featureFlags';
 
 function App() {
@@ -60,11 +59,10 @@ function App() {
     <AuthProvider>
       <WebPlaybackProvider>
         <AudioProvider>
-        <HashRouter future={{ v7_startTransition: true }}>
+        <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <AppRoutes />
         </HashRouter>
         {featureFlags.playbackDiagnostics && <PlaybackDiagnosticPanel />}
-        {featureFlags.translationDiagnostics && <TranslationDiagnosticPanel />}
         </AudioProvider>
       </WebPlaybackProvider>
     </AuthProvider>
@@ -74,11 +72,13 @@ function App() {
 function AppRoutes() {
   const location = useLocation();
   const isArtistDashboard = location.pathname.startsWith('/artist');
+  const isSongPlayback = /\/songs?\/[^/]+/.test(location.pathname);
+  const showChrome = !isArtistDashboard && !isSongPlayback;
 
   return (
     <>
       <ScrollToTop />
-      {!isArtistDashboard && <Header />}
+      {showChrome && <Header />}
       <div className="text-white font-sans bg-[#122118] min-h-screen flex flex-col">
         <main className="flex-grow pb-16">
             <Routes>
@@ -147,7 +147,7 @@ function AppRoutes() {
             <SpotifyLinkDialog />
             <NowPlayingBar />
           </main>
-          {!isArtistDashboard && <Footer />}
+          {showChrome && <Footer />}
           </div>
     </>
   );
