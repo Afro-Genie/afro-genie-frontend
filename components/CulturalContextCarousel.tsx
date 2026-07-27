@@ -24,43 +24,39 @@ export function parseCulturalContext(raw: string): CulturalContextItem[] {
 
 function parseNumberedItems(raw: string): CulturalContextItem[] {
   const items: CulturalContextItem[] = [];
-  const lines = raw.split('\n');
-  let currentItem: Partial<CulturalContextItem> | null = null;
 
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
+  // Find all positions where numbered items start: "1. ", "2) ", etc.
+  const splitRegex = /\b(\d+)[.)]\s/g;
+  const positions: { num: number; start: number }[] = [];
+  let match: RegExpExecArray | null;
 
-    const numberedMatch = trimmed.match(/^(\d+)[.)]\s*(.+)/);
-    if (numberedMatch) {
-      if (currentItem && currentItem.number !== undefined) {
-        items.push(currentItem as CulturalContextItem);
-      }
-
-      const num = parseInt(numberedMatch[1], 10);
-      const content = numberedMatch[2];
-
-      const colonIndex = content.indexOf(':');
-      if (colonIndex > 0) {
-        currentItem = {
-          number: num,
-          term: content.substring(0, colonIndex).trim().replace(/^['"]|['"]$/g, ''),
-          explanation: content.substring(colonIndex + 1).trim(),
-        };
-      } else {
-        currentItem = {
-          number: num,
-          term: content.trim(),
-          explanation: '',
-        };
-      }
-    } else if (currentItem) {
-      currentItem.explanation = (currentItem.explanation || '') + ' ' + trimmed;
-    }
+  while ((match = splitRegex.exec(raw)) !== null) {
+    positions.push({ num: parseInt(match[1], 10), start: match.index });
   }
 
-  if (currentItem && currentItem.number !== undefined) {
-    items.push(currentItem as CulturalContextItem);
+  // Need at least 2 numbered items to treat as a numbered list
+  if (positions.length < 2) return [];
+
+  for (let i = 0; i < positions.length; i++) {
+    const content = raw.substring(
+      positions[i].start + positions[i].num.toString().length + 2, // skip "N. "
+      i + 1 < positions.length ? positions[i + 1].start : raw.length,
+    ).trim();
+
+    const colonIndex = content.indexOf(':');
+    if (colonIndex > 0) {
+      items.push({
+        number: positions[i].num,
+        term: content.substring(0, colonIndex).trim().replace(/^['"\u2018\u201c]|['"\u2019\u201d]$/g, ''),
+        explanation: content.substring(colonIndex + 1).trim(),
+      });
+    } else {
+      items.push({
+        number: positions[i].num,
+        term: '',
+        explanation: content,
+      });
+    }
   }
 
   return items;
