@@ -89,6 +89,27 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     }
   }, [playbackMode, webPlayback.currentTrackUri, webPlayback.currentTrackName, webPlayback.currentTrackArtist, webPlayback.duration, currentTrack?.spotifyUri]);
 
+  // When SDK playback fails (403 on storage-resolve, etc.), fall back to preview mode
+  useEffect(() => {
+    if (playbackMode !== 'sdk') return;
+    if (!webPlayback.sdkPlaybackFailed) return;
+
+    const previewUrl = currentTrack?.previewUrl;
+    if (previewUrl) {
+      const audio = audioRef.current;
+      if (audio) {
+        audio.pause();
+        audio.src = previewUrl;
+        audio.load();
+        setPlaybackMode('preview');
+        webPlayback.clearSdkPlaybackFailed();
+        return;
+      }
+    }
+
+    setPlaybackMode('none');
+  }, [playbackMode, webPlayback.sdkPlaybackFailed, currentTrack?.previewUrl, webPlayback.clearSdkPlaybackFailed]);
+
   // When SDK becomes ready for a Premium user stuck in 'none' mode, auto-switch to SDK
   // and retry playback for the last attempted track.
   useEffect(() => {

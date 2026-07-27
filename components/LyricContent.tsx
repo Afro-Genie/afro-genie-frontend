@@ -486,6 +486,11 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
                 requestResult?.translatedLyrics ||
                 '';
             let resolvedTranslationId = requestResult?.translation?.id || null;
+            let resolvedCulturalContext =
+                requestResult?.translation?.culturalContext ||
+                requestResult?.result?.culturalContext ||
+                requestResult?.culturalContext ||
+                '';
 
             if (!resolvedTranslationText && jobId) {
                 // Poll up to 90 attempts × 2s = 3 minutes for background AI translation
@@ -518,6 +523,7 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
                         if (matching) {
                             resolvedTranslationText = pickTranslationText(matching);
                             resolvedTranslationId = matching.id || matching.translationId || resolvedTranslationId;
+                            resolvedCulturalContext = matching.culturalContext || resolvedCulturalContext;
                         }
                         if (resolvedTranslationText) break;
                     }
@@ -548,6 +554,9 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
 
             // Update local state
             setTranslatedLyrics(resolvedTranslationText);
+            if (resolvedCulturalContext) {
+                setCulturalContext(resolvedCulturalContext);
+            }
             setSourceLang(detectedSourceLang);
             setShowLanguageSelector(false);
 
@@ -929,8 +938,8 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
 
 
             {/* Cultural Context Display */}
-            {!loading && !error && culturalContext && culturalContext.trim() && (
-                <CulturalContextCarousel culturalContext={culturalContext} />
+            {!loading && !error && formattedCulturalContext && formattedCulturalContext.trim() && (
+                <CulturalContextCarousel culturalContext={formattedCulturalContext} />
             )}
 
             {/* Lyrics Display - Main Focus */}

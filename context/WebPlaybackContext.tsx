@@ -85,6 +85,7 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
   const eventLogRef = useRef<DiagnosticEvent[]>([]);
   const initStartTimeRef = useRef<number>(Date.now());
   const timelineTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastPlayedUriRef = useRef<string | null>(null);
 
   const destroyPlayer = useCallback(() => {
     const p = playerRef.current;
@@ -161,87 +162,88 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
     return snap;
   }, []);
 
-  const getFreshToken = useCallback((): string => {
-    const token = spotifyAuthService.getStoredAccessToken();
-    if (!token) return '';
-    if (spotifyAuthService.isTokenExpiringSoon()) {
-      const refresh = spotifyAuthService.getStoredRefreshToken();
-      if (refresh) {
-        spotifyAuthService.refreshAccessToken(refresh).then((tokens) => {
-          spotifyAuthService.storeTokens(tokens);
-        }).catch(() => {});
-      }
+  const inFlightRefreshRef = useRef<Promise<string | null> | null>(null);
+  const lastPlaybackErrorTimeRef = useRef<number>(0);
+  const consecutivePlaybackErrorsRef = useRef<number>(0);
+
+  const refreshTokenLocked = useCallback(async (): Promise<string | null> => {
+    const refresh = spotifyAuthService.getStoredRefreshToken();
+    if (!refresh) return null;
+    try {
+      const tokens = await spotifyAuthService.refreshAccessToken(refresh);
+      spotifyAuthService.storeTokens(tokens);
+      window.dispatchEvent(new Event('spotify:token-refreshed'));
+      consecutivePlaybackErrorsRef.current = 0;
+      return tokens.access_token;
+    } catch {
+      spotifyAuthService.clearTokens();
+      return null;
     }
-    return token;
   }, []);
 
-  const getFreshTokenAsync = useCallback(async (): Promise<string> => {
+  const getFreshTokenAsync = useCallback(async (): Promise<string | null> => {
     const token = spotifyAuthService.getStoredAccessToken();
     if (token && !spotifyAuthService.isTokenExpiringSoon()) return token;
-    const refresh = spotifyAuthService.getStoredRefreshToken();
-    if (refresh) {
-      try {
-        const tokens = await spotifyAuthService.refreshAccessToken(refresh);
-        spotifyAuthService.storeTokens(tokens);
-        return tokens.access_token;
-      } catch {
-        return spotifyAuthService.getStoredAccessToken() || '';
-      }
-    }
-    return token || '';
-  }, []);
+
+    if (inFlightRefreshRef.current) return inFlightRefreshRef.current;
+
+    inFlightRefreshRef.current = refreshTokenLocked().finally(() => {
+      inFlightRefreshRef.current = null;
+    });
+    return inFlightRefreshRef.current;
+  }, [refreshTokenLocked]);
 
   const getOAuthTokenForSdk = useCallback((callback: (token: string) => void) => {
+    if (consecutivePlaybackErrorsRef.current >= 3) {
+      callback('');
+      return;
+    }
+
     const token = spotifyAuthService.getStoredAccessToken();
     if (token && !spotifyAuthService.isTokenExpiringSoon()) {
       callback(token);
       return;
     }
-    const refresh = spotifyAuthService.getStoredRefreshToken();
-    if (refresh) {
-      spotifyAuthService.refreshAccessToken(refresh)
-        .then((tokens) => {
-          spotifyAuthService.storeTokens(tokens);
-          window.dispatchEvent(new Event('spotify:token-refreshed'));
-          callback(tokens.access_token);
-        })
-        .catch(() => {
-          callback(spotifyAuthService.getStoredAccessToken() || '');
-        });
-    } else {
-      callback(token || '');
+
+    if (inFlightRefreshRef.current) {
+      inFlightRefreshRef.current.then((t) => callback(t || '')).catch(() => callback(''));
+      return;
     }
-  }, []);
+
+    inFlightRefreshRef.current = refreshTokenLocked().finally(() => {
+      inFlightRefreshRef.current = null;
+    });
+    inFlightRefreshRef.current.then((t) => callback(t || '')).catch(() => callback(''));
+  }, [refreshTokenLocked]);
 
   const ensureFreshToken = useCallback(async (): Promise<boolean> => {
     const token = spotifyAuthService.getStoredAccessToken();
     if (token && !spotifyAuthService.isTokenExpiringSoon()) return true;
-    const refresh = spotifyAuthService.getStoredRefreshToken();
-    if (!refresh) return false;
-    try {
-      const tokens = await spotifyAuthService.refreshAccessToken(refresh);
-      spotifyAuthService.storeTokens(tokens);
-      return true;
-    } catch {
-      return Boolean(spotifyAuthService.getStoredAccessToken());
+
+    if (inFlightRefreshRef.current) {
+      const t = await inFlightRefreshRef.current;
+      return Boolean(t);
     }
-  }, []);
+
+    inFlightRefreshRef.current = refreshTokenLocked().finally(() => {
+      inFlightRefreshRef.current = null;
+    });
+    const t = await inFlightRefreshRef.current;
+    return Boolean(t);
+  }, [refreshTokenLocked]);
 
   const refreshTokenPeriodically = useCallback(() => {
     if (tokenRefreshTimerRef.current) {
       clearInterval(tokenRefreshTimerRef.current);
     }
     tokenRefreshTimerRef.current = setInterval(() => {
-      const refresh = spotifyAuthService.getStoredRefreshToken();
-      if (refresh) {
-        spotifyAuthService.refreshAccessToken(refresh).then((tokens) => {
-          spotifyAuthService.storeTokens(tokens);
-          // Signal AuthContext to re-check Spotify product status
-          window.dispatchEvent(new Event('spotify:token-refreshed'));
-        }).catch(() => {});
+      if (!inFlightRefreshRef.current && spotifyAuthService.getStoredRefreshToken()) {
+        inFlightRefreshRef.current = refreshTokenLocked().finally(() => {
+          inFlightRefreshRef.current = null;
+        });
       }
-    }, 30 * 60 * 1000);
-  }, []);
+    }, 5 * 60 * 1000);
+  }, [refreshTokenLocked]);
 
   useEffect(() => {
     if (!isSpotifyPremium) {
@@ -343,6 +345,8 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
           setSdkError(null);
           setSdkPlaybackFailed(false);
           setSdkPlaybackError(null);
+          consecutivePlaybackErrorsRef.current = 0;
+          lastPlaybackErrorTimeRef.current = 0;
           refreshTokenPeriodically();
           snapshotDiagnostics({ readyEventFired: true, deviceIdAttached: true, playerCreated: true });
 
@@ -429,6 +433,31 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
           const msg = sanitizeLog(data.message);
           console.error('[WebPlayback] Playback error:', msg);
           pushEvent('playback_error', msg);
+
+          const now = Date.now();
+          const timeSinceLastError = now - lastPlaybackErrorTimeRef.current;
+          lastPlaybackErrorTimeRef.current = now;
+          consecutivePlaybackErrorsRef.current += 1;
+
+          if (consecutivePlaybackErrorsRef.current >= 3) {
+            pushEvent('playback_error', 'Too many consecutive errors — stopping retries, SDK will receive empty token');
+            setSdkPlaybackFailed(true);
+            setSdkPlaybackError('Spotify playback is unavailable. Please reconnect your Spotify account.');
+            return;
+          }
+
+          if (timeSinceLastError < 2000) {
+            pushEvent('playback_error', `Errors too frequent (${timeSinceLastError}ms apart) — backing off`);
+            return;
+          }
+
+          const lastUri = lastPlayedUriRef.current;
+          if (lastUri) {
+            pushEvent('playback_retry', 'Retrying with fresh token', { uri: lastUri, attempt: consecutivePlaybackErrorsRef.current });
+            inFlightRefreshRef.current = refreshTokenLocked().finally(() => {
+              inFlightRefreshRef.current = null;
+            });
+          }
         });
 
         pushEvent('createPlayer', 'Calling player.connect()');
@@ -511,8 +540,11 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
       setSdkPlaybackFailed(false);
       setSdkPlaybackError(null);
       deviceIdRef.current = null;
+      lastPlayedUriRef.current = null;
+      consecutivePlaybackErrorsRef.current = 0;
+      lastPlaybackErrorTimeRef.current = 0;
     };
-  }, [isSpotifyPremium, getFreshToken, getOAuthTokenForSdk, ensureFreshToken, refreshTokenPeriodically, pushEvent, snapshotDiagnostics, destroyPlayer]);
+  }, [isSpotifyPremium, refreshTokenLocked, getOAuthTokenForSdk, ensureFreshToken, refreshTokenPeriodically, pushEvent, snapshotDiagnostics, destroyPlayer]);
 
   const playTrack = useCallback(async (uri: string): Promise<boolean> => {
     const player = playerRef.current;
@@ -532,6 +564,7 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
 
     setSdkPlaybackFailed(false);
     setSdkPlaybackError(null);
+    lastPlayedUriRef.current = uri;
 
     const res = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${id}`, {
       method: 'PUT',
@@ -578,6 +611,7 @@ export function WebPlaybackProvider({ children }: { children: ReactNode }) {
 
     setSdkPlaybackFailed(false);
     setSdkPlaybackError(null);
+    lastPlayedUriRef.current = uris[index] || uris[0];
 
     const res = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${id}`, {
       method: 'PUT',
