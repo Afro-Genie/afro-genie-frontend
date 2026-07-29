@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { artistsApi, songsApi } from '../../services/api';
 import { normalizeArtist, normalizeSong } from '../../utils/apiHelpers';
 import { apiFetch } from '../../lib/apiClient';
+import { tokenApi, type AdminRewardStats } from '../../services/tokenService';
 import { 
   MusicNoteIcon, 
   ArtistIcon, 
@@ -35,6 +36,7 @@ const AdminDashboard: React.FC = () => {
   const [syncDashboard, setSyncDashboard] = useState<any>(null);
   const [syncLoading, setSyncLoading] = useState(true);
   const [syncingPopularTracks, setSyncingPopularTracks] = useState(false);
+  const [rewardStats, setRewardStats] = useState<AdminRewardStats | null>(null);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -80,6 +82,8 @@ const AdminDashboard: React.FC = () => {
 
     fetchStats();
     fetchSyncDashboard();
+
+    tokenApi.adminGetRewardStats().then(setRewardStats).catch(() => {});
   }, []);
 
   const handleImportComplete = () => {
@@ -285,6 +289,32 @@ const AdminDashboard: React.FC = () => {
           </div>
         </div>
 
+        {/* Reward Stats Overview */}
+        {rewardStats && (
+          <div className="bg-gradient-to-r from-amber-600/20 to-amber-700/20 rounded-xl p-6 border border-amber-500/30">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-amber-300">Reward System Overview</h3>
+              <Link to="/admin/rewards" className="text-sm text-amber-400 hover:text-amber-300 transition-colors">
+                Manage →
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <p className="text-sm text-gray-400">Total Rewards Issued</p>
+                <p className="text-2xl font-bold text-white">{rewardStats.totalRewards.toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-400">Tokens Distributed</p>
+                <p className="text-2xl font-bold text-amber-400">{rewardStats.totalTokensDistributed.toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-400">Badges Awarded</p>
+                <p className="text-2xl font-bold text-purple-400">{rewardStats.totalBadges}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Translation Requests Section */}
         {stats.pendingTranslationRequests > 0 && (
           <div className="bg-gradient-to-r from-orange-600 to-orange-700 rounded-xl p-6 text-white shadow-lg mb-6">
@@ -437,6 +467,21 @@ const AdminDashboard: React.FC = () => {
                 <div>
                   <p className="font-bold text-white text-lg">Manage Community</p>
                   <p className="text-gray-300 text-sm">Manage topics, categories, and comments</p>
+                </div>
+              </div>
+            </Link>
+
+            <Link
+              to="/admin/rewards"
+              className="group bg-gradient-to-r from-gray-700 to-gray-600 rounded-xl p-6 hover:from-amber-600 hover:to-amber-700 transition-all duration-300 hover:scale-105 hover:shadow-lg"
+            >
+              <div className="flex items-center space-x-4">
+                <div className="bg-white/20 rounded-full p-3 group-hover:bg-white/30 transition-colors">
+                  <StatsIcon className="w-8 h-8 text-white" />
+                </div>
+                <div>
+                  <p className="font-bold text-white text-lg">Rewards & Badges</p>
+                  <p className="text-gray-300 text-sm">Manage tokens, badges, and reward history</p>
                 </div>
               </div>
             </Link>

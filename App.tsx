@@ -38,6 +38,7 @@ import ArtistProfileSettingsPage from './pages/artist/ArtistProfileSettingsPage'
 import ArtistListenersPage from './pages/artist/ArtistListenersPage';
 import ArtistSettingsPage from './pages/artist/ArtistSettingsPage';
 import ArtistApplicationsManager from './pages/admin/ArtistApplicationsManager';
+import RewardsManager from './pages/admin/RewardsManager';
 import ArtistsPage from './pages/ArtistsPage';
 import SongsCatalogPage from './pages/SongsCatalogPage';
 import GenreResultPage from './pages/GenreResultPage';
@@ -47,6 +48,10 @@ import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import AccountPage from './pages/AccountPage';
+import LeaderboardPage from './pages/LeaderboardPage';
+import TokenHistoryPage from './pages/TokenHistoryPage';
+import StorePage from './pages/StorePage';
+import ReferralsPage from './pages/ReferralsPage';
 import SpotifyLinkDialog from './components/SpotifyLinkDialog';
 import NowPlayingBar from './components/NowPlayingBar';
 import ScrollToTop from './components/ScrollToTop';
@@ -87,6 +92,10 @@ function AppRoutes() {
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route path="/account" element={<AccountPage />} />
+              <Route path="/leaderboard" element={<LeaderboardPage />} />
+              <Route path="/tokens" element={<ProtectedRoute><TokenHistoryPage /></ProtectedRoute>} />
+              <Route path="/store" element={<StorePage />} />
+              <Route path="/referrals" element={<ProtectedRoute><ReferralsPage /></ProtectedRoute>} />
               <Route path="/" element={<HomePage />} />
               <Route path="/song/:id" element={<TranslationPage />} />
               <Route path="/songs/:id" element={<TranslationPage />} />
@@ -137,6 +146,7 @@ function AppRoutes() {
                 <Route path="community" element={<CommunityManager />} />
                 <Route path="users" element={<UsersManager />} />
                 <Route path="role-requests" element={<RoleRequestsManager />} />
+                <Route path="rewards" element={<RewardsManager />} />
                 <Route path="unified" element={<UnifiedManager />} />
                 <Route path="genie" element={<GenieManager />} />
                 <Route path="spotify" element={<SpotifyManager />} />
