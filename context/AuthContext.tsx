@@ -112,6 +112,7 @@ interface AuthContextType {
   authFetch: (url: string, options?: RequestInit) => Promise<any>;
   isAdmin: boolean;
   isArtist: boolean;
+  isModerator: boolean;
   isSpotifyPremium: boolean;
   refreshSpotifyProduct: () => Promise<void>;
 }
@@ -656,6 +657,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const isAdmin = userProfile?.role === "admin";
   const isArtist = userProfile?.role === "artist";
+  const isModerator = userProfile?.role === "moderator" || userProfile?.role === "admin";
   const isSpotifyPremium = userProfile?.spotifyProduct === "premium";
 
   const refreshSpotifyProduct = useCallback(async () => {
@@ -692,6 +694,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     authFetch,
     isAdmin,
     isArtist,
+    isModerator,
     isSpotifyPremium,
     refreshSpotifyProduct,
   };

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { usePendingRequests } from '../../hooks/usePendingRequests';
@@ -7,17 +7,34 @@ import PremiumBadge from '../PremiumBadge';
 import TokenBalance from '../TokenBalance';
 import { useNotification } from '../../hooks/useNotification';
 import Notification from '../Notification';
+import { moderationApi } from '../../services/moderationService';
 
 interface UserMenuProps {
   onLoginClick: () => void;
 }
 
 const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
-  const { user, isAdmin, isArtist, isSpotifyPremium, logout } = useAuth();
+  const { user, isAdmin, isArtist, isModerator, isSpotifyPremium, logout } = useAuth();
   const { artistApplication, roleRequests, loading: pendingLoading } = usePendingRequests();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [pendingReports, setPendingReports] = useState(0);
   const { notification, showNotification, hideNotification } = useNotification();
+
+  useEffect(() => {
+    if (!isModerator) return;
+    const fetchStats = async () => {
+      try {
+        const stats = await moderationApi.getReportStats();
+        setPendingReports(stats.pending);
+      } catch {
+        // Non-fatal
+      }
+    };
+    fetchStats();
+    const interval = setInterval(fetchStats, 60000);
+    return () => clearInterval(interval);
+  }, [isModerator]);
 
   const hasPendingArtistApplication = !isArtist && !!artistApplication;
   const hasPendingModeratorRequest = !isAdmin && roleRequests.some((r) => r.role === 'MODERATOR');
@@ -50,6 +67,19 @@ const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
               className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors min-h-[44px] flex items-center"
             >
               Artist Dashboard
+            </Link>
+          )}
+          {isModerator && (
+            <Link
+              to="/moderator"
+              className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors min-h-[44px] flex items-center gap-2"
+            >
+              Moderator
+              {pendingReports > 0 && (
+                <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold text-white bg-red-500 rounded-full">
+                  {pendingReports > 99 ? '99+' : pendingReports}
+                </span>
+              )}
             </Link>
           )}
           {isAdmin && (
@@ -112,6 +142,11 @@ const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
                       Artist
                     </span>
                   )}
+                  {isModerator && !isAdmin && (
+                    <span className="inline-block mt-1 px-2 py-0.5 text-xs font-medium bg-blue-900/50 text-blue-300 rounded">
+                      Moderator
+                    </span>
+                  )}
                   {isAdmin && (
                     <span className="inline-block mt-1 px-2 py-0.5 text-xs font-medium bg-green-900/50 text-green-300 rounded">
                       Admin
@@ -148,7 +183,7 @@ const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
                     )}
                   </Link>
 
-                  {!isArtist && !isAdmin && (
+                  {!isArtist && !isAdmin && !isModerator && (
                     hasPendingArtistApplication ? (
                       <div className="flex items-center min-h-[44px] px-4 py-3 text-sm text-gray-500 cursor-not-allowed">
                         <svg className="w-4 h-4 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -171,7 +206,7 @@ const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
                     )
                   )}
 
-                  {!isAdmin && !isArtist && (
+                  {!isAdmin && !isArtist && !isModerator && (
                     hasPendingModeratorRequest ? (
                       <div className="flex items-center min-h-[44px] px-4 py-3 text-sm text-gray-500 cursor-not-allowed">
                         <svg className="w-4 h-4 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -204,6 +239,24 @@ const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
                       </svg>
                       Artist Dashboard
+                    </Link>
+                  )}
+
+                  {isModerator && (
+                    <Link
+                      to="/moderator"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="flex items-center min-h-[44px] px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
+                    >
+                      <svg className="w-4 h-4 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                      </svg>
+                      Moderator Dashboard
+                      {pendingReports > 0 && (
+                        <span className="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold text-white bg-red-500 rounded-full">
+                          {pendingReports > 99 ? '99+' : pendingReports}
+                        </span>
+                      )}
                     </Link>
                   )}
 

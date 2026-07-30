@@ -1,17 +1,22 @@
 import React, { useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
 
 interface CreateTopicModalProps {
   categoryId: string;
   open: boolean;
   onClose: () => void;
-  onSubmit: (title: string, content: string) => Promise<void>;
+  onSubmit: (title: string, content: string, isModeratorOnly?: boolean) => Promise<void>;
 }
 
 const CreateTopicModal: React.FC<CreateTopicModalProps> = ({ categoryId, open, onClose, onSubmit }) => {
+  const { user } = useAuth();
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isModeratorOnly, setIsModeratorOnly] = useState(false);
+
+  const isModerator = user?.role === 'moderator' || user?.role === 'admin';
 
   if (!open) return null;
 
@@ -21,9 +26,10 @@ const CreateTopicModal: React.FC<CreateTopicModalProps> = ({ categoryId, open, o
     setSubmitting(true);
     setError(null);
     try {
-      await onSubmit(title.trim(), content.trim());
+      await onSubmit(title.trim(), content.trim(), isModerator ? isModeratorOnly : undefined);
       setTitle('');
       setContent('');
+      setIsModeratorOnly(false);
       onClose();
     } catch (err: any) {
       setError(err.message || 'Failed to create topic');
@@ -66,6 +72,20 @@ const CreateTopicModal: React.FC<CreateTopicModalProps> = ({ categoryId, open, o
               rows={6}
             />
           </div>
+          {isModerator && (
+            <div className="flex items-center gap-3 p-3 bg-blue-900/20 border border-blue-800/40 rounded-lg">
+              <input
+                id="modalIsModeratorOnly"
+                type="checkbox"
+                checked={isModeratorOnly}
+                onChange={(e) => setIsModeratorOnly(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-blue-500 focus:ring-blue-500"
+              />
+              <label htmlFor="modalIsModeratorOnly" className="text-sm text-gray-300 cursor-pointer">
+                Mark as <span className="text-blue-400 font-semibold">Moderator's Pick</span>
+              </label>
+            </div>
+          )}
           {error && <p className="text-red-400 text-sm">{error}</p>}
           <div className="flex justify-end gap-3">
             <button

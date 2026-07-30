@@ -53,6 +53,7 @@ const TranslationPage: React.FC = () => {
             case 'community':
                 return (
                     <SubSidebarCommunity
+                        songId={songId || ''}
                         onBack={() => setActivePanel(null)}
                         onNavigate={handleNavigate}
                         isMobile={false}
@@ -93,6 +94,7 @@ const TranslationPage: React.FC = () => {
             case 'community':
                 return (
                     <SubSidebarCommunity
+                        songId={songId || ''}
                         onBack={() => setActivePanel(null)}
                         onNavigate={handleNavigate}
                         isMobile={true}

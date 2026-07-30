@@ -32,6 +32,7 @@ const AdminLayout: React.FC = () => {
     { name: 'Role Requests', href: '/admin/role-requests', icon: UsersIcon },
     { name: 'Rewards & Badges', href: '/admin/rewards', icon: StatsIcon },
     { name: 'Genie Settings', href: '/admin/genie', icon: RobotIcon },
+    { name: 'Moderation', href: '/moderator', icon: StatsIcon },
   ];
 
   const handleLogout = async () => {

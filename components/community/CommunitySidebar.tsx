@@ -1,109 +1,63 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import {
-  Heart,
-  Search,
+  MessageSquare,
   TrendingUp,
+  LayoutGrid,
+  Sparkles,
+  Compass,
   Users,
-  Settings,
-  LogOut,
   Music,
+  LogOut,
   ChevronRight,
-  History,
-  Star,
-  ListMusic,
-  Globe,
-  FileText,
-  Eye,
-  ArrowLeft,
 } from 'lucide-react';
 
-export type SidebarPanel = 'library' | 'explore' | 'community' | 'settings' | 'now-playing' | null;
+export type CommunityTab =
+  | 'feed'
+  | 'trending'
+  | 'forum-categories'
+  | 'for-you'
+  | 'explore'
+  | 'recommended-moderators';
 
-interface PlaybackSidebarProps {
-  songId: string;
-  activePanel: SidebarPanel;
-  onPanelChange: (panel: SidebarPanel) => void;
-  onNavigate?: () => void;
-  isMobile?: boolean;
-}
-
-const NAV_ITEMS: Array<{
-  id: SidebarPanel;
+interface TabItem {
+  key: CommunityTab;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
-  hasSubSidebar: boolean;
-  href?: string;
-}> = [
-  {
-    id: 'library',
-    label: 'Personal Library',
-    icon: Heart,
-    hasSubSidebar: true,
-  },
-  {
-    id: 'explore',
-    label: 'Explore',
-    icon: Search,
-    hasSubSidebar: true,
-  },
-  {
-    id: 'now-playing',
-    label: 'Now Playing',
-    icon: TrendingUp,
-    hasSubSidebar: false,
-  },
-  {
-    id: 'community',
-    label: 'Community & Contribution',
-    icon: Users,
-    hasSubSidebar: true,
-  },
-  {
-    id: 'settings',
-    label: 'Settings',
-    icon: Settings,
-    hasSubSidebar: true,
-  },
+}
+
+const tabs: TabItem[] = [
+  { key: 'feed', label: 'Feed', icon: MessageSquare },
+  { key: 'explore', label: 'Explore', icon: Compass },
+  { key: 'for-you', label: 'For You', icon: Sparkles },
+  { key: 'trending', label: 'Trending', icon: TrendingUp },
+  { key: 'forum-categories', label: 'Forum Categories', icon: LayoutGrid },
+  { key: 'recommended-moderators', label: 'Moderators', icon: Users },
 ];
 
-const PlaybackSidebar: React.FC<PlaybackSidebarProps> = ({
-  songId,
-  activePanel,
-  onPanelChange,
-  onNavigate,
-  isMobile = false,
-}) => {
+interface CommunitySidebarProps {
+  activeTab: CommunityTab;
+  onTabChange: (tab: CommunityTab) => void;
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
+}
+
+const CommunitySidebar: React.FC<CommunitySidebarProps> = React.memo(({ activeTab, onTabChange, mobileOpen, onMobileClose }) => {
   const { user, userProfile, logout } = useAuth();
   const userRole = userProfile?.role ? userProfile.role.toUpperCase() : user ? 'USER' : null;
-  const navigate = useNavigate();
   const [signingOut, setSigningOut] = useState(false);
 
-  const handleNavClick = (item: (typeof NAV_ITEMS)[number]) => {
-    if (item.hasSubSidebar) {
-      if (activePanel === item.id) {
-        onPanelChange(null);
-      } else {
-        onPanelChange(item.id);
-      }
-    } else if (item.id === 'now-playing') {
-      if (activePanel === item.id) {
-        onPanelChange(null);
-      } else {
-        onPanelChange(item.id);
-      }
-      navigate(`/songs/${songId}`);
-      onNavigate?.();
-    }
+  const handleTabClick = (tab: CommunityTab) => {
+    onTabChange(tab);
+    onMobileClose?.();
   };
 
   const handleLogout = async () => {
     try {
       setSigningOut(true);
       await logout();
-    } catch (error) {
-      console.error('Logout error:', error);
+    } catch {
       setSigningOut(false);
     }
   };
@@ -111,14 +65,10 @@ const PlaybackSidebar: React.FC<PlaybackSidebarProps> = ({
   const userName = user?.displayName || 'Guest';
   const initial = userName[0]?.toUpperCase() || 'G';
 
-  return (
-    <div className="flex flex-col h-full bg-[#1a1a1a] text-white">
+  const sidebarContent = (
+    <>
       {/* Logo */}
-      <Link
-        to="/"
-        onClick={onNavigate}
-        className="flex items-center gap-3 h-16 px-5 border-b border-[#282828] hover:bg-white/5 transition-colors flex-shrink-0"
-      >
+      <Link to="/" className="flex items-center gap-3 h-16 px-5 border-b border-[#282828] hover:bg-white/5 transition-colors flex-shrink-0">
         <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center flex-shrink-0">
           <Music className="w-4 h-4 text-white" />
         </div>
@@ -127,27 +77,26 @@ const PlaybackSidebar: React.FC<PlaybackSidebarProps> = ({
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
-        {NAV_ITEMS.map((item, index) => {
-          const isActive = activePanel === item.id;
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.key;
           return (
             <button
-              key={item.id ?? `nav-${index}`}
-              onClick={() => handleNavClick(item)}
+              key={tab.key}
+              onClick={() => handleTabClick(tab.key)}
               className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                 isActive
                   ? 'bg-green-600 text-white'
                   : 'text-gray-300 hover:text-white hover:bg-white/5'
               }`}
             >
-              <item.icon className="w-5 h-5 flex-shrink-0" />
-              <span className="flex-1 text-left truncate">{item.label}</span>
-              {item.hasSubSidebar && (
-                <ChevronRight
-                  className={`w-4 h-4 flex-shrink-0 transition-transform ${
-                    activePanel === item.id ? 'rotate-90' : ''
-                  }`}
-                />
-              )}
+              <Icon className="w-5 h-5 flex-shrink-0" />
+              <span className="flex-1 text-left truncate">{tab.label}</span>
+              <ChevronRight
+                className={`w-4 h-4 flex-shrink-0 transition-transform ${
+                  isActive ? 'rotate-90' : ''
+                }`}
+              />
             </button>
           );
         })}
@@ -172,7 +121,6 @@ const PlaybackSidebar: React.FC<PlaybackSidebarProps> = ({
             ) : (
               <Link
                 to="/"
-                onClick={onNavigate}
                 className="text-xs text-gray-400 hover:text-white transition-colors"
               >
                 Sign In
@@ -191,8 +139,27 @@ const PlaybackSidebar: React.FC<PlaybackSidebarProps> = ({
           </button>
         )}
       </div>
-    </div>
+    </>
   );
-};
 
-export default PlaybackSidebar;
+  return (
+    <>
+      {/* Desktop */}
+      <aside className="hidden md:flex w-64 flex-col bg-[#1a1a1a] border-r border-[#282828] flex-shrink-0 self-stretch">
+        {sidebarContent}
+      </aside>
+
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div className="md:hidden fixed inset-0 z-50 flex">
+          <div className="absolute inset-0 bg-black/50" onClick={onMobileClose} />
+          <aside className="relative w-64 h-full bg-[#1a1a1a] border-r border-[#282828] flex flex-col overflow-hidden animate-slide-in-left">
+            {sidebarContent}
+          </aside>
+        </div>
+      )}
+    </>
+  );
+});
+
+export default CommunitySidebar;

@@ -26,6 +26,9 @@ const CreateTopicForm: React.FC<CreateTopicFormProps> = ({ initialCategory, init
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [isModeratorOnly, setIsModeratorOnly] = useState(false);
+
+  const isModerator = user?.role === 'moderator' || user?.role === 'admin';
 
   useEffect(() => {
     const loadData = async () => {
@@ -90,6 +93,7 @@ const CreateTopicForm: React.FC<CreateTopicFormProps> = ({ initialCategory, init
           songId: songId || undefined,
           artistId: artistId || undefined,
           imageUrl: imageUrl || undefined,
+          isModeratorOnly: isModerator ? isModeratorOnly : undefined,
         }),
       });
 
@@ -208,6 +212,21 @@ const CreateTopicForm: React.FC<CreateTopicFormProps> = ({ initialCategory, init
             </div>
           )}
         </div>
+
+        {isModerator && (
+          <div className="flex items-center gap-3 p-3 bg-blue-900/20 border border-blue-800/40 rounded-lg">
+            <input
+              id="isModeratorOnly"
+              type="checkbox"
+              checked={isModeratorOnly}
+              onChange={(e) => setIsModeratorOnly(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-blue-500 focus:ring-blue-500"
+            />
+            <label htmlFor="isModeratorOnly" className="text-sm text-gray-300 cursor-pointer">
+              Mark as <span className="text-blue-400 font-semibold">Moderator's Pick</span> — only moderators can post in this topic
+            </label>
+          </div>
+        )}
 
         <div className="flex gap-3 pt-4">
           <button

@@ -5,6 +5,7 @@ import { useNotification } from '../hooks/useNotification';
 import Notification from '../components/Notification';
 import VoteButtons from '../components/community/VoteButtons';
 import CommentThread from '../components/community/CommentThread';
+import ReportModal from '../components/moderation/ReportModal';
 import type { CommunityTopic, CommunityComment } from '../types';
 
 const formatTimeAgo = (timestamp: string) => {
@@ -42,6 +43,7 @@ const TopicDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [commentText, setCommentText] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   const isModOrAdmin = user && (user.role === 'MODERATOR' || user.role === 'ADMIN' || userProfile?.role === 'moderator' || userProfile?.role === 'admin');
 
@@ -129,6 +131,18 @@ const TopicDetailPage: React.FC = () => {
     }
   };
 
+  const handleDelete = async () => {
+    if (!topicId) return;
+    if (!window.confirm('Are you sure you want to delete this topic? This action cannot be undone.')) return;
+    try {
+      await authFetch(`/api/community/topics/${topicId}`, { method: 'DELETE' });
+      showNotification({ message: 'Topic deleted', type: 'success' });
+      navigate('/community');
+    } catch (err: any) {
+      showNotification({ message: err.message || 'Failed to delete topic', type: 'error' });
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#122118]">
@@ -151,7 +165,7 @@ const TopicDetailPage: React.FC = () => {
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-4xl mx-auto text-center">
             <p className="text-gray-400">Topic not found</p>
-            <Link to="/community" className="text-amber-400 hover:text-amber-300 mt-4 inline-block">Back to Community</Link>
+            <Link to="/community?tab=forum-categories" className="text-amber-400 hover:text-amber-300 mt-4 inline-block">Back to Community</Link>
           </div>
         </div>
       </div>
@@ -166,15 +180,15 @@ const TopicDetailPage: React.FC = () => {
     <div className="min-h-screen bg-[#122118]">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="max-w-4xl mx-auto space-y-6">
-          <Link
-            to={`/community/${categoryId}`}
+          <button
+            onClick={() => navigate(-1)}
             className="inline-flex items-center gap-2 text-gray-400 hover:text-amber-400 transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
             Back
-          </Link>
+          </button>
 
           <div className="bg-gray-800/50 rounded-xl border border-gray-700 p-6">
             <div className="flex items-start gap-4">
@@ -216,6 +230,15 @@ const TopicDetailPage: React.FC = () => {
                       <span>{topic.commentCount} comments</span>
                     </div>
                   </div>
+                  <button
+                    onClick={() => setShowReportModal(true)}
+                    className="flex-shrink-0 p-2 text-gray-400 hover:text-red-400 transition-colors rounded-lg hover:bg-white/5"
+                    title="Report this topic"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-2 7 2 7H9l-3 3H3z" />
+                    </svg>
+                  </button>
                   {isModOrAdmin && (
                     <div className="flex gap-2 ml-4">
                       <button
@@ -238,6 +261,15 @@ const TopicDetailPage: React.FC = () => {
                       >
                         <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={handleDelete}
+                        className="p-2 rounded-lg bg-gray-700 text-gray-400 hover:bg-red-600/20 hover:text-red-400 transition-colors"
+                        title="Delete"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
                       </button>
                     </div>
@@ -292,6 +324,12 @@ const TopicDetailPage: React.FC = () => {
         </div>
       </div>
       <Notification notification={notification} onClose={hideNotification} />
+      <ReportModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        targetType="topic"
+        targetId={topicId!}
+      />
     </div>
   );
 };
