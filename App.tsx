@@ -93,7 +93,7 @@ function AppRoutes() {
       <ScrollToTop />
       {showChrome && <Header />}
       <div className="text-white font-sans bg-[#122118] min-h-screen flex flex-col">
-        <main className={`flex-grow ${isCommunityRedesign ? '' : 'pb-16'}`}>
+        <main className={`flex-grow ${isCommunityRedesign || isSongPlayback ? '' : 'pb-16'}`}>
             <Routes>
               <Route path="/terms" element={<TermsOfUsePage />} />
               <Route path="/privacy" element={<PrivacyPolicyPage />} />
@@ -182,7 +182,7 @@ function AppRoutes() {
               </Route>
             </Routes>
             <SpotifyLinkDialog />
-            {!isCommunityRedesign && <NowPlayingBar />}
+            {!isCommunityRedesign && !isSongPlayback && <NowPlayingBar />}
           </main>
           {isHomePage && <Footer />}
           </div>

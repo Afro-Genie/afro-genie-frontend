@@ -118,11 +118,29 @@ const TranslationPage: React.FC = () => {
             initialFontSize={20}
             onResetTranslation={handleResetTranslation}
         >
-            <div className={`flex-1 flex flex-col lg:grid overflow-hidden h-[calc(100vh-4rem)] ${hasSubPanel ? 'lg:grid-cols-[260px_260px_1fr]' : 'lg:grid-cols-[260px_1fr]'}`}>
-                {/* Main Content */}
-                <main className="flex-1 order-1 lg:order-3 overflow-y-auto no-scrollbar pb-24 lg:pb-24 relative min-h-0">
+            <div className="flex flex-1 overflow-hidden">
+                {/* Desktop Sidebar (always visible) */}
+                <aside className="hidden lg:flex lg:flex-col w-[260px] min-w-[260px] max-w-[260px] border-r border-[#282828] overflow-hidden">
+                    <PlaybackSidebar
+                        songId={songId || ''}
+                        activePanel={activePanel}
+                        onPanelChange={setActivePanel}
+                        onNavigate={handleNavigate}
+                        isMobile={false}
+                    />
+                </aside>
+
+                {/* Desktop Sub-Sidebar (opens beside the sidebar) */}
+                {hasSubPanel && (
+                    <aside className="hidden lg:flex lg:flex-col w-[260px] min-w-[260px] max-w-[260px] border-r border-[#282828] overflow-hidden animate-slide-in-left">
+                        {renderSubSidebar()}
+                    </aside>
+                )}
+
+                {/* Content Area */}
+                <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
                     {/* Mobile Sidebar Toggle Button */}
-                    <div className="lg:hidden sticky top-0 z-10 flex items-center p-3 bg-gray-800/95 backdrop-blur-sm border-b border-gray-700 mb-4">
+                    <div className="lg:hidden sticky top-0 z-10 flex items-center p-3 bg-[#122118]/95 backdrop-blur-sm border-b border-white/5">
                         <button
                             onClick={() => {
                                 setShowMobileSidebar(!showMobileSidebar);
@@ -140,16 +158,21 @@ const TranslationPage: React.FC = () => {
                             <span>Menu</span>
                         </button>
                     </div>
-                    <LyricContent
-                        key={resetTranslationKey}
-                        onCulturalContextLoaded={handleCulturalContextLoaded}
-                    />
-                </main>
+
+                    {/* Scrollable Content */}
+                    <main className="flex-1 overflow-y-auto no-scrollbar">
+                        <div className="p-6">
+                            <LyricContent
+                                key={resetTranslationKey}
+                                onCulturalContextLoaded={handleCulturalContextLoaded}
+                            />
+                        </div>
+                    </main>
+                </div>
 
                 {/* Mobile Sidebar (toggled) */}
                 {showMobileSidebar && (
-                    <div className="lg:hidden order-2 fixed inset-0 z-40 flex">
-                        {/* Overlay */}
+                    <div className="lg:hidden fixed inset-0 z-40 flex">
                         <div
                             className="absolute inset-0 bg-black/50"
                             onClick={() => {
@@ -157,8 +180,7 @@ const TranslationPage: React.FC = () => {
                                 setActivePanel(null);
                             }}
                         />
-                        {/* Sidebar Panel */}
-                        <div className="relative w-[280px] max-h-[calc(100vh-4rem)] mb-16 bg-[#1a1a1a] border-r border-[#282828] flex flex-col overflow-hidden animate-slide-in-left">
+                        <div className="relative w-[280px] max-h-full bg-[#122118] border-r border-white/5 flex flex-col overflow-hidden animate-slide-in-left">
                             {hasSubPanel ? (
                                 renderMobileSubSidebar()
                             ) : (
@@ -172,24 +194,6 @@ const TranslationPage: React.FC = () => {
                             )}
                         </div>
                     </div>
-                )}
-
-                {/* Desktop Sidebar (always visible) */}
-                <aside className="hidden lg:flex lg:order-1 lg:flex-col lg:w-[260px] lg:min-w-[260px] lg:max-w-[260px] h-full border-r border-[#282828] overflow-hidden">
-                    <PlaybackSidebar
-                        songId={songId || ''}
-                        activePanel={activePanel}
-                        onPanelChange={setActivePanel}
-                        onNavigate={handleNavigate}
-                        isMobile={false}
-                    />
-                </aside>
-
-                {/* Desktop Sub-Sidebar (opens beside the sidebar) */}
-                {hasSubPanel && (
-                    <aside className="hidden lg:flex lg:order-2 lg:flex-col lg:w-[260px] lg:min-w-[260px] lg:max-w-[260px] h-full border-r border-[#282828] overflow-hidden animate-slide-in-left">
-                        {renderSubSidebar()}
-                    </aside>
                 )}
             </div>
         </PlaybackSettingsProvider>

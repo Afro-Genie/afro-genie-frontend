@@ -33,6 +33,8 @@ interface AudioContextValue extends AudioState {
   /** Retry SDK playback after a failure (e.g. device came back online). */
   retrySdkPlayback: () => void;
   getAudioElement: () => HTMLAudioElement | null;
+  currentSongId: string | null;
+  setCurrentSongId: (id: string | null) => void;
 }
 
 const AudioContext = createContext<AudioContextValue | null>(null);
@@ -56,6 +58,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const [sdkPending, setSdkPending] = useState(false);
   const [sdkPlaybackFailed, setSdkPlaybackFailed] = useState(false);
   const [sdkPlaybackError, setSdkPlaybackError] = useState<string | null>(null);
+  const [currentSongId, setCurrentSongId] = useState<string | null>(null);
   const lastKeyRef = useRef<string>('');
   const lastAttemptedTrackRef = useRef<{ id: string; title?: string; artist?: string } | null>(null);
   const intentionalPlayRef = useRef<boolean>(false);
@@ -461,8 +464,10 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       retryPlayback,
       retrySdkPlayback,
       getAudioElement,
+      currentSongId,
+      setCurrentSongId,
     }),
-    [currentTrack, isPlaying, currentTime, duration, loading, playbackMode, sdkPending, sdkPlaybackFailed, sdkPlaybackError, loadTrack, loadTrackById, togglePlayPause, play, pause, seek, retryPlayback, retrySdkPlayback, getAudioElement],
+    [currentTrack, isPlaying, currentTime, duration, loading, playbackMode, sdkPending, sdkPlaybackFailed, sdkPlaybackError, loadTrack, loadTrackById, togglePlayPause, play, pause, seek, retryPlayback, retrySdkPlayback, getAudioElement, currentSongId, setCurrentSongId],
   );
 
   return <AudioContext.Provider value={value}>{children}</AudioContext.Provider>;
