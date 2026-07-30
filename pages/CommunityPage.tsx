@@ -1,111 +1,84 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { useNotification } from '../hooks/useNotification';
-import Notification from '../components/Notification';
+import React, { useState } from 'react';
+import { useLocation, useSearchParams, Link, useNavigate } from 'react-router-dom';
+import ErrorBoundary from '../components/ErrorBoundary';
+import CommunityLayout from '../components/community/CommunityLayout';
+import CommunityHeader from '../components/community/CommunityHeader';
+import FeedView from '../components/community/FeedView';
+import TrendingView from '../components/community/TrendingView';
+import ForumCategoriesView from '../components/community/ForumCategoriesView';
+import ForYouView from '../components/community/ForYouView';
+import ExploreView from '../components/community/ExploreView';
+import RecommendedModeratorsView from '../components/community/RecommendedModeratorsView';
 import CreateTopicForm from '../components/community/CreateTopicForm';
-import ConfirmDialog from '../components/ConfirmDialog';
-import type { CommunityCategory } from '../types';
+import type { CommunityTab } from '../components/community/CommunitySidebar';
+
+const tabViews: Record<CommunityTab, React.ReactNode> = {
+  'feed': <FeedView />,
+  'trending': <TrendingView />,
+  'forum-categories': <ForumCategoriesView />,
+  'for-you': <ForYouView />,
+  'explore': <ExploreView />,
+  'recommended-moderators': <RecommendedModeratorsView />,
+};
+
+const bannerData: Record<CommunityTab, { title: string; description?: string; chips?: { label: string }[] }> = {
+  'feed': {
+    title: 'Feed',
+    description: 'Recent discussions from the community.',
+    chips: [{ label: 'Latest' }, { label: 'All categories' }],
+  },
+  'trending': {
+    title: 'Trending',
+    description: 'Hot topics right now — driven by engagement and views.',
+    chips: [{ label: 'Popular' }, { label: 'Active' }],
+  },
+  'forum-categories': {
+    title: 'Forum Categories',
+    description: 'Browse all discussion categories. Pick one to explore topics and join the conversation.',
+    chips: [{ label: 'Categories' }, { label: 'Browse' }],
+  },
+  'for-you': {
+    title: 'For You',
+    description: 'Personalized topic recommendations based on your listening history and interactions.',
+    chips: [{ label: 'Recommended' }, { label: 'Personalized' }],
+  },
+  'explore': {
+    title: 'Explore',
+    description: 'What the community is listening to — top albums, genres, tracks, and playlists.',
+    chips: [{ label: 'Music' }, { label: 'Trending' }],
+  },
+  'recommended-moderators': {
+    title: 'Recommended Moderators',
+    description: 'Top contributors who help keep the community safe and organized.',
+    chips: [{ label: 'Moderators' }, { label: 'Contributors' }],
+  },
+};
+
+const isValidTab = (t: string | null): t is CommunityTab =>
+  t !== null && ['feed', 'trending', 'forum-categories', 'for-you', 'explore', 'recommended-moderators'].includes(t);
 
 const CommunityPage: React.FC = () => {
-  const { user, authFetch } = useAuth();
-  const { notification, showNotification, hideNotification } = useNotification();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [categories, setCategories] = useState<CommunityCategory[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [showSignInDialog, setShowSignInDialog] = useState(false);
+  const [exploreSearch, setExploreSearch] = useState('');
 
-  const isCreateView = location.pathname.includes('/create') || location.hash.includes('/create');
+  const isCreateView = location.pathname.includes('/create');
+  const tab = searchParams.get('tab');
+  const activeTab: CommunityTab = isValidTab(tab) ? tab : 'feed';
 
-  const fetchCategories = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await authFetch('/api/community/categories');
-      setCategories(data.categories || data.data || data || []);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load communities');
-    } finally {
-      setLoading(false);
-    }
-  }, [authFetch]);
-
-  useEffect(() => {
-    if (!isCreateView) {
-      fetchCategories();
-    }
-  }, [fetchCategories, isCreateView]);
-
-  const handleJoin = async (categoryId: string, isMember: boolean) => {
-    setCategories(prev =>
-      prev.map(c =>
-        c.id === categoryId
-          ? { ...c, isMember: !isMember, memberCount: isMember ? c.memberCount - 1 : c.memberCount + 1 }
-          : c
-      )
-    );
-    try {
-      await authFetch(`/api/community/categories/${categoryId}/join`, { method: 'POST' });
-    } catch (err: any) {
-      setCategories(prev =>
-        prev.map(c =>
-          c.id === categoryId
-            ? { ...c, isMember, memberCount: isMember ? c.memberCount + 1 : c.memberCount - 1 }
-            : c
-        )
-      );
-      showNotification({ message: err.message || 'Failed to join community', type: 'error' });
-    }
+  const handleTabChange = (t: CommunityTab) => {
+    setSearchParams({ tab: t }, { replace: true });
   };
 
   if (isCreateView) {
-    if (!user) {
-      return (
-        <div className="min-h-screen bg-[#122118]">
-          <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div className="max-w-3xl mx-auto">
-              <div className="mb-6">
-                <Link
-                  to="/community"
-                  className="inline-flex items-center gap-2 text-gray-400 hover:text-amber-400 transition-colors"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                  Back to Community
-                </Link>
-              </div>
-              <CreateTopicForm />
-            </div>
-          </div>
-          <ConfirmDialog
-            isOpen={true}
-            title="Sign In Required"
-            message="You need to be signed in to create a topic. Please sign in or create an account first."
-            confirmText="Sign In"
-            cancelText="Cancel"
-            onConfirm={() => {
-              navigate('/');
-              setTimeout(() => {
-                const loginButton = document.querySelector('[data-login-button]') as HTMLElement;
-                if (loginButton) loginButton.click();
-              }, 100);
-            }}
-            onCancel={() => navigate('/community')}
-            type="info"
-          />
-        </div>
-      );
-    }
     return (
       <div className="min-h-screen bg-[#122118]">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="max-w-3xl mx-auto">
             <div className="mb-6">
               <Link
-                to="/community"
+                to="/community?tab=recommended-moderators"
                 className="inline-flex items-center gap-2 text-gray-400 hover:text-amber-400 transition-colors"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -121,109 +94,58 @@ const CommunityPage: React.FC = () => {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-[#122118]">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="max-w-6xl mx-auto space-y-8">
-          <div className="text-center p-6 sm:p-8 bg-gray-800/50 rounded-xl border border-gray-700">
-            <h1 className="text-2xl sm:text-4xl font-bold text-gray-100">Community</h1>
-            <p className="mt-4 text-base sm:text-lg text-gray-400 max-w-3xl mx-auto">
-              Join genre communities to discuss and share your love for African music.
-            </p>
-            <button
-              onClick={() => {
-                if (user) {
-                  navigate('/community/create');
-                } else {
-                  setShowSignInDialog(true);
-                }
-              }}
-              className="inline-flex items-center mt-6 px-6 py-3 bg-amber-500 hover:bg-amber-600 text-gray-900 font-semibold rounded-lg transition-colors"
-            >
-              Create Topic
-            </button>
-          </div>
+  const showCreateAction = activeTab === 'recommended-moderators';
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-            <div className="lg:col-span-3">
-              {loading ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  {[1, 2, 3, 4].map(i => (
-                    <div key={i} className="bg-gray-800/50 rounded-xl border border-gray-700 p-6 animate-pulse">
-                      <div className="h-6 bg-gray-700 rounded w-3/4 mb-3" />
-                      <div className="h-4 bg-gray-700 rounded w-1/2 mb-4" />
-                      <div className="h-10 bg-gray-700 rounded w-full" />
-                    </div>
-                  ))}
-                </div>
-              ) : error ? (
-                <div className="text-center py-8">
-                  <p className="text-red-400 mb-4">{error}</p>
-                  <button
-                    onClick={fetchCategories}
-                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-                  >
-                    Retry
-                  </button>
-                </div>
-              ) : categories.length === 0 ? (
-                <div className="text-center py-8 text-gray-400">
-                  <p>No communities available yet.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  {categories.map(category => (
-                    <div
-                      key={category.id}
-                      className="bg-gray-800/50 rounded-xl border border-gray-700 p-6 hover:border-gray-600 transition-colors"
-                    >
-                      <Link to={`/community/${category.id}`} className="block mb-4">
-                        <h3 className="text-xl font-bold text-gray-100 hover:text-amber-400 transition-colors">{category.name}</h3>
-                        {category.description && (
-                          <p className="text-sm text-gray-400 mt-1">{category.description}</p>
-                        )}
-                      </Link>
-                      <div className="flex items-center gap-4 text-sm text-gray-400 mb-4">
-                        <span>{category.memberCount} members</span>
-                        <span>{category.topicCount} topics</span>
-                      </div>
-                      <button
-                        onClick={() => handleJoin(category.id, !!category.isMember)}
-                        disabled={!user}
-                        className={`w-full py-2 rounded-lg font-semibold transition-colors ${
-                          category.isMember
-                            ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                            : 'bg-green-600 hover:bg-green-700 text-white'
-                        } ${!user ? 'opacity-50 cursor-not-allowed' : ''}`}
-                      >
-                        {category.isMember ? 'Joined' : 'Join'}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+  const handleExploreSearch = () => {
+    const q = exploreSearch.trim();
+    if (!q) return;
+    navigate(`/search/${encodeURIComponent(q)}`);
+  };
+
+  const header = (
+    <CommunityHeader
+      {...bannerData[activeTab]}
+      actionPlacement={activeTab === 'explore' ? 'before-title' : activeTab === 'recommended-moderators' ? 'after-chips' : undefined}
+      action={activeTab === 'explore' ? (
+        <div className="relative w-full">
+          <input
+            type="text"
+            value={exploreSearch}
+            onChange={(e) => setExploreSearch(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleExploreSearch(); }}
+            placeholder="Search songs, artists..."
+            className="w-full sm:w-56 bg-white/10 backdrop-blur-md text-white placeholder-gray-300 text-sm rounded-full py-2.5 pl-4 pr-10 focus:outline-none focus:ring-1 focus:ring-green-500/30 border border-white/10 hover:border-white/20 transition-colors"
+          />
+          <button
+            onClick={handleExploreSearch}
+            className="absolute right-1 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white rounded-full p-1.5 min-h-[32px] min-w-[32px] flex items-center justify-center transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </button>
         </div>
-      </div>
-      <Notification notification={notification} onClose={hideNotification} />
-      <ConfirmDialog
-        isOpen={showSignInDialog}
-        title="Sign In Required"
-        message="You need to be signed in to create a topic. Please sign in or create an account first."
-        confirmText="Sign In"
-        cancelText="Cancel"
-        onConfirm={() => {
-          setShowSignInDialog(false);
-          navigate('/');
-          setTimeout(() => {
-            const loginButton = document.querySelector('[data-login-button]') as HTMLElement;
-            if (loginButton) loginButton.click();
-          }, 100);
-        }}
-        onCancel={() => setShowSignInDialog(false)}
-        type="info"
-      />
+      ) : showCreateAction ? (
+        <Link
+          to="/community/create"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-gray-900 font-semibold rounded-lg transition-colors text-sm shadow-lg"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          Create Topic
+        </Link>
+      ) : undefined}
+    />
+  );
+
+  return (
+    <div className="h-screen bg-[#122118] flex">
+      <CommunityLayout activeTab={activeTab} onTabChange={handleTabChange} header={header}>
+        <ErrorBoundary>
+          {tabViews[activeTab]}
+        </ErrorBoundary>
+      </CommunityLayout>
     </div>
   );
 };

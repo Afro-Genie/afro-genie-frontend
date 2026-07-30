@@ -1,21 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { AdminListPageSkeleton } from '../../components/PageSkeletons';
 import type { UserProfile } from '../../types';
 
-const getAllUsers = async (): Promise<UserProfile[]> => {
-  console.warn('getAllUsers: Not yet implemented in backend API');
-  return [];
-};
-
-const updateUserRole = async (_userId: string, _role: 'user' | 'admin' | 'moderator' | 'artist') => {
-  console.warn('updateUserRole: Not yet implemented in backend API');
-};
-
-const deleteUser = async (_userId: string) => {
-  console.warn('deleteUser: Not yet implemented in backend API');
-};
-
 const UsersManager: React.FC = () => {
+  const { authFetch } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [roleTab, setRoleTab] = useState<'all' | 'admin' | 'user' | 'contributors' | 'artist'>('all');
@@ -26,8 +15,17 @@ const UsersManager: React.FC = () => {
 
   const fetchUsers = async () => {
     try {
-      const fetchedUsers = await getAllUsers();
-      setUsers(fetchedUsers);
+      const res = await authFetch('/admin/users');
+      setUsers((res?.data || []).map((u: any) => ({
+        uid: u.id,
+        id: u.id,
+        email: u.email || '',
+        displayName: u.displayName || '',
+        photoURL: u.photoUrl || null,
+        role: (u.role || 'user').toLowerCase(),
+        createdAt: u.createdAt,
+        lastLogin: u.lastLoginAt,
+      })));
     } catch (error) {
       console.error('Error fetching users:', error);
     } finally {
@@ -37,8 +35,12 @@ const UsersManager: React.FC = () => {
 
   const handleRoleUpdate = async (userId: string, newRole: 'user' | 'admin' | 'moderator' | 'artist') => {
     try {
-      await updateUserRole(userId, newRole);
-      fetchUsers(); // Refresh the list
+      await authFetch(`/admin/users/${userId}/role`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: newRole.toUpperCase() }),
+      });
+      fetchUsers();
     } catch (error) {
       console.error('Error updating user role:', error);
     }
@@ -47,10 +49,21 @@ const UsersManager: React.FC = () => {
   const handleDeleteUser = async (userId: string) => {
     if (window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
       try {
-        await deleteUser(userId);
-        fetchUsers(); // Refresh the list
+        await authFetch(`/admin/users/${userId}`, { method: 'DELETE' });
+        fetchUsers();
       } catch (error) {
         console.error('Error deleting user:', error);
+      }
+    }
+  };
+
+  const handleDemoteModerator = async (userId: string, displayName: string) => {
+    if (window.confirm(`Remove moderator privileges from "${displayName}"? They will be demoted to a regular user.`)) {
+      try {
+        await authFetch(`/admin/users/${userId}/remove-moderator`, { method: 'POST' });
+        fetchUsers();
+      } catch (error) {
+        console.error('Error demoting moderator:', error);
       }
     }
   };
@@ -176,6 +189,17 @@ const UsersManager: React.FC = () => {
                     <option value="artist">Artist</option>
                     <option value="admin">Admin</option>
                   </select>
+
+                  {/* Demote Moderator Button */}
+                  {user.role === 'moderator' && (
+                    <button
+                      onClick={() => handleDemoteModerator(user.uid, user.displayName || user.email || 'Unknown')}
+                      className="bg-orange-600 hover:bg-orange-700 text-white font-semibold py-1 px-3 rounded text-sm transition-colors"
+                      title="Remove moderator privileges"
+                    >
+                      Demote to User
+                    </button>
+                  )}
 
                   {/* Delete Button */}
                   <button

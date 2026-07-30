@@ -280,6 +280,110 @@ export interface CommunityComment {
   replies?: CommunityComment[];
 }
 
+// ── Community Redesign Types ─────────────────────────────────
+export interface TopicView {
+  id: string;
+  topicId: string;
+  userId: string | null;
+  viewedAt: string;
+}
+
+export interface UserListeningPreference {
+  id: string;
+  userId: string;
+  genreIds: string[];
+  languageCodes: string[];
+  listenedArtistIds: string[];
+  lastComputedAt: string;
+}
+
+export interface Playlist {
+  id: string;
+  name: string;
+  description: string | null;
+  imageUrl: string | null;
+  songIds: string[];
+  createdBy: string;
+  isPublic: boolean;
+  likeCount: number;
+  createdAt: string;
+  updatedAt: string;
+  creator?: { displayName: string | null };
+}
+
+export interface PlaylistLike {
+  id: string;
+  userId: string;
+  playlistId: string;
+  createdAt: string;
+}
+
+export interface ExploreAlbums {
+  albumId: string;
+  albumName: string;
+  artistName: string;
+  imageUrl: string | null;
+  playCount: number;
+}
+
+export interface ExploreGenres {
+  genreId: string;
+  genreName: string;
+  playCount: number;
+}
+
+export interface ExploreTracks {
+  songId: string;
+  title: string;
+  artistName: string;
+  imageUrl: string | null;
+  playCount: number;
+}
+
+export interface ExplorePlaylists {
+  id: string;
+  name: string;
+  description: string | null;
+  imageUrl: string | null;
+  createdBy: string;
+  creatorName: string | null;
+  likeCount: number;
+  songCount: number;
+}
+
+export interface ExploreData {
+  albums: ExploreAlbums[];
+  genres: ExploreGenres[];
+  tracks: ExploreTracks[];
+  playlists: ExplorePlaylists[];
+}
+
+export interface RecommendedModerator {
+  id: string;
+  displayName: string | null;
+  photoUrl: string | null;
+  role: string;
+  tokenBalance: number;
+  reportsResolved: number;
+  translationsApproved: number;
+  correctionsApproved: number;
+}
+
+export interface CommunityTopicExtended extends CommunityTopic {
+  isModeratorOnly?: boolean;
+  viewCount?: number;
+  hotScore?: number;
+  song?: { id: string; title: string; imageUrl: string | null } | null;
+}
+
+export interface CommunityFeedResponse {
+  topics: CommunityTopicExtended[];
+  total: number;
+  page: number;
+  limit: number;
+  message?: string;
+}
+
 export type TranslationViewMode =
   | 'tabs'
   | 'side-by-side'

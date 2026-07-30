@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import VoteButtons from './VoteButtons';
+import ReportModal from '../moderation/ReportModal';
 import type { CommunityComment } from '../../types';
 
 interface CommentThreadProps {
@@ -35,6 +36,7 @@ const CommentItem: React.FC<{
   const [showReply, setShowReply] = useState(false);
   const [replyContent, setReplyContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
   const displayName = comment.user?.displayName || 'Unknown';
   const avatar = comment.user?.photoUrl;
 
@@ -94,6 +96,12 @@ const CommentItem: React.FC<{
                 Reply
               </button>
             )}
+            <button
+              onClick={() => setShowReportModal(true)}
+              className="text-xs text-gray-500 hover:text-red-400 transition-colors"
+            >
+              Report
+            </button>
           </div>
           {showReply && (
             <form onSubmit={handleSubmitReply} className="mt-3">
@@ -138,6 +146,12 @@ const CommentItem: React.FC<{
           )}
         </div>
       </div>
+      <ReportModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        targetType="comment"
+        targetId={comment.id}
+      />
     </div>
   );
 };
