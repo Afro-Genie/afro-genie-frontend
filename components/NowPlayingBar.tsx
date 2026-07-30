@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAudioPlayer } from '../context/AudioContext';
 import { useWebPlayback } from '../context/WebPlaybackContext';
 
@@ -18,23 +19,38 @@ export default function NowPlayingBar() {
     playbackMode,
     togglePlayPause,
     seek,
+    currentSongId,
   } = useAudioPlayer();
 
   const webPlayback = useWebPlayback();
+  const location = useLocation();
+  const navigate = useNavigate();
 
-  if (!currentTrack || playbackMode === 'none') return null;
+  const isOnSongPage = /^\/songs?\//.test(location.pathname);
+
+  if (!currentTrack || playbackMode === 'none' || !isPlaying || isOnSongPage) return null;
 
   const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
 
   const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation();
     if (!duration) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
     seek(ratio * duration);
   };
 
+  const handleBarClick = () => {
+    if (currentSongId) {
+      navigate(`/songs/${currentSongId}`);
+    }
+  };
+
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#1a2b22]/95 backdrop-blur-sm border-t border-white/10">
+    <div
+      onClick={handleBarClick}
+      className="fixed bottom-0 left-0 right-0 z-50 bg-[#1a2b22]/95 backdrop-blur-sm border-t border-white/10 cursor-pointer hover:bg-[#1a2b22] transition-colors"
+    >
       <div className="container mx-auto px-3 sm:px-4 lg:px-8">
         <div className="flex items-center gap-3 h-14 sm:h-16">
           {/* Track info */}
@@ -44,7 +60,7 @@ export default function NowPlayingBar() {
           </div>
 
           {/* Controls */}
-          <div className="flex items-center gap-2">
+          <div onClick={(e) => e.stopPropagation()} className="flex items-center gap-2">
             <>
               {playbackMode === 'sdk' && (
                 <button

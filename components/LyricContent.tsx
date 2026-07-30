@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { usePlaybackSettings } from '../context/PlaybackSettingsContext';
+import { useAudioPlayer } from '../context/AudioContext';
 import { getSongById, getSongTranslations } from '../lib/apiClient';
 import { SUPPORTED_LANGUAGES } from '../constants';
 import HeartIcon from './icons/HeartIcon';
@@ -23,6 +24,7 @@ interface LyricContentProps {
 const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) => {
     const { user: currentUser, authFetch, isSpotifyPremium } = useAuth();
     const { fontSize } = usePlaybackSettings();
+    const { setCurrentSongId } = useAudioPlayer();
     const [showLoginPrompt, setShowLoginPrompt] = useState(false);
     const { id: songIdParam } = useParams<{ id: string }>();
     const songId = useMemo(() => songIdParam ?? '', [songIdParam]);
@@ -185,6 +187,7 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
                         setArtist('');
                     }
                 } else if (!cancelled) {
+                    setCurrentSongId(songId);
                     setTitle(normalizedSong.title);
                     setArtist(normalizedSong.artist);
                     setSongSpotifyId(songResponse.spotifyId || null);
@@ -710,7 +713,7 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
         <div className="px-8 md:px-12 py-4 relative">
             {/* Compact Song Header */}
             {!loading && !error && song && (
-                <div className="mb-4 flex items-center gap-4">
+                <div className="mb-4 flex flex-col md:flex-row md:items-center md:gap-4">
                     {/* Small Song Image */}
                     <div className="flex-shrink-0">
                         {song.image ? (
@@ -729,7 +732,7 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
                     </div>
 
                     {/* Song Info - Compact */}
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0 mt-3 md:mt-0">
                         <h1 className="text-xl md:text-2xl font-bold text-white mb-1 break-words" data-testid="song-title">
                             {title || 'Loading...'}
                         </h1>
@@ -749,7 +752,7 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
                     </div>
 
                     {/* Like & Share Buttons */}
-                    <div className="flex items-center gap-1 flex-shrink-0">
+                    <div className="flex items-center gap-1 flex-shrink-0 mt-3 md:mt-0">
                         <button
                             onClick={handleFavoriteToggle}
                             disabled={favoriteLoading}

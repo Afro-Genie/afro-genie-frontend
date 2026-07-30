@@ -22,7 +22,7 @@ const CommunityLayout: React.FC<CommunityLayoutProps> = ({ activeTab, onTabChang
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Mobile sidebar toggle — matches TranslationPage */}
-        <div className="md:hidden sticky top-0 z-10 flex items-center p-3 bg-gray-800/95 backdrop-blur-sm border-b border-gray-700">
+        <div className="md:hidden sticky top-0 z-10 flex items-center p-3 bg-[#122118]/95 backdrop-blur-sm border-b border-white/5">
           <button
             onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
             className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors min-h-[44px] ${
