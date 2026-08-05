@@ -4,6 +4,7 @@ import { apiFetch } from '../lib/apiClient';
 import { useAudioPlayer } from '../context/AudioContext';
 import { useAuth } from '../context/AuthContext';
 import { SearchResultsSkeleton, SongListSkeleton, SquareGridSkeleton } from '../components/PageSkeletons';
+import MediaCard from '../components/MediaCard';
 import { SUPPORTED_LANGUAGES, LANGUAGE_FLAGS } from '../constants';
 import { featureFlags } from '../config/featureFlags';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -162,11 +163,6 @@ const HomePage: React.FC = () => {
             cancelled = true;
         };
     }, [selectedLanguage]);
-
-    const onImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
-        const target = e.currentTarget;
-        target.style.display = 'none';
-    };
 
     return (
         <div className="min-h-screen bg-[#122118]">
@@ -492,29 +488,14 @@ const HomePage: React.FC = () => {
                     ) : (
                         <div className="flex md:grid md:grid-cols-4 lg:grid-cols-6 gap-4 md:gap-6 overflow-x-auto pb-2 scroll-smooth-x">
                             {artists.map((artist) => (
-                                <Link 
-                                    to={`/artists/${artist.id}`} 
-                                    key={artist.id} 
-                                    className="group cursor-pointer min-w-[150px] md:min-w-0"
-                                >
-                                    <div className="aspect-square rounded-xl overflow-hidden transition-all duration-300 group-hover:scale-105 shadow-lg bg-gradient-to-br from-green-500/20 to-amber-500/20 border border-gray-700 group-hover:border-green-400/50">
-                                        {artist.image ? (
-                                            <img src={artist.image} alt={artist.name} onError={onImageError} className="w-full h-full object-cover" />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-gray-500">
-                                                <svg className="w-12 h-12" fill="currentColor" viewBox="0 0 20 20">
-                                                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clipRule="evenodd" />
-                                                </svg>
-                                            </div>
-                                        )}
-                                    </div>
-                                    <h3 className="mt-3 font-semibold text-white group-hover:text-green-400 transition-colors text-center text-sm sm:text-base">
-                                        {artist.name}
-                                    </h3>
-                                    {artist.genre && (
-                                        <p className="text-xs sm:text-sm text-gray-400 text-center">{artist.genre}</p>
-                                    )}
-                                </Link>
+                                <MediaCard
+                                    key={artist.id}
+                                    to={`/artists/${artist.id}`}
+                                    image={artist.image}
+                                    title={artist.name}
+                                    subtitle={artist.genre || undefined}
+                                    className="min-w-[150px] md:min-w-0"
+                                />
                             ))}
                         </div>
                     )}
@@ -537,37 +518,22 @@ const HomePage: React.FC = () => {
                         </div>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
                             {featuredArtists.map((artist) => (
-                                <Link
-                                    to={`/artists/${artist.id}`}
+                                <MediaCard
                                     key={artist.id}
-                                    className="group cursor-pointer"
-                                >
-                                    <div className="aspect-square rounded-xl overflow-hidden transition-all duration-300 group-hover:scale-105 shadow-lg bg-gradient-to-br from-amber-500/20 to-green-500/20 border border-amber-500/30 group-hover:border-amber-400/50 relative">
-                                        {artist.image ? (
-                                            <img src={artist.image} alt={artist.name} onError={onImageError} className="w-full h-full object-cover" />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-gray-500">
-                                                <svg className="w-12 h-12" fill="currentColor" viewBox="0 0 20 20">
-                                                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clipRule="evenodd" />
-                                                </svg>
-                                            </div>
-                                        )}
-                                        <div className="absolute top-2 right-2">
-                                            <span className="bg-amber-500 text-white text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                                                </svg>
-                                                Featured
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <h3 className="mt-3 font-semibold text-white group-hover:text-amber-400 transition-colors text-center text-sm sm:text-base">
-                                        {artist.name}
-                                    </h3>
-                                    {artist.genre && (
-                                        <p className="text-xs sm:text-sm text-gray-400 text-center">{artist.genre}</p>
-                                    )}
-                                </Link>
+                                    to={`/artists/${artist.id}`}
+                                    image={artist.image}
+                                    title={artist.name}
+                                    subtitle={artist.genre || undefined}
+                                    accent="amber"
+                                    badge={
+                                        <span className="bg-amber-500 text-white text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                            </svg>
+                                            Featured
+                                        </span>
+                                    }
+                                />
                             ))}
                         </div>
                     </div>
@@ -595,25 +561,13 @@ const HomePage: React.FC = () => {
                             {genres.map((genre) => {
                                 const genreImage = genre.image || GENRE_IMAGES[genre.name] || DEFAULT_GENRE_IMAGE;
                                 return (
-                                <Link 
-                                    to={featureFlags.genrePages ? `/genre/${encodeURIComponent(genre.name)}` : `/search/${genre.name}`} 
-                                    key={genre.id} 
-                                    className="group cursor-pointer min-w-[150px] md:min-w-0"
-                                >
-                                    <div className="aspect-square rounded-xl overflow-hidden transition-all duration-300 group-hover:scale-105 shadow-lg border border-gray-700 group-hover:border-green-400/50">
-                                        <img
-                                            src={genreImage}
-                                            alt={genre.name}
-                                            className="w-full h-full object-cover"
-                                            onError={(e) => {
-                                                (e.target as HTMLImageElement).src = DEFAULT_GENRE_IMAGE;
-                                            }}
-                                        />
-                                    </div>
-                                    <h3 className="mt-3 font-semibold text-white group-hover:text-green-400 transition-colors text-center text-sm sm:text-base">
-                                        {genre.name}
-                                    </h3>
-                                </Link>
+                                <MediaCard
+                                    key={genre.id}
+                                    to={featureFlags.genrePages ? `/genre/${encodeURIComponent(genre.name)}` : `/search/${genre.name}`}
+                                    image={genreImage}
+                                    title={genre.name}
+                                    className="min-w-[150px] md:min-w-0"
+                                />
                                 );
                             })}
                         </div>

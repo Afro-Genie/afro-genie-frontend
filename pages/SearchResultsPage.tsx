@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { apiRequest } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { SearchResultsSkeleton } from '../components/PageSkeletons';
+import MediaCard from '../components/MediaCard';
 import { featureFlags } from '../config/featureFlags';
 import { trackEvent } from '../services/telemetryService';
 import { searchCatalog } from '../lib/apiClient';
@@ -353,34 +354,17 @@ const SearchResultsPage: React.FC = () => {
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 md:gap-6">
                       {artistResults.map((r, idx) => {
-                        const content = (
-                          <>
-                            <div className="aspect-square rounded-xl overflow-hidden transition-all duration-300 group-hover:scale-105 shadow-lg bg-gradient-to-br from-green-500/20 to-amber-500/20 border border-gray-700 group-hover:border-green-400/50 mb-3">
-                              {r.image ? (
-                                <img src={r.image} alt={r.title} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-gray-500">
-                                  <svg className="w-16 h-16" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clipRule="evenodd" />
-                                  </svg>
-                                </div>
-                              )}
-                            </div>
-                            <h3 className="font-semibold text-white group-hover:text-green-400 transition-colors">
-                              {r.title}
-                            </h3>
-                            {r.subtitle && (
-                              <p className="text-sm text-gray-400 mt-1">{r.subtitle}</p>
-                            )}
-                          </>
-                        );
-                        const cardClass = "group text-center";
                         const trackClick = () => trackEvent('search_suggestion_click', { query: decodedQuery, type: 'artist', position: idx, source: 'results_page' });
 
                         return (
-                          <Link to={r.linkTo} key={r.id} className={cardClass} onClick={trackClick}>
-                            {content}
-                          </Link>
+                          <MediaCard
+                            key={r.id}
+                            to={r.linkTo}
+                            image={r.image}
+                            title={r.title}
+                            subtitle={r.subtitle || undefined}
+                            onClick={trackClick}
+                          />
                         );
                       })}
                     </div>
@@ -461,31 +445,16 @@ const SearchResultsPage: React.FC = () => {
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 md:gap-6">
                       {genreResults.map((r, idx) => {
-                        const content = (
-                          <>
-                            <div className="aspect-square rounded-xl overflow-hidden transition-all duration-300 group-hover:scale-105 shadow-lg bg-gradient-to-br from-green-500/20 to-amber-500/20 border border-gray-700 group-hover:border-green-400/50 mb-3">
-                              {r.image ? (
-                                <img src={r.image} alt={r.title} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-gray-500">
-                                  <svg className="w-16 h-16" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clipRule="evenodd" />
-                                  </svg>
-                                </div>
-                              )}
-                            </div>
-                            <h3 className="font-semibold text-white group-hover:text-green-400 transition-colors">
-                              {r.title}
-                            </h3>
-                          </>
-                        );
-                        const cardClass = "group text-center";
                         const trackClick = () => trackEvent('search_suggestion_click', { query: decodedQuery, type: 'genre', position: idx, source: 'results_page' });
 
                         return (
-                          <Link to={r.linkTo} key={r.id} className={cardClass} onClick={trackClick}>
-                            {content}
-                          </Link>
+                          <MediaCard
+                            key={r.id}
+                            to={r.linkTo}
+                            image={r.image}
+                            title={r.title}
+                            onClick={trackClick}
+                          />
                         );
                       })}
                     </div>

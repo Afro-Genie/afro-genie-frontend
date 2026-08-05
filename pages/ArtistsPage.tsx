@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { apiFetch } from '../lib/apiClient';
 import { SquareGridSkeleton } from '../components/PageSkeletons';
+import MediaCard from '../components/MediaCard';
 import type { Artist } from '../types';
 
 type SortOption = 'popularity' | 'followers' | 'name' | 'createdAt';
@@ -163,44 +163,23 @@ const ArtistsPage: React.FC = () => {
           <>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 md:gap-6">
               {artists.map((artist) => (
-                <Link
-                  to={`/artists/${artist.id}`}
+                <MediaCard
                   key={artist.id}
-                  className="group text-center"
-                >
-                  <div className="aspect-square rounded-xl overflow-hidden transition-all duration-300 group-hover:scale-105 shadow-lg bg-gradient-to-br from-green-500/20 to-amber-500/20 border border-gray-700 group-hover:border-green-400/50 mb-3">
-                    {artist.image ? (
-                      <img
-                        src={artist.image}
-                        alt={artist.name}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = 'none';
-                        }}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-500">
-                        <svg className="w-12 h-12" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clipRule="evenodd" />
-                        </svg>
+                  to={`/artists/${artist.id}`}
+                  image={artist.image}
+                  title={artist.name}
+                  subtitle={artist.genre || undefined}
+                  footer={
+                    artist.popularity > 0 ? (
+                      <div className="h-1 bg-gray-700 rounded-full overflow-hidden mx-2">
+                        <div
+                          className="h-full bg-green-500 rounded-full"
+                          style={{ width: `${artist.popularity}%` }}
+                        />
                       </div>
-                    )}
-                  </div>
-                  <h3 className="font-semibold text-white group-hover:text-green-400 transition-colors text-sm">
-                    {artist.name}
-                  </h3>
-                  {artist.genre && (
-                    <p className="text-xs text-gray-400 mt-1 truncate">{artist.genre}</p>
-                  )}
-                  {artist.popularity > 0 && (
-                    <div className="mt-1.5 h-1 bg-gray-700 rounded-full overflow-hidden mx-2">
-                      <div
-                        className="h-full bg-green-500 rounded-full"
-                        style={{ width: `${artist.popularity}%` }}
-                      />
-                    </div>
-                  )}
-                </Link>
+                    ) : undefined
+                  }
+                />
               ))}
             </div>
 
