@@ -42,6 +42,7 @@ class ApiError extends Error {
 // This is the single source of truth for token refresh — AuthContext owns
 // React state updates (user, userProfile) and token lifecycle.
 let authRefreshFn: (() => Promise<boolean>) | null = null;
+let isRefreshing = false;
 
 export const setAuthRefreshFn = (fn: (() => Promise<boolean>) | null) => {
   authRefreshFn = fn;
@@ -66,13 +67,21 @@ export async function apiRequest<T>(
   });
 
   if (res.status === 401 && refreshToken && authRefreshFn) {
-    const refreshed = await authRefreshFn();
-    if (refreshed) {
-      headers["Authorization"] = `Bearer ${accessToken}`;
-      res = await fetch(`${API_BASE}${path}`, {
-        ...options,
-        headers,
-      });
+    if (isRefreshing) {
+      throw new ApiError('Session refresh already in progress', 'UNAUTHORIZED', 401);
+    }
+    isRefreshing = true;
+    try {
+      const refreshed = await authRefreshFn();
+      if (refreshed) {
+        headers["Authorization"] = `Bearer ${accessToken}`;
+        res = await fetch(`${API_BASE}${path}`, {
+          ...options,
+          headers,
+        });
+      }
+    } finally {
+      isRefreshing = false;
     }
   }
 
