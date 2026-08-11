@@ -85,7 +85,7 @@ const ReferralsPage: React.FC = () => {
             <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-6 mb-6">
               <h2 className="text-lg font-semibold text-white mb-2">Your Referral Code</h2>
               <p className="text-sm text-gray-400 mb-4">
-                Share this code and earn 20 tokens for each friend who signs up. They get 10 tokens too!
+                Share this code and earn 10 tokens for each friend who signs up.
               </p>
               {data.referralCode ? (
                 <div className="flex items-center gap-3">
@@ -107,7 +107,7 @@ const ReferralsPage: React.FC = () => {
             {/* Apply Referral */}
             <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-6 mb-6">
               <h2 className="text-lg font-semibold text-white mb-2">Have a Referral Code?</h2>
-              <p className="text-sm text-gray-400 mb-4">Enter the code from a friend to receive a welcome bonus.</p>
+              <p className="text-sm text-gray-400 mb-4">Enter the code a friend shared with you to complete your signup.</p>
               {data.referralCode && !data.referrals.length ? (
                 <div className="flex gap-3">
                   <input
@@ -157,7 +157,7 @@ const ReferralsPage: React.FC = () => {
                           Joined {new Date(ref.createdAt).toLocaleDateString()}
                         </p>
                       </div>
-                      <span className="text-xs text-green-400 font-medium">+20 tokens</span>
+                      <span className="text-xs text-green-400 font-medium">+10 tokens</span>
                     </div>
                   ))}
                 </div>
@@ -168,8 +168,7 @@ const ReferralsPage: React.FC = () => {
             <div className="mt-8 p-4 bg-gray-800/30 border border-gray-700/30 rounded-xl">
               <h3 className="text-sm font-semibold text-gray-400 mb-2">Rewards Summary</h3>
               <ul className="text-sm text-gray-500 space-y-1">
-                <li>• You earn 20 tokens per referred friend who signs up</li>
-                <li>• Your friend earns 10 tokens as a welcome bonus</li>
+                <li>• You earn 10 tokens per referred friend who signs up</li>
                 <li>• Refer 3 friends to earn the ⭐ Referral Star badge</li>
               </ul>
             </div>

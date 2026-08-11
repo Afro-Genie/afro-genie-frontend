@@ -14,6 +14,31 @@ function toParams(obj: Record<string, string | number | undefined | null>): stri
   ).toString();
 }
 
+export interface TopicItem {
+  id: string;
+  title: string;
+  content: string;
+  authorId: string;
+  author: { id: string; displayName: string; photoUrl: string | null; role: string };
+  category: { id: string; name: string };
+  likes: number;
+  shares: number;
+  commentCount: number;
+  isPinned: boolean;
+  isLocked: boolean;
+  createdAt: string;
+  updatedAt: string;
+  hotScore: number;
+  userVote: string | null;
+}
+
+export interface TopicListResponse {
+  topics: TopicItem[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
 export const communityApi = {
   getFeed: (params?: { page?: number; limit?: number; categoryId?: string; search?: string }) =>
     apiRequest<CommunityFeedResponse>(`/community/feed?${toParams(params || {})}`),
@@ -41,4 +66,16 @@ export const communityApi = {
 
   getListeningPreferences: () =>
     apiRequest<UserListeningPreference>('/users/listening-preferences'),
+
+  listTopics: (params?: { page?: number; limit?: number; search?: string; sort?: string; categoryId?: string }) =>
+    apiRequest<TopicListResponse>(`/community/topics?${toParams(params || {})}`),
+
+  pinTopic: (id: string) =>
+    apiRequest<{ isPinned: boolean }>(`/community/topics/${id}/pin`, { method: 'PATCH' }),
+
+  lockTopic: (id: string) =>
+    apiRequest<{ isLocked: boolean }>(`/community/topics/${id}/lock`, { method: 'PATCH' }),
+
+  deleteTopic: (id: string) =>
+    apiRequest<{ deleted: boolean }>(`/community/topics/${id}`, { method: 'DELETE' }),
 };

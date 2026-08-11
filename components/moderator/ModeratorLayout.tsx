@@ -12,8 +12,10 @@ const ModeratorLayout: React.FC = () => {
     { name: 'Reports Queue', href: '/moderator/reports', icon: FlagIcon },
     { name: 'Translation Review and Corrections', href: '/moderator/translations', icon: TranslateIcon },
     { name: 'Lyrics Review', href: '/moderator/lyrics', icon: MusicNoteIcon },
+    { name: 'Artist Applications', href: '/moderator/artists', icon: MusicNoteIcon },
     { name: 'New Users', href: '/moderator/users', icon: UsersIcon },
     { name: 'Community Topics', href: '/moderator/topics', icon: ChatIcon },
+    { name: 'Stats', href: '/moderator/stats', icon: ChartIcon },
     { name: 'Guidelines', href: '/moderator/guidelines', icon: BookIcon },
     { name: 'Settings', href: '/moderator/settings', icon: SettingsIcon },
   ];
@@ -125,6 +127,12 @@ const UsersIcon: React.FC<{ className?: string }> = ({ className }) => (
 const ChatIcon: React.FC<{ className?: string }> = ({ className }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+  </svg>
+);
+
+const ChartIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055zm.5 0V12h8.945A9.001 9.001 0 0011.5 3.055zM20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
   </svg>
 );
 

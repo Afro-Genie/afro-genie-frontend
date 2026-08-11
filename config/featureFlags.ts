@@ -48,6 +48,19 @@ export const featureFlags = {
 
   // Translation diagnostics panel (hidden by default, enable via VITE_FLAG_TRANSLATION_DIAGNOSTICS=true)
   translationDiagnostics: asBoolean(import.meta.env.VITE_FLAG_TRANSLATION_DIAGNOSTICS as FlagValue, false),
+
+  // --- Token economy (Phase 1) flags ---
+
+  // Token history + balance (backend live in Phase 1)
+  tokensPage: asBoolean(import.meta.env.VITE_FLAG_TOKENS_PAGE as FlagValue, true),
+
+  // Leaderboard (backend live in Phase 1)
+  leaderboardPage: asBoolean(import.meta.env.VITE_FLAG_LEADERBOARD_PAGE as FlagValue, true),
+
+  // Store / referrals / seasonal snapshots (Phase 3 — backend live in R1)
+  storePage: asBoolean(import.meta.env.VITE_FLAG_STORE_PAGE as FlagValue, true),
+  referralsPage: asBoolean(import.meta.env.VITE_FLAG_REFERRALS_PAGE as FlagValue, true),
+  leaderboardSeasons: asBoolean(import.meta.env.VITE_FLAG_LEADERBOARD_SEASONS as FlagValue, true),
 };
 
 export const spotifyProxyBaseUrl =
