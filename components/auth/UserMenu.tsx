@@ -8,6 +8,7 @@ import TokenBalance from '../TokenBalance';
 import { useNotification } from '../../hooks/useNotification';
 import Notification from '../Notification';
 import { moderationApi } from '../../services/moderationService';
+import { featureFlags } from '../../config/featureFlags';
 
 interface UserMenuProps {
   onLoginClick: () => void;
@@ -276,27 +277,31 @@ const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
 
                   <div className="border-t border-gray-700/50 my-1"></div>
 
-                  <Link
-                    to="/store"
-                    onClick={() => setIsMenuOpen(false)}
-                    className="flex items-center min-h-[44px] px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
-                  >
-                    <svg className="w-4 h-4 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                    </svg>
-                    Token Store
-                  </Link>
+                  {featureFlags.storePage && (
+                    <Link
+                      to="/store"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="flex items-center min-h-[44px] px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
+                    >
+                      <svg className="w-4 h-4 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                      </svg>
+                      Token Store
+                    </Link>
+                  )}
 
-                  <Link
-                    to="/referrals"
-                    onClick={() => setIsMenuOpen(false)}
-                    className="flex items-center min-h-[44px] px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
-                  >
-                    <svg className="w-4 h-4 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                    Refer Friends
-                  </Link>
+                  {featureFlags.referralsPage && (
+                    <Link
+                      to="/referrals"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="flex items-center min-h-[44px] px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
+                    >
+                      <svg className="w-4 h-4 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      Refer Friends
+                    </Link>
+                  )}
                 </div>
 
                 {/* Logout */}

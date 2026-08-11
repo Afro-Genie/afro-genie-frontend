@@ -4,6 +4,11 @@ import { useAuth } from '../context/AuthContext';
 import { tokenApi, type TokenReward, type TokenHistoryResponse } from '../services/tokenService';
 
 const REASON_ICONS: Record<string, string> = {
+  'AI translation generated': '🤖',
+  'Correction approved': '✍️',
+  'Daily login': '📅',
+  'Login streak bonus': '🔥',
+  'Topic shared': '🔗',
   'Translation approved': '✍️',
   'Translation upvoted': '👍',
   'Translation request fulfilled': '📋',
@@ -95,8 +100,8 @@ const TokenHistoryPage: React.FC = () => {
                       })}
                     </p>
                   </div>
-                  <span className="text-sm font-bold text-amber-400 flex-shrink-0">
-                    +{reward.amount}
+                  <span className={`text-sm font-bold flex-shrink-0 ${reward.amount >= 0 ? 'text-amber-400' : 'text-red-400'}`}>
+                    {reward.amount >= 0 ? '+' : ''}{reward.amount}
                   </span>
                 </div>
               ))}

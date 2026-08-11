@@ -40,6 +40,7 @@ import ArtistListenersPage from './pages/artist/ArtistListenersPage';
 import ArtistSettingsPage from './pages/artist/ArtistSettingsPage';
 import ArtistApplicationsManager from './pages/admin/ArtistApplicationsManager';
 import RewardsManager from './pages/admin/RewardsManager';
+import StoreManager from './pages/admin/StoreManager';
 import ModDashboard from './pages/moderator/ModDashboard';
 import ModReportsQueue from './pages/moderator/ReportsQueue';
 import ModTranslationReview from './pages/moderator/TranslationReview';
@@ -48,6 +49,8 @@ import ModNewUsers from './pages/moderator/NewUsers';
 import ModCommunityTopics from './pages/moderator/CommunityTopics';
 import ModGuidelines from './pages/moderator/Guidelines';
 import ModSettings from './pages/moderator/ModSettings';
+import ModStats from './pages/moderator/ModStats';
+import ModArtistApplications from './pages/moderator/ModArtistApplications';
 import ArtistsPage from './pages/ArtistsPage';
 import SongsCatalogPage from './pages/SongsCatalogPage';
 import GenreResultPage from './pages/GenreResultPage';
@@ -64,6 +67,7 @@ import ReferralsPage from './pages/ReferralsPage';
 import SpotifyLinkDialog from './components/SpotifyLinkDialog';
 import NowPlayingBar from './components/NowPlayingBar';
 import ScrollToTop from './components/ScrollToTop';
+import { featureFlags } from './config/featureFlags';
 
 function App() {
   return (
@@ -100,10 +104,10 @@ function AppRoutes() {
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route path="/account" element={<AccountPage />} />
-              <Route path="/leaderboard" element={<LeaderboardPage />} />
-              <Route path="/tokens" element={<ProtectedRoute><TokenHistoryPage /></ProtectedRoute>} />
-              <Route path="/store" element={<StorePage />} />
-              <Route path="/referrals" element={<ProtectedRoute><ReferralsPage /></ProtectedRoute>} />
+              {featureFlags.leaderboardPage && <Route path="/leaderboard" element={<LeaderboardPage />} />}
+              {featureFlags.tokensPage && <Route path="/tokens" element={<ProtectedRoute><TokenHistoryPage /></ProtectedRoute>} />}
+              {featureFlags.storePage && <Route path="/store" element={<StorePage />} />}
+              {featureFlags.referralsPage && <Route path="/referrals" element={<ProtectedRoute><ReferralsPage /></ProtectedRoute>} />}
               <Route path="/" element={<HomePage />} />
               <Route path="/song/:id" element={<TranslationPage />} />
               <Route path="/songs/:id" element={<TranslationPage />} />
@@ -111,8 +115,8 @@ function AppRoutes() {
               <Route path="/songs" element={<SongsCatalogPage />} />
               <Route path="/search" element={<SearchResultsPage />} />
               <Route path="/search/:query" element={<SearchResultsPage />} />
-              <Route path="/genre/:name" element={<GenreResultPage />} />
-              <Route path="/language/:code" element={<LanguageResultPage />} />
+              {featureFlags.genrePages && <Route path="/genre/:name" element={<GenreResultPage />} />}
+              {featureFlags.languagePages && <Route path="/language/:code" element={<LanguageResultPage />} />}
               <Route path="/artists" element={<ArtistsPage />} />
               <Route path="/request-translation" element={<Navigate to="/songs" replace />} />
               <Route path="/community" element={<CommunityPage />} />
@@ -155,6 +159,7 @@ function AppRoutes() {
                 <Route path="users" element={<UsersManager />} />
                 <Route path="role-requests" element={<RoleRequestsManager />} />
                 <Route path="rewards" element={<RewardsManager />} />
+                <Route path="store" element={<StoreManager />} />
                 <Route path="unified" element={<UnifiedManager />} />
                 <Route path="genie" element={<GenieManager />} />
                 <Route path="spotify" element={<SpotifyManager />} />
@@ -173,10 +178,10 @@ function AppRoutes() {
                 <Route path="reports" element={<ModReportsQueue />} />
                 <Route path="translations" element={<ModTranslationReview />} />
                 <Route path="lyrics" element={<ModLyricsEditor />} />
-                <Route path="artists" element={<Navigate to="/moderator" replace />} />
+                <Route path="artists" element={<ModArtistApplications />} />
                 <Route path="users" element={<ModNewUsers />} />
                 <Route path="topics" element={<ModCommunityTopics />} />
-                <Route path="stats" element={<Navigate to="/moderator" replace />} />
+                <Route path="stats" element={<ModStats />} />
                 <Route path="guidelines" element={<ModGuidelines />} />
                 <Route path="settings" element={<ModSettings />} />
               </Route>

@@ -43,10 +43,8 @@ const StorePage: React.FC = () => {
     setMessage(null);
     try {
       const result = await tokenApi.purchaseItem(itemId);
-      setMessage({ type: result.success ? 'success' : 'error', text: result.message });
-      if (result.success) {
-        fetchData();
-      }
+      setMessage({ type: 'success', text: `Purchased ${result.item.name}!` });
+      fetchData();
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message || 'Purchase failed' });
     } finally {
@@ -86,7 +84,7 @@ const StorePage: React.FC = () => {
         {!loading && items.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {items.map((item) => {
-              const owned = purchasedIds.has(item.id);
+              const owned = item.owned || purchasedIds.has(item.id);
               return (
                 <div
                   key={item.id}
@@ -100,7 +98,7 @@ const StorePage: React.FC = () => {
                     </div>
                   )}
                   <div className="text-3xl mb-3">
-                    {item.category === 'cosmetic' ? '🎨' : item.category === 'feature' ? '⚡' : '🏷️'}
+                    {item.category === 'avatar' ? '🎨' : item.category === 'title' ? '🏷️' : item.category === 'merch' ? '📦' : '🎁'}
                   </div>
                   <h3 className="text-lg font-bold text-white mb-1">{item.name}</h3>
                   <p className="text-sm text-gray-400 mb-4">{item.description}</p>
@@ -144,6 +142,15 @@ const StorePage: React.FC = () => {
                     <p className="text-xs text-gray-500">
                       {new Date(p.createdAt).toLocaleDateString()}
                     </p>
+                    <span className={`inline-block mt-1 px-2 py-0.5 text-[10px] font-medium rounded-full ${
+                      p.status === 'FULFILLED'
+                        ? 'bg-green-900/50 text-green-300'
+                        : p.status === 'REFUNDED'
+                        ? 'bg-gray-700/50 text-gray-400'
+                        : 'bg-amber-900/50 text-amber-300'
+                    }`}>
+                      {p.status === 'FULFILLED' ? 'Fulfilled' : p.status === 'REFUNDED' ? 'Refunded' : 'Pending'}
+                    </span>
                   </div>
                 </div>
               ))}

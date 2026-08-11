@@ -31,6 +31,7 @@ const AdminLayout: React.FC = () => {
     { name: 'Users', href: '/admin/users', icon: UsersIcon },
     { name: 'Role Requests', href: '/admin/role-requests', icon: UsersIcon },
     { name: 'Rewards & Badges', href: '/admin/rewards', icon: StatsIcon },
+    { name: 'Store', href: '/admin/store', icon: StatsIcon },
     { name: 'Genie Settings', href: '/admin/genie', icon: RobotIcon },
     { name: 'Moderation', href: '/moderator', icon: StatsIcon },
   ];

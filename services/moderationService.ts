@@ -126,6 +126,13 @@ export interface CorrectionHistory {
   title: string | null;
 }
 
+export interface OverturnRate {
+  periodDays: number;
+  approvals: number;
+  overturns: number;
+  rate: number;
+}
+
 export const moderationApi = {
   reportContent: (targetType: string, targetId: string, reason: string, description?: string) =>
     apiRequest<{ id: string; status: string; createdAt: string }>('/moderation/report', {
@@ -201,4 +208,10 @@ export const moderationApi = {
 
   rejectCorrectionRequest: (id: string, moderatorNote?: string) =>
     apiRequest<{ id: string; status: string }>(`/admin/moderation/correction-requests/${id}/reject`, { method: 'PATCH', body: JSON.stringify({ moderatorNote }) }),
+
+  overturnApproval: (id: string, reason?: string) =>
+    apiRequest<{ id: string; status: string; overturned: boolean }>(`/admin/moderation/translations/${id}/overturn`, { method: 'PATCH', body: JSON.stringify({ reason }) }),
+
+  getOverturnRate: (days = 30) =>
+    apiRequest<OverturnRate>(`/admin/moderation/overturn-rate?days=${days}`),
 };

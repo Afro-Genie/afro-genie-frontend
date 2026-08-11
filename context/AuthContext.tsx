@@ -65,13 +65,14 @@ interface UserProfile {
   };
 }
 
-type BackendRole = "USER" | "ADMIN" | "ARTIST" | "MODERATOR";
+type BackendRole = "USER" | "ADMIN" | "ARTIST" | "MODERATOR" | "ARBITER";
 
 const mapRole = (role: string): "user" | "admin" | "moderator" | "artist" => {
   const mapping: Record<string, "user" | "admin" | "moderator" | "artist"> = {
     USER: "user",
     ADMIN: "admin",
     MODERATOR: "moderator",
+    ARBITER: "moderator",
     ARTIST: "artist",
   };
   return mapping[role] || "user";
