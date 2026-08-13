@@ -1,5 +1,7 @@
 import React from 'react';
 import { X } from 'lucide-react';
+import AudioUpload from './AudioUpload';
+import ImageUpload from '../../ImageUpload';
 
 interface Song {
   id: string;
@@ -7,12 +9,23 @@ interface Song {
   rawText?: string;
   genres?: string[];
   languages?: string[];
+  audioUrl?: string;
+  imageUrl?: string;
+  durationMs?: number;
 }
 
 interface AddSongModalProps {
   editingSong: Song | null;
   onClose: () => void;
-  onSubmit: (payload: { title: string; lyrics?: { rawText: string }; genres: string[]; languages: string[] }) => Promise<void>;
+  onSubmit: (payload: {
+    title: string;
+    lyrics?: { rawText: string };
+    genres: string[];
+    languages: string[];
+    audioUrl?: string;
+    audioDurationMs?: number;
+    imageUrl?: string;
+  }) => Promise<void>;
 }
 
 const AddSongModal: React.FC<AddSongModalProps> = ({ editingSong, onClose, onSubmit }) => {
@@ -22,6 +35,9 @@ const AddSongModal: React.FC<AddSongModalProps> = ({ editingSong, onClose, onSub
     genres: editingSong?.genres?.join(', ') || '',
     languages: editingSong?.languages?.join(', ') || '',
   });
+  const [audioUrl, setAudioUrl] = React.useState<string | undefined>(editingSong?.audioUrl);
+  const [audioDurationMs, setAudioDurationMs] = React.useState<number | undefined>(editingSong?.durationMs);
+  const [imageUrl, setImageUrl] = React.useState<string | undefined>(editingSong?.imageUrl);
   const [submitting, setSubmitting] = React.useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -33,6 +49,9 @@ const AddSongModal: React.FC<AddSongModalProps> = ({ editingSong, onClose, onSub
         lyrics: form.rawText ? { rawText: form.rawText } : undefined,
         genres: form.genres ? form.genres.split(',').map((g) => g.trim()).filter(Boolean) : [],
         languages: form.languages ? form.languages.split(',').map((l) => l.trim()).filter(Boolean) : [],
+        audioUrl: audioUrl || undefined,
+        audioDurationMs: audioDurationMs || undefined,
+        imageUrl: imageUrl || undefined,
       });
     } finally {
       setSubmitting(false);
@@ -50,7 +69,7 @@ const AddSongModal: React.FC<AddSongModalProps> = ({ editingSong, onClose, onSub
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="bg-gray-800 border border-gray-700 rounded-xl w-full max-w-lg mx-4 p-6">
+      <div className="bg-gray-800 border border-gray-700 rounded-xl w-full max-w-lg mx-4 p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold text-white">
             {editingSong ? 'Edit Song' : 'Add New Song'}
@@ -71,6 +90,22 @@ const AddSongModal: React.FC<AddSongModalProps> = ({ editingSong, onClose, onSub
               className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
             />
           </div>
+
+          <AudioUpload
+            label="Audio File"
+            currentUrl={audioUrl}
+            currentDurationMs={audioDurationMs}
+            onUploaded={(url, duration) => {
+              setAudioUrl(url);
+              setAudioDurationMs(duration);
+            }}
+          />
+
+          <ImageUpload
+            label="Cover Image"
+            currentUrl={imageUrl}
+            onUploaded={(url) => setImageUrl(url)}
+          />
 
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">Lyrics</label>

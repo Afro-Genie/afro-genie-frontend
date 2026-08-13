@@ -114,6 +114,12 @@ export default defineConfig(({ mode }) => {
             target: 'http://localhost:3001',
             changeOrigin: true,
           },
+          // Proxy uploaded media (images/audio) served by the backend so
+          // relative "/uploads/..." URLs work during local development.
+          '/uploads': {
+            target: 'http://localhost:3001',
+            changeOrigin: true,
+          },
           // Proxy TheAudioDB API to avoid CORS issues
           '/proxy/theaudiodb': {
             target: 'https://theaudiodb.com',

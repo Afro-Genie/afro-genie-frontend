@@ -1,6 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { spotifyService, type SpotifyTrackSummary } from '../services/spotifyService';
+import { songsApi } from '../services/api';
+import { toMediaUrl } from '../lib/apiBase';
 import { useWebPlayback } from './WebPlaybackContext';
 import { useAuth } from './AuthContext';
 
@@ -25,6 +27,8 @@ interface AudioState {
 interface AudioContextValue extends AudioState {
   loadTrack: (artist: string, title: string) => Promise<void>;
   loadTrackById: (spotifyId: string, title?: string, artist?: string) => Promise<void>;
+  /** Load an AfroGenie DB song (e.g. an artist's uploaded release) and play its audio. */
+  loadTrackBySongId: (songId: string, title?: string, artist?: string) => Promise<void>;
   togglePlayPause: () => Promise<void>;
   play: () => Promise<void>;
   pause: () => void;
@@ -368,6 +372,63 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     }
   }, [isSpotifyPremium, webPlayback.isReady, webPlayback.playTrack]);
 
+  const loadTrackBySongId = useCallback(async (songId: string, title?: string, artist?: string) => {
+    const key = `db::${songId}`;
+    if (key === lastKeyRef.current) return;
+    lastKeyRef.current = key;
+    intentionalPlayRef.current = false;
+
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    audio.pause();
+    audio.src = '';
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setDuration(0);
+    setLoading(true);
+
+    try {
+      const song = await songsApi.get(songId);
+      const audioUrl = (song as any)?.audioUrl as string | null | undefined;
+
+      // No uploaded audio — fall back to the Spotify lookup by title/artist
+      if (!audioUrl) {
+        lastKeyRef.current = '';
+        if (title && artist) {
+          await loadTrack(artist, title);
+          return;
+        }
+        setPlaybackMode('none');
+        setSdkPending(false);
+        return;
+      }
+
+      const src = toMediaUrl(audioUrl);
+      setCurrentTrack({
+        id: songId,
+        name: title || (song as any)?.title || 'Unknown Track',
+        artistName: artist || (song as any)?.artist?.name || 'Unknown Artist',
+        albumName: (song as any)?.albumName ?? null,
+        imageUrl: (song as any)?.imageUrl ?? null,
+        previewUrl: src,
+        audioUrl: src,
+        spotifyUri: null,
+        durationMs: (song as any)?.durationMs ?? 0,
+        externalUrl: null,
+      });
+      setPlaybackMode('preview');
+      setSdkPending(false);
+      audio.src = src;
+      audio.load();
+    } catch {
+      setCurrentTrack(null);
+      setPlaybackMode('none');
+    } finally {
+      setLoading(false);
+    }
+  }, [loadTrack]);
+
   const togglePlayPause = useCallback(async () => {
     if (playbackMode === 'none') return;
 
@@ -457,6 +518,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       sdkPlaybackError,
       loadTrack,
       loadTrackById,
+      loadTrackBySongId,
       togglePlayPause,
       play,
       pause,
@@ -467,7 +529,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       currentSongId,
       setCurrentSongId,
     }),
-    [currentTrack, isPlaying, currentTime, duration, loading, playbackMode, sdkPending, sdkPlaybackFailed, sdkPlaybackError, loadTrack, loadTrackById, togglePlayPause, play, pause, seek, retryPlayback, retrySdkPlayback, getAudioElement, currentSongId, setCurrentSongId],
+    [currentTrack, isPlaying, currentTime, duration, loading, playbackMode, sdkPending, sdkPlaybackFailed, sdkPlaybackError, loadTrack, loadTrackById, loadTrackBySongId, togglePlayPause, play, pause, seek, retryPlayback, retrySdkPlayback, getAudioElement, currentSongId, setCurrentSongId],
   );
 
   return <AudioContext.Provider value={value}>{children}</AudioContext.Provider>;

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Music, Trash2, Edit3 } from 'lucide-react';
+import { toMediaUrl } from '../../../lib/apiBase';
 
 interface Song {
   id: string;
@@ -8,6 +9,8 @@ interface Song {
   requestCount: number;
   durationMs?: number;
   imageUrl?: string;
+  audioUrl?: string;
+  released?: boolean;
   release?: { title: string; status: string } | null;
   createdAt: string;
 }
@@ -83,7 +86,7 @@ const SongsTable: React.FC<SongsTableProps> = ({ songs, loading, onAdd, onEdit, 
                     <div className="flex items-center gap-3">
                       <div className="flex items-center gap-3 min-w-0">
                         {song.imageUrl ? (
-                          <img src={song.imageUrl} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />
+                          <img src={toMediaUrl(song.imageUrl)} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />
                         ) : (
                           <div className="w-8 h-8 bg-gray-700 rounded flex items-center justify-center flex-shrink-0">
                             <Music size={14} className="text-gray-500" />
@@ -97,9 +100,17 @@ const SongsTable: React.FC<SongsTableProps> = ({ songs, loading, onAdd, onEdit, 
                   <td className="px-6 py-4 text-sm text-gray-300">{song.views.toLocaleString()}</td>
                   <td className="px-6 py-4 text-sm text-green-400">{song.requestCount.toLocaleString()}</td>
                   <td className="px-6 py-4">
-                    <span className="text-sm text-gray-400">
-                      {song.release?.title ?? '—'}
-                    </span>
+                    {song.released ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/30">
+                        Released
+                      </span>
+                    ) : song.audioUrl ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                        Private
+                      </span>
+                    ) : (
+                      <span className="text-sm text-gray-500">—</span>
+                    )}
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

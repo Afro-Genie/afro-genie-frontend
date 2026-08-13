@@ -42,6 +42,7 @@ export interface SpotifyTrackSummary {
   spotifyUri: string | null;
   durationMs: number;
   externalUrl: string | null;
+  audioUrl?: string | null;
 }
 
 interface SpotifySearchResponse {

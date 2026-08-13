@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Upload, ImageIcon, Loader2, AlertCircle } from 'lucide-react';
 import { uploadImage } from '../services/uploadService';
+import { toMediaUrl } from '../lib/apiBase';
 
 interface ImageUploadProps {
   label: string;
@@ -15,7 +16,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ label, currentUrl, onUploaded
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const displayUrl = preview || currentUrl;
+  const displayUrl = toMediaUrl(preview || currentUrl || '');
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

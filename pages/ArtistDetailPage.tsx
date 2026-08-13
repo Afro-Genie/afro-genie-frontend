@@ -6,6 +6,16 @@ import Notification from '../components/Notification';
 import { DetailPageSkeleton } from '../components/PageSkeletons';
 import type { Artist, Song } from '../types';
 
+const formatCount = (value: number): string => {
+  if (value >= 100_000_000) {
+    return `${Math.round(value / 1_000_000)}M`;
+  }
+  if (value >= 100_000 && value < 1_000_000) {
+    return `${Math.round(value / 1_000)}K`;
+  }
+  return value.toLocaleString('en-US');
+};
+
 const ArtistDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -190,7 +200,7 @@ const ArtistDetailPage: React.FC = () => {
                   {displayPopularity !== undefined && displayPopularity > 0 && (
                     <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
                       <p className="text-sm text-gray-400 mb-1">Popularity</p>
-                      <p className="text-2xl font-bold text-white">{displayPopularity}</p>
+                      <p className="text-2xl font-bold text-white">{formatCount(displayPopularity)}</p>
                       <div className="mt-2 h-2 bg-gray-700 rounded-full overflow-hidden">
                         <div
                           className="h-full bg-green-500 rounded-full"
@@ -203,7 +213,7 @@ const ArtistDetailPage: React.FC = () => {
                     <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
                       <p className="text-sm text-gray-400 mb-1">Followers</p>
                       <p className="text-2xl font-bold text-white">
-                        {displayFollowers.toLocaleString()}
+                        {formatCount(displayFollowers)}
                       </p>
                     </div>
                   )}

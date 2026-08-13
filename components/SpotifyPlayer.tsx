@@ -9,6 +9,8 @@ interface SpotifyPlayerProps {
   title: string;
   artist: string;
   spotifyId?: string | null;
+  songId?: string | null;
+  audioUrl?: string | null;
   compact?: boolean;
 }
 
@@ -19,7 +21,7 @@ const formatTime = (seconds: number) => {
   return `${minutes}:${remaining.toString().padStart(2, '0')}`;
 };
 
-const SpotifyPlayer: React.FC<SpotifyPlayerProps> = ({ title, artist, spotifyId, compact = false }) => {
+const SpotifyPlayer: React.FC<SpotifyPlayerProps> = ({ title, artist, spotifyId, songId, audioUrl, compact = false }) => {
   const {
     currentTrack,
     isPlaying,
@@ -32,6 +34,7 @@ const SpotifyPlayer: React.FC<SpotifyPlayerProps> = ({ title, artist, spotifyId,
     sdkPlaybackError,
     loadTrack,
     loadTrackById,
+    loadTrackBySongId,
     togglePlayPause,
     seek,
     retryPlayback,
@@ -44,12 +47,14 @@ const SpotifyPlayer: React.FC<SpotifyPlayerProps> = ({ title, artist, spotifyId,
   const [loadingElapsed, setLoadingElapsed] = useState(0);
 
   useEffect(() => {
-    if (spotifyId) {
+    if (audioUrl && songId) {
+      loadTrackBySongId(songId, title, artist);
+    } else if (spotifyId) {
       loadTrackById(spotifyId, title, artist);
     } else if (title && artist) {
       loadTrack(artist, title);
     }
-  }, [title, artist, spotifyId, loadTrack, loadTrackById]);
+  }, [title, artist, spotifyId, songId, audioUrl, loadTrack, loadTrackById, loadTrackBySongId]);
 
   // Track how long we've been loading
   useEffect(() => {

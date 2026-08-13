@@ -23,7 +23,7 @@ interface LyricContentProps {
 
 const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) => {
     const { user: currentUser, authFetch, isSpotifyPremium } = useAuth();
-    const { fontSize } = usePlaybackSettings();
+    const { fontSize, resetTranslationSignal } = usePlaybackSettings();
     const { setCurrentSongId } = useAudioPlayer();
     const [showLoginPrompt, setShowLoginPrompt] = useState(false);
     const { id: songIdParam } = useParams<{ id: string }>();
@@ -33,6 +33,7 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
     const [title, setTitle] = useState<string>('');
     const [artist, setArtist] = useState<string>('');
     const [songSpotifyId, setSongSpotifyId] = useState<string | null>(null);
+    const [songAudioUrl, setSongAudioUrl] = useState<string | null>(null);
     const [originalLyrics, setOriginalLyrics] = useState<string>('');
     const [translatedLyrics, setTranslatedLyrics] = useState<string>('');
     const [culturalContext, setCulturalContext] = useState<string>('');
@@ -191,6 +192,7 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
                     setTitle(normalizedSong.title);
                     setArtist(normalizedSong.artist);
                     setSongSpotifyId(songResponse.spotifyId || null);
+                    setSongAudioUrl(songResponse.audioUrl || null);
 
                     if (!normalizedSong.image || !isSpotifyImageUrl(normalizedSong.image)) {
                         try {
@@ -348,7 +350,7 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
             const resolvedSource = resolveSourceLang(null, song) || sourceLang || 'en';
             const resolvedTarget = targetLang || 'en';
 
-            await authFetch('/api/translations/request', {
+            await authFetch('/api/translations/requests', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -358,7 +360,7 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
                 }),
             });
             setNotification({
-                message: 'Request received. Estimated turnaround: 5-10 minutes.\nThanks for contributing to AfroGenie.',
+                message: 'Request received! Our moderation team will review it and provide the translation.\nThanks for contributing to AfroGenie.',
                 type: 'success'
             });
             // Auto-hide after 4 seconds
@@ -603,14 +605,10 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
 
 
 
-    const handleResetTranslation = async () => {
+    const performResetTranslation = async () => {
         if (!existingTranslationId) {
             setNotification({ message: 'No translation to reset', type: 'error' });
             setTimeout(() => setNotification(null), 4000);
-            return;
-        }
-
-        if (!window.confirm('Are you sure you want to reset the translation? This will clear the translated lyrics and allow you to generate a new translation.')) {
             return;
         }
 
@@ -621,7 +619,9 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
                 body: JSON.stringify({ translatedLyrics: '' }),
             });
 
+            setExistingTranslationId(null);
             setTranslatedLyrics('No translation available yet. Use "Translate Lyrics" to generate one.');
+            setCulturalContext('');
             setNotification({
                 message: 'Translation reset. You can now generate a new translation.',
                 type: 'success'
@@ -635,6 +635,16 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
             setTimeout(() => setNotification(null), 5000);
         }
     };
+
+    // Reset requested from the Settings panel (SubSidebarSettings)
+    const resetRanForSignal = useRef(0);
+    useEffect(() => {
+        if (resetTranslationSignal > 0 && resetTranslationSignal !== resetRanForSignal.current) {
+            resetRanForSignal.current = resetTranslationSignal;
+            performResetTranslation();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [resetTranslationSignal]);
 
     // Strip timestamps from lyrics for clean display
     const cleanOriginalLyrics = useMemo(() => stripTimestamps(originalLyrics), [originalLyrics]);
@@ -782,7 +792,7 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
                     {/* Compact Spotify Player */}
                     {title && artist && (
                         <div className="flex-shrink-0 hidden md:block">
-                            <SpotifyPlayer title={title} artist={artist} spotifyId={songSpotifyId} compact={true} />
+                            <SpotifyPlayer title={title} artist={artist} spotifyId={songSpotifyId} songId={songId} audioUrl={songAudioUrl} compact={true} />
                         </div>
                     )}
                 </div>
@@ -791,7 +801,7 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
             {/* Mobile Spotify Player */}
             {!loading && !error && song && title && artist && (
                 <div className="mb-4 md:hidden">
-                    <SpotifyPlayer title={title} artist={artist} spotifyId={songSpotifyId} compact={true} />
+                    <SpotifyPlayer title={title} artist={artist} spotifyId={songSpotifyId} songId={songId} audioUrl={songAudioUrl} compact={true} />
                 </div>
             )}
 
