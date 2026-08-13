@@ -15,7 +15,6 @@ const TranslationPage: React.FC = () => {
     const [showMobileSidebar, setShowMobileSidebar] = useState(false);
     const [activePanel, setActivePanel] = useState<SidebarPanel>(null);
     const [culturalContext, setCulturalContext] = useState('');
-    const [resetTranslationKey, setResetTranslationKey] = useState(0);
 
     const hasSubPanel = SUB_SIDEBAR_IDS.includes(activePanel);
 
@@ -25,10 +24,6 @@ const TranslationPage: React.FC = () => {
 
     const handleCulturalContextLoaded = useCallback((context: string) => {
         setCulturalContext(context);
-    }, []);
-
-    const handleResetTranslation = useCallback(() => {
-        setResetTranslationKey((prev) => prev + 1);
     }, []);
 
     const renderSubSidebar = () => {
@@ -114,10 +109,7 @@ const TranslationPage: React.FC = () => {
     };
 
     return (
-        <PlaybackSettingsProvider
-            initialFontSize={20}
-            onResetTranslation={handleResetTranslation}
-        >
+        <PlaybackSettingsProvider initialFontSize={20}>
             <div className="flex flex-1 overflow-hidden">
                 {/* Desktop Sidebar (always visible) */}
                 <aside className="hidden lg:flex lg:flex-col w-[260px] min-w-[260px] max-w-[260px] border-r border-[#282828] overflow-hidden">
@@ -163,7 +155,6 @@ const TranslationPage: React.FC = () => {
                     <main className="flex-1 overflow-y-auto no-scrollbar">
                         <div className="p-6">
                             <LyricContent
-                                key={resetTranslationKey}
                                 onCulturalContextLoaded={handleCulturalContextLoaded}
                             />
                         </div>

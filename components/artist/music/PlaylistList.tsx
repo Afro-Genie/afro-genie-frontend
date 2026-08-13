@@ -1,23 +1,28 @@
 import React from 'react';
-import { ListMusic, Users } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ListMusic, Users, Pencil, Trash2, Globe, ExternalLink } from 'lucide-react';
 
 interface Release {
   id: string;
   title: string;
   type: string;
   status: string;
+  releaseDate: string | null;
   trackCount: number;
   description?: string;
   followerCount?: number;
+  tracks?: { songId: string; title: string }[];
 }
 
 interface PlaylistListProps {
   singles: Release[];
   loading?: boolean;
-  onAddTracks: (releaseId: string) => void;
+  onEdit: (release: Release) => void;
+  onDelete: (release: Release) => void;
+  onPublish: (release: Release) => void;
 }
 
-const PlaylistList: React.FC<PlaylistListProps> = ({ singles, loading, onAddTracks }) => {
+const PlaylistList: React.FC<PlaylistListProps> = ({ singles, loading, onEdit, onDelete, onPublish }) => {
   if (loading) {
     return (
       <div className="space-y-3">
@@ -77,12 +82,42 @@ const PlaylistList: React.FC<PlaylistListProps> = ({ singles, loading, onAddTrac
                 </div>
               </div>
             </div>
-            <button
-              onClick={() => onAddTracks(release.id)}
-              className="px-3 py-1.5 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white rounded-lg transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0"
-            >
-              + Tracks
-            </button>
+            <div className="flex gap-2 flex-shrink-0">
+              {release.status === 'PUBLISHED' && release.tracks?.[0]?.songId ? (
+                <Link
+                  to={`/songs/${release.tracks[0].songId}`}
+                  title="View live song"
+                  className="flex items-center gap-1 px-3 py-1.5 text-xs bg-green-600/20 border border-green-600/40 text-green-400 hover:bg-green-600 hover:text-white rounded-lg transition-colors"
+                >
+                  <ExternalLink size={13} /> View live
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onPublish(release)}
+                  title="Publish now"
+                  className="flex items-center gap-1 px-3 py-1.5 text-xs bg-green-600/20 border border-green-600/40 text-green-400 hover:bg-green-600 hover:text-white rounded-lg transition-colors"
+                >
+                  <Globe size={13} /> {release.status === 'SCHEDULED' ? 'Publish now' : 'Publish'}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => onEdit(release)}
+                title="Edit release"
+                className="flex items-center gap-1 px-3 py-1.5 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white rounded-lg transition-colors"
+              >
+                <Pencil size={13} /> Edit
+              </button>
+              <button
+                type="button"
+                onClick={() => onDelete(release)}
+                title="Delete release"
+                className="flex items-center gap-1 px-3 py-1.5 text-xs bg-gray-700 hover:bg-red-600/80 text-gray-300 hover:text-white rounded-lg transition-colors"
+              >
+                <Trash2 size={13} /> Delete
+              </button>
+            </div>
           </div>
         </div>
       ))}

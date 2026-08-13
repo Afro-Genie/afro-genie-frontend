@@ -74,7 +74,7 @@ const HomePage: React.FC = () => {
     const [showTranslationInfo, setShowTranslationInfo] = useState(false);
 
     const { isSpotifyPremium, user } = useAuth();
-    const { loadTrackById, currentTrack, isPlaying, togglePlayPause } = useAudioPlayer();
+    const { loadTrackById, loadTrackBySongId, currentTrack, isPlaying, togglePlayPause } = useAudioPlayer();
     const navigate = useNavigate();
 
     // Languages supported — built from canonical source
@@ -317,9 +317,7 @@ const HomePage: React.FC = () => {
                                 to="/songs" 
                                 className="inline-flex items-center min-h-[44px] text-green-400 hover:text-green-300 font-semibold gap-2 bg-green-600/20 hover:bg-green-600/30 px-4 py-2.5 rounded-lg transition-colors self-start"
                             >
-                                View All <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                </svg>
+                                View All
                             </Link>
                         </div>
                         {songsLoading ? (
@@ -331,7 +329,7 @@ const HomePage: React.FC = () => {
                                 <div className="flex md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-1 max-h-[600px] overflow-x-auto md:overflow-y-auto pr-2 pb-2 scroll-smooth-x">
                                     {songs.slice(0, 100).map((song, index) => {
                                         const artistName = song.artist || '';
-                                        const isThisPlaying = currentTrack?.id === song.spotifyId && isPlaying;
+                                        const isThisPlaying = currentTrack?.id === (song.spotifyId ?? song.id) && isPlaying;
 
                                         return (
                                         <div
@@ -339,15 +337,17 @@ const HomePage: React.FC = () => {
                                             className="group min-w-[240px] md:min-w-0 flex items-center gap-2 py-2.5 sm:py-1.5 px-2 min-h-[44px] hover:bg-gray-700/50 rounded transition-colors"
                                         >
                                             <div className="flex-shrink-0 w-6 text-right">
-                                                {song.spotifyId ? (
+                                                {song.spotifyId || song.id ? (
                                                     <button
                                                         type="button"
                                                         onClick={(e) => {
                                                             e.preventDefault();
                                                             if (isThisPlaying) {
                                                                 togglePlayPause();
-                                                            } else {
+                                                            } else if (song.spotifyId) {
                                                                 loadTrackById(song.spotifyId!, song.title, artistName);
+                                                            } else {
+                                                                loadTrackBySongId(song.id, song.title, artistName);
                                                             }
                                                         }}
                                                         className="text-sm font-semibold text-gray-500 hover:text-green-400 transition-colors w-6 h-6 flex items-center justify-center"
@@ -472,11 +472,9 @@ const HomePage: React.FC = () => {
                         </h2>
                         <Link 
                             to="/artists" 
-                            className="inline-flex items-center min-h-[44px] text-green-400 hover:text-green-300 font-semibold gap-2 self-start"
+                            className="inline-flex items-center min-h-[44px] text-green-400 hover:text-green-300 font-semibold gap-2 bg-green-600/20 hover:bg-green-600/30 px-4 py-2.5 rounded-lg transition-colors self-start"
                         >
-                            More <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                            </svg>
+                            More
                         </Link>
                     </div>
                     {artistsLoading ? (
@@ -584,11 +582,9 @@ const HomePage: React.FC = () => {
                         </h2>
                         <Link 
                             to="/community" 
-                            className="inline-flex items-center min-h-[44px] text-amber-400 hover:text-amber-300 font-semibold gap-2 self-start"
+                            className="inline-flex items-center min-h-[44px] text-amber-400 hover:text-amber-300 font-semibold gap-2 bg-amber-400/20 hover:bg-amber-400/30 px-4 py-2.5 rounded-lg transition-colors self-start"
                         >
-                            View All <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                            </svg>
+                            View All
                         </Link>
                     </div>
                     {topicsLoading ? (

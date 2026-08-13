@@ -40,3 +40,17 @@ export const toApiUrl = (path: string): string => {
 
   return `${API_BASE_URL}${path}`;
 };
+
+/**
+ * Resolve a media path (e.g. "/uploads/xxx.mp3") to a full URL.
+ * Uploaded media is served by the backend at /uploads (outside /api).
+ */
+export const toMediaUrl = (url: string): string => {
+  if (!url) return url;
+  if (isAbsoluteUrl(url)) return url;
+  if (url.startsWith('/uploads/')) {
+    const origin = API_BASE_URL.replace(/\/api\/?$/, '');
+    return `${origin}${url}`;
+  }
+  return url;
+};

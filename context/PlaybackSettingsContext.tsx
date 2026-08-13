@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useCallback } from 'react';
 interface PlaybackSettingsContextValue {
   fontSize: number;
   setFontSize: (size: number) => void;
+  resetTranslationSignal: number;
   handleResetTranslation: () => void;
 }
 
@@ -19,13 +20,11 @@ export function usePlaybackSettings() {
 interface PlaybackSettingsProviderProps {
   children: React.ReactNode;
   initialFontSize?: number;
-  onResetTranslation?: () => void;
 }
 
 export const PlaybackSettingsProvider: React.FC<PlaybackSettingsProviderProps> = ({
   children,
   initialFontSize = 20,
-  onResetTranslation,
 }) => {
   const [fontSize, setFontSizeState] = useState(() => {
     const saved = localStorage.getItem('playbackFontSize');
@@ -37,12 +36,16 @@ export const PlaybackSettingsProvider: React.FC<PlaybackSettingsProviderProps> =
     localStorage.setItem('playbackFontSize', size.toString());
   }, []);
 
+  const [resetTranslationSignal, setResetTranslationSignal] = useState(0);
+
   const handleResetTranslation = useCallback(() => {
-    onResetTranslation?.();
-  }, [onResetTranslation]);
+    setResetTranslationSignal((prev) => prev + 1);
+  }, []);
 
   return (
-    <PlaybackSettingsContext.Provider value={{ fontSize, setFontSize, handleResetTranslation }}>
+    <PlaybackSettingsContext.Provider
+      value={{ fontSize, setFontSize, resetTranslationSignal, handleResetTranslation }}
+    >
       {children}
     </PlaybackSettingsContext.Provider>
   );

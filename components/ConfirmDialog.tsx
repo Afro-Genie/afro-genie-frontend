@@ -1,4 +1,5 @@
 import React from 'react';
+import { AlertTriangle, Info, AlertOctagon } from 'lucide-react';
 
 export interface ConfirmDialogProps {
   isOpen: boolean;
@@ -6,10 +7,28 @@ export interface ConfirmDialogProps {
   message: string;
   confirmText?: string;
   cancelText?: string;
+  type?: 'danger' | 'warning' | 'info';
   onConfirm: () => void;
   onCancel: () => void;
-  type?: 'danger' | 'warning' | 'info';
 }
+
+const ICON_CONFIG = {
+  danger: {
+    icon: AlertOctagon,
+    iconBg: 'bg-red-500/10 text-red-400',
+    buttonBg: 'bg-red-600 hover:bg-red-700'
+  },
+  warning: {
+    icon: AlertTriangle,
+    iconBg: 'bg-amber-500/10 text-amber-400',
+    buttonBg: 'bg-amber-600 hover:bg-amber-700'
+  },
+  info: {
+    icon: Info,
+    iconBg: 'bg-green-500/10 text-green-400',
+    buttonBg: 'bg-green-600 hover:bg-green-700'
+  }
+};
 
 const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   isOpen,
@@ -17,88 +36,53 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   message,
   confirmText = 'Confirm',
   cancelText = 'Cancel',
+  type = 'info',
   onConfirm,
-  onCancel,
-  type = 'danger'
+  onCancel
 }) => {
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onCancel();
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [isOpen, onCancel]);
+
   if (!isOpen) return null;
 
-  const buttonColors = {
-    danger: 'bg-red-600 hover:bg-red-700',
-    warning: 'bg-yellow-600 hover:bg-yellow-700',
-    info: 'bg-blue-600 hover:bg-blue-700'
-  };
+  const config = ICON_CONFIG[type];
+  const Icon = config.icon;
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl shadow-2xl border border-gray-600/50 max-w-md w-full animate-scale-in">
-        {/* Animated background */}
-        <div className={`absolute inset-0 ${
-          type === 'danger' ? 'bg-gradient-to-r from-red-500/5 via-orange-500/5 to-red-500/5' :
-          type === 'warning' ? 'bg-gradient-to-r from-yellow-500/5 via-orange-500/5 to-yellow-500/5' :
-          'bg-gradient-to-r from-blue-500/5 via-cyan-500/5 to-blue-500/5'
-        } animate-gradient-shift rounded-2xl`}></div>
-        
-        <div className="relative z-10 p-6 md:p-8">
-          {/* Icon */}
-          <div className="flex justify-center mb-4">
-            <div className={`relative ${
-              type === 'danger' ? 'text-red-400' :
-              type === 'warning' ? 'text-yellow-400' :
-              'text-blue-400'
-            }`}>
-              <div className={`absolute inset-0 ${
-                type === 'danger' ? 'bg-red-500/20' :
-                type === 'warning' ? 'bg-yellow-500/20' :
-                'bg-blue-500/20'
-              } rounded-full animate-ping`}></div>
-              <div className={`relative bg-gray-700/50 p-4 rounded-full border ${
-                type === 'danger' ? 'border-red-500/30' :
-                type === 'warning' ? 'border-yellow-500/30' :
-                'border-blue-500/30'
-              }`}>
-                {type === 'danger' ? (
-                  <svg className="w-8 h-8 animate-scale-in" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                ) : type === 'warning' ? (
-                  <svg className="w-8 h-8 animate-scale-in" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                ) : (
-                  <svg className="w-8 h-8 animate-scale-in" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                )}
-              </div>
-            </div>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+      onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
+    >
+      <div className="bg-gray-800 border border-gray-700 rounded-xl w-full max-w-md mx-4 p-6 shadow-2xl">
+        <div className="flex items-start gap-3 mb-4">
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${config.iconBg}`}>
+            <Icon className="w-5 h-5" />
           </div>
-
-          {/* Title */}
-          <h3 className="text-2xl font-bold text-white text-center mb-3">
-            {title}
-          </h3>
-
-          {/* Message */}
-          <p className="text-gray-300 text-center mb-6 leading-relaxed whitespace-pre-line">
-            {message}
-          </p>
-
-          {/* Buttons */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            <button
-              onClick={onCancel}
-              className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
-            >
-              {cancelText}
-            </button>
-            <button
-              onClick={onConfirm}
-              className={`flex-1 ${buttonColors[type]} text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-lg`}
-            >
-              {confirmText}
-            </button>
+          <div>
+            <h2 className="text-lg font-semibold text-white">{title}</h2>
+            <p className="text-sm text-gray-300 mt-1">{message}</p>
           </div>
+        </div>
+
+        <div className="flex gap-3 justify-end">
+          <button
+            onClick={onCancel}
+            className="px-4 py-2.5 text-gray-300 hover:text-white bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
+          >
+            {cancelText}
+          </button>
+          <button
+            onClick={onConfirm}
+            className={`text-white font-semibold py-2.5 px-4 rounded-lg transition-colors ${config.buttonBg}`}
+          >
+            {confirmText}
+          </button>
         </div>
       </div>
     </div>
@@ -106,4 +90,3 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 };
 
 export default ConfirmDialog;
-

@@ -6,7 +6,7 @@ import AlbumGrid from '../../components/artist/music/AlbumGrid';
 import PlaylistList from '../../components/artist/music/PlaylistList';
 import AddSongModal from '../../components/artist/music/AddSongModal';
 import AddReleaseModal from '../../components/artist/music/AddReleaseModal';
-import AddTracksModal from '../../components/artist/music/AddTracksModal';
+import ConfirmDialog from '../../components/ConfirmDialog';
 
 interface Song {
   id: string;
@@ -14,6 +14,10 @@ interface Song {
   views: number;
   requestCount: number;
   imageUrl?: string;
+  audioUrl?: string;
+  released?: boolean;
+  durationMs?: number;
+  release?: { id: string; title: string; status: string } | null;
   lyricsStatus?: string;
   rawText?: string;
   genres?: string[];
@@ -26,10 +30,10 @@ interface Release {
   title: string;
   type: string;
   status: string;
-  releaseDate: string;
+  releaseDate: string | null;
   coverImageUrl?: string;
   trackCount: number;
-  tracks?: { songId: string }[];
+  tracks?: { songId: string; title: string }[];
 }
 
 type Tab = 'songs' | 'albums' | 'playlists';
@@ -46,7 +50,15 @@ const ArtistMusicPage: React.FC = () => {
   const [showReleaseModal, setShowReleaseModal] = useState(false);
   const [editingRelease, setEditingRelease] = useState<Release | null>(null);
 
-  const [showTrackModal, setShowTrackModal] = useState<string | null>(null);
+  const [songToDelete, setSongToDelete] = useState<Song | null>(null);
+  const [releaseToDelete, setReleaseToDelete] = useState<Release | null>(null);
+
+  const [notice, setNotice] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  const showNotice = useCallback((message: string, type: 'success' | 'error' = 'success') => {
+    setNotice({ message, type });
+    setTimeout(() => setNotice(null), 4000);
+  }, []);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -61,10 +73,11 @@ const ArtistMusicPage: React.FC = () => {
       setReleases(releasesResult?.releases ?? (Array.isArray(releasesResult) ? releasesResult : []));
     } catch (error) {
       console.error('Error fetching music data:', error);
+      showNotice('Failed to load music data', 'error');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showNotice]);
 
   useEffect(() => {
     fetchData();
@@ -80,7 +93,15 @@ const ArtistMusicPage: React.FC = () => {
     setShowSongModal(true);
   };
 
-  const handleSongSubmit = async (payload: { title: string; lyrics?: { rawText: string }; genres: string[]; languages: string[] }) => {
+  const handleSongSubmit = async (payload: {
+    title: string;
+    lyrics?: { rawText: string };
+    genres: string[];
+    languages: string[];
+    audioUrl?: string;
+    audioDurationMs?: number;
+    imageUrl?: string;
+  }) => {
     try {
       if (editingSong) {
         await apiRequest(`/artists/me/songs/${editingSong.id}`, {
@@ -95,18 +116,23 @@ const ArtistMusicPage: React.FC = () => {
       }
       setShowSongModal(false);
       fetchData();
+      showNotice(editingSong ? 'Song updated' : 'Song added to your catalog');
     } catch (error) {
       console.error('Error saving song:', error);
+      showNotice('Failed to save song', 'error');
     }
   };
 
-  const handleDeleteSong = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this song?')) return;
+  const handleConfirmDeleteSong = async () => {
+    if (!songToDelete) return;
     try {
-      await apiRequest(`/artists/me/songs/${id}`, { method: 'DELETE' });
+      await apiRequest(`/artists/me/songs/${songToDelete.id}`, { method: 'DELETE' });
+      setSongToDelete(null);
       fetchData();
+      showNotice('Song deleted');
     } catch (error) {
       console.error('Error deleting song:', error);
+      showNotice('Failed to delete song', 'error');
     }
   };
 
@@ -120,37 +146,57 @@ const ArtistMusicPage: React.FC = () => {
     setShowReleaseModal(true);
   };
 
-  const handleReleaseSubmit = async (payload: { title: string; type: string; releaseDate?: string; coverImageUrl?: string }) => {
+  const handleReleaseSubmit = async (payload: {
+    title: string;
+    type: string;
+    releaseDate?: string;
+    coverImageUrl?: string;
+    songIds: string[];
+    status?: 'DRAFT' | 'SCHEDULED' | 'PUBLISHED';
+  }) => {
     try {
-      if (editingRelease) {
-        await apiRequest(`/artists/me/releases/${editingRelease.id}`, {
-          method: 'PUT',
+      await apiRequest(
+        editingRelease
+          ? `/artists/me/releases/${editingRelease.id}`
+          : '/artists/me/releases',
+        {
+          method: editingRelease ? 'PUT' : 'POST',
           body: JSON.stringify(payload),
-        });
-      } else {
-        await apiRequest('/artists/me/releases', {
-          method: 'POST',
-          body: JSON.stringify(payload),
-        });
-      }
+        },
+      );
       setShowReleaseModal(false);
       fetchData();
+      showNotice(editingRelease ? 'Release updated' : 'Release created');
     } catch (error) {
       console.error('Error saving release:', error);
+      showNotice('Failed to save release', 'error');
     }
   };
 
-  const handleAddTracksSubmit = async (songIds: string[]) => {
-    if (!showTrackModal) return;
+  const handlePublishRelease = async (release: Release) => {
     try {
-      await apiRequest(`/artists/me/releases/${showTrackModal}/tracks`, {
-        method: 'POST',
-        body: JSON.stringify({ songIds }),
+      await apiRequest(`/artists/me/releases/${release.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'PUBLISHED' }),
       });
-      setShowTrackModal(null);
       fetchData();
+      showNotice(`"${release.title}" is now live to fans`);
     } catch (error) {
-      console.error('Error adding tracks:', error);
+      console.error('Error publishing release:', error);
+      showNotice('Failed to publish release', 'error');
+    }
+  };
+
+  const handleConfirmDeleteRelease = async () => {
+    if (!releaseToDelete) return;
+    try {
+      await apiRequest(`/artists/me/releases/${releaseToDelete.id}`, { method: 'DELETE' });
+      setReleaseToDelete(null);
+      fetchData();
+      showNotice('Release deleted');
+    } catch (error) {
+      console.error('Error deleting release:', error);
+      showNotice('Failed to delete release', 'error');
     }
   };
 
@@ -158,9 +204,14 @@ const ArtistMusicPage: React.FC = () => {
   const albums = releases.filter((r) => r.type === 'ALBUM');
   const singlesEps = releases.filter((r) => r.type === 'SINGLE' || r.type === 'EP');
 
-  const releaseForTrackModal = releases.find((r) => r.id === showTrackModal);
-  const trackSongIds = new Set(releaseForTrackModal?.tracks?.map((t) => t.songId) ?? []);
-  const availableSongs = songs.filter((s) => !trackSongIds.has(s.id));
+  // Songs available to add to a release: unassigned songs, plus the songs already
+  // in the release currently being edited.
+  const songsForReleaseModal = editingRelease
+    ? songs.filter((s) => !s.release || s.release.id === editingRelease.id)
+    : songs.filter((s) => !s.release);
+  const releaseInitialTrackIds = editingRelease
+    ? songs.filter((s) => s.release?.id === editingRelease.id).map((s) => s.id)
+    : [];
 
   const tabs: { key: Tab; label: string }[] = [
     { key: 'songs', label: 'Songs' },
@@ -174,7 +225,7 @@ const ArtistMusicPage: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-white">Music</h1>
-          <p className="text-gray-400 mt-1">Manage your catalog, releases, and playlists</p>
+          <p className="text-gray-400 mt-1">Upload your catalog, then release it to fans</p>
         </div>
         <div className="flex gap-2">
           <button
@@ -191,6 +242,18 @@ const ArtistMusicPage: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {notice && (
+        <div
+          className={`px-4 py-3 rounded-lg border text-sm ${
+            notice.type === 'success'
+              ? 'bg-green-500/10 border-green-500/40 text-green-300'
+              : 'bg-red-500/10 border-red-500/40 text-red-300'
+          }`}
+        >
+          {notice.message}
+        </div>
+      )}
 
       {/* Stats */}
       <MusicStats
@@ -229,19 +292,30 @@ const ArtistMusicPage: React.FC = () => {
           loading={loading}
           onAdd={handleAddSong}
           onEdit={handleEditSong}
-          onDelete={handleDeleteSong}
+          onDelete={(id) => {
+            const song = songs.find((s) => s.id === id);
+            if (song) setSongToDelete(song);
+          }}
         />
       )}
 
       {activeTab === 'albums' && (
-        <AlbumGrid releases={albums} loading={loading} />
+        <AlbumGrid
+          releases={albums}
+          loading={loading}
+          onEdit={handleEditRelease}
+          onDelete={(release) => setReleaseToDelete(release)}
+          onPublish={handlePublishRelease}
+        />
       )}
 
       {activeTab === 'playlists' && (
         <PlaylistList
           singles={singlesEps}
           loading={loading}
-          onAddTracks={(id) => setShowTrackModal(id)}
+          onEdit={handleEditRelease}
+          onDelete={(release) => setReleaseToDelete(release)}
+          onPublish={handlePublishRelease}
         />
       )}
 
@@ -257,17 +331,36 @@ const ArtistMusicPage: React.FC = () => {
       {showReleaseModal && (
         <AddReleaseModal
           editingRelease={editingRelease}
+          availableSongs={songsForReleaseModal.map((s) => ({ id: s.id, title: s.title, hasAudio: Boolean(s.audioUrl) }))}
+          initialTrackIds={releaseInitialTrackIds}
           onClose={() => setShowReleaseModal(false)}
           onSubmit={handleReleaseSubmit}
         />
       )}
 
-      {showTrackModal && releaseForTrackModal && (
-        <AddTracksModal
-          releaseTitle={releaseForTrackModal.title}
-          availableSongs={availableSongs}
-          onClose={() => setShowTrackModal(null)}
-          onSubmit={handleAddTracksSubmit}
+      {songToDelete && (
+        <ConfirmDialog
+          isOpen={!!songToDelete}
+          title="Delete Song"
+          message={`Are you sure you want to delete "${songToDelete.title}"? This cannot be undone.`}
+          confirmText="Delete"
+          cancelText="Cancel"
+          type="danger"
+          onConfirm={handleConfirmDeleteSong}
+          onCancel={() => setSongToDelete(null)}
+        />
+      )}
+
+      {releaseToDelete && (
+        <ConfirmDialog
+          isOpen={!!releaseToDelete}
+          title="Delete Release"
+          message={`Are you sure you want to delete "${releaseToDelete.title}"? Its songs will be removed from the release and return to private.`}
+          confirmText="Delete"
+          cancelText="Cancel"
+          type="danger"
+          onConfirm={handleConfirmDeleteRelease}
+          onCancel={() => setReleaseToDelete(null)}
         />
       )}
     </div>

@@ -133,6 +133,17 @@ export interface OverturnRate {
   rate: number;
 }
 
+export interface TranslationRequestItem {
+  id: string;
+  sourceLang: string;
+  targetLang: string;
+  notes: string | null;
+  status: string;
+  createdAt: string;
+  user: { id: string; displayName: string; email: string };
+  song: { id: string; title: string; artist: { name: string } };
+}
+
 export const moderationApi = {
   reportContent: (targetType: string, targetId: string, reason: string, description?: string) =>
     apiRequest<{ id: string; status: string; createdAt: string }>('/moderation/report', {
@@ -214,4 +225,13 @@ export const moderationApi = {
 
   getOverturnRate: (days = 30) =>
     apiRequest<OverturnRate>(`/admin/moderation/overturn-rate?days=${days}`),
+
+  getTranslationRequests: (params?: { status?: string; page?: number; limit?: number }) =>
+    apiRequest<PaginatedResponse<TranslationRequestItem>>(`/admin/moderation/translation-requests?${new URLSearchParams(params as Record<string, string>).toString()}`),
+
+  resolveTranslationRequest: (id: string, translatedLyrics: string, moderatorNote?: string) =>
+    apiRequest<{ id: string; status: string }>(`/admin/moderation/translation-requests/${id}/resolve`, { method: 'PATCH', body: JSON.stringify({ translatedLyrics, moderatorNote }) }),
+
+  rejectTranslationRequest: (id: string, moderatorNote?: string) =>
+    apiRequest<{ id: string; status: string }>(`/admin/moderation/translation-requests/${id}/reject`, { method: 'PATCH', body: JSON.stringify({ moderatorNote }) }),
 };

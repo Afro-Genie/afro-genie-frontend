@@ -29,3 +29,37 @@ export const uploadImage = async (file: File, _path: string): Promise<string> =>
   const { url } = await res.json();
   return url as string;
 };
+
+export interface AudioUploadResult {
+  url: string;
+  mimeType: string;
+  size: number;
+}
+
+/**
+ * Upload an audio file to the backend.
+ * Returns the public URL path plus metadata.
+ */
+export const uploadAudio = async (file: File): Promise<AudioUploadResult> => {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const headers: Record<string, string> = {};
+  const token = getAccessToken();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(toApiUrl('/upload/audio'), {
+    method: 'POST',
+    headers,
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Upload failed (${res.status})`);
+  }
+
+  return (await res.json()) as AudioUploadResult;
+};
