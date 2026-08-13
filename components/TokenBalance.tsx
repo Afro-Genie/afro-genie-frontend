@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { tokenApi } from '../services/tokenService';
@@ -8,10 +8,25 @@ interface TokenBalanceProps {
   showLink?: boolean;
 }
 
+const REFRESH_INTERVAL_MS = 60000;
+
 const TokenBalance: React.FC<TokenBalanceProps> = ({ className = '', showLink = true }) => {
   const { user } = useAuth();
   const [balance, setBalance] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const loadBalance = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const profile = await tokenApi.getProfile(user.id);
+      setBalance(profile.tokenBalance);
+    } catch {
+      // Keep the last known balance on transient errors; only show 0 if we have nothing.
+      setBalance((prev) => prev ?? 0);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     if (!user?.id) {
@@ -20,20 +35,25 @@ const TokenBalance: React.FC<TokenBalanceProps> = ({ className = '', showLink = 
     }
 
     let cancelled = false;
+    const run = async () => {
+      if (cancelled) return;
+      await loadBalance();
+    };
 
-    tokenApi.getProfile(user.id)
-      .then((profile) => {
-        if (!cancelled) setBalance(profile.tokenBalance);
-      })
-      .catch(() => {
-        if (!cancelled) setBalance(0);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+    run();
 
-    return () => { cancelled = true; };
-  }, [user?.id]);
+    // Keep the navbar balance current while the app stays open (tokens are
+    // earned/modified during a session and this component may never remount).
+    const interval = setInterval(run, REFRESH_INTERVAL_MS);
+    const onFocus = () => run();
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [loadBalance]);
 
   if (!user) return null;
   if (loading) {
