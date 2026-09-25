@@ -5,16 +5,33 @@ export interface TokenReward {
   amount: number;
   reason: string;
   createdAt: string;
+  type?: string;
+  balanceAfter?: number;
+  sourceType?: string | null;
+  sourceId?: string | null;
+  metadata?: unknown;
+}
+
+export interface TokenSummary {
+  earned: number;
+  spent: number;
+  penalized: number;
+  adjusted: number;
 }
 
 export interface TokenHistoryResponse {
   rewards: TokenReward[];
+  summary?: TokenSummary;
   pagination: {
     page: number;
     limit: number;
     total: number;
     totalPages: number;
   };
+}
+
+export interface BalanceResponse {
+  balance: number;
 }
 
 export interface UserProfile {
@@ -77,10 +94,88 @@ export interface StoreItem {
   description: string | null;
   tokenCost: number;
   category: string;
-  digital: boolean;
+  digital?: boolean;
   metadata: unknown;
   active: boolean;
-  owned: boolean;
+  featured?: boolean;
+  limitedTime?: boolean;
+  originalPrice?: number | null;
+  discountedPrice?: number | null;
+  discountPercent?: number | null;
+  promoStartsAt?: string | null;
+  promoEndsAt?: string | null;
+  sortOrder?: number;
+  stock?: number | null;
+  owned?: boolean;
+}
+
+export interface LimitedTimeOffer extends StoreItem {
+  timeRemainingMs: number;
+}
+
+export interface GtBundle {
+  id: string;
+  name: string;
+  gtAmount: number;
+  priceKobo: number;
+  currency: string;
+  badge: string | null;
+  bonusPercent: number;
+  sortOrder: number;
+  active: boolean;
+}
+
+export type GtPurchaseStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'REFUNDED';
+
+export interface GtPurchase {
+  id: string;
+  bundleName: string;
+  gtAmount: number;
+  amountKobo: number;
+  currency: string;
+  status: GtPurchaseStatus;
+  paidAt: string | null;
+  creditedAt: string | null;
+  createdAt: string;
+}
+
+export interface GtPurchaseHistory {
+  purchases: GtPurchase[];
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+}
+
+export interface InitializePaymentResponse {
+  access_code: string;
+  reference: string;
+  authorization_url: string;
+  gtAmount: number;
+  amountKobo: number;
+}
+
+export interface VerifyPaymentResponse {
+  success: boolean;
+  gtCredited: number;
+  newBalance: number | null;
+  status: string;
+  alreadyCredited: boolean;
+}
+
+export type PassType = 'SEVEN_DAY_PREMIUM' | 'TRANSLATION_PACK_10' | 'TRANSLATION_PACK_50';
+
+export interface PassCatalogEntry {
+  type: PassType;
+  gtCost: number;
+  label: string;
+}
+
+export interface PremiumPass {
+  id: string;
+  userId: string;
+  type: PassType;
+  purchasedAt: string;
+  expiresAt: string;
+  gtCost: number;
+  active: boolean;
 }
 
 export interface StorePurchase {
@@ -122,6 +217,15 @@ export interface AdminStoreItem {
   category: string;
   metadata: unknown;
   active: boolean;
+  featured: boolean;
+  limitedTime: boolean;
+  originalPrice: number | null;
+  discountedPrice: number | null;
+  discountPercent: number | null;
+  promoStartsAt: string | null;
+  promoEndsAt: string | null;
+  sortOrder: number;
+  stock: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -167,13 +271,23 @@ export const tokenApi = {
   getProfile: (userId: string) =>
     apiRequest<UserProfile>(`/users/${userId}/profile`),
 
-  getMyTokens: (page?: number, limit?: number) => {
+  getMyTokens: (page?: number, limit?: number, type?: string) => {
     const params = new URLSearchParams();
     if (page) params.set('page', String(page));
     if (limit) params.set('limit', String(limit));
+    if (type) params.set('type', type);
     const qs = params.toString();
     return apiRequest<TokenHistoryResponse>(`/users/me/tokens${qs ? `?${qs}` : ''}`);
   },
+
+  getMyBalance: () =>
+    apiRequest<BalanceResponse>('/users/me/balance'),
+
+  completeProfile: (data: { displayName: string; photoUrl?: string; bio?: string; preferredLanguages?: string[] }) =>
+    apiRequest<{ id: string; displayName: string | null; photoUrl: string | null; bio: string | null; preferredLanguages: string[]; profileCompleted: boolean; bonusAwarded: boolean }>(
+      '/users/me/complete-profile',
+      { method: 'POST', body: JSON.stringify(data) },
+    ),
 
   getLeaderboard: (period: LeaderboardPeriod = 'all') =>
     apiRequest<LeaderboardEntry[]>(`/community/leaderboard?period=${period}`),
@@ -220,6 +334,10 @@ export const tokenApi = {
     category: string;
     metadata?: Record<string, unknown>;
     active?: boolean;
+    featured?: boolean;
+    limitedTime?: boolean;
+    sortOrder?: number;
+    stock?: number | null;
   }) =>
     apiRequest<AdminStoreItem>('/admin/store/items', {
       method: 'POST',
@@ -235,6 +353,10 @@ export const tokenApi = {
       category: string;
       metadata: Record<string, unknown> | null;
       active: boolean;
+      featured: boolean;
+      limitedTime: boolean;
+      sortOrder: number;
+      stock: number | null;
     }>,
   ) =>
     apiRequest<AdminStoreItem>(`/admin/store/items/${id}`, {
@@ -257,6 +379,12 @@ export const tokenApi = {
   getStoreItems: () =>
     apiRequest<StoreItem[]>('/store/items'),
 
+  getFeaturedStoreItems: () =>
+    apiRequest<StoreItem[]>('/store/featured'),
+
+  getLimitedTimeOffers: () =>
+    apiRequest<LimitedTimeOffer[]>('/store/offers'),
+
   purchaseItem: (itemId: string) => {
     const purchaseToken =
       typeof crypto !== 'undefined' && crypto.randomUUID
@@ -269,7 +397,47 @@ export const tokenApi = {
   },
 
   getMyPurchases: () =>
-    apiRequest<StorePurchase[]>('/store/purchases/me'),
+    apiRequest<StorePurchase[]>('/store/me/purchases'),
+
+  adminApplyDiscount: (id: string, discountPercent: number, promoEndsAt?: string | null) =>
+    apiRequest<AdminStoreItem>(`/admin/store/items/${id}/discount`, {
+      method: 'POST',
+      body: JSON.stringify({ discountPercent, promoEndsAt: promoEndsAt ?? null }),
+    }),
+
+  adminClearDiscount: (id: string) =>
+    apiRequest<AdminStoreItem>(`/admin/store/items/${id}/discount`, { method: 'DELETE' }),
+
+  // --- GT payments (Phase 2) ---
+
+  getGtBundles: () =>
+    apiRequest<GtBundle[]>('/payments/bundles'),
+
+  initializeGtPurchase: (bundleId: string) =>
+    apiRequest<InitializePaymentResponse>('/payments/initialize', {
+      method: 'POST',
+      body: JSON.stringify({ bundleId }),
+    }),
+
+  verifyGtPurchase: (reference: string) =>
+    apiRequest<VerifyPaymentResponse>(`/payments/verify/${encodeURIComponent(reference)}`),
+
+  getGtPurchaseHistory: (page = 1, limit = 20) =>
+    apiRequest<GtPurchaseHistory>(`/payments/history?page=${page}&limit=${limit}`),
+
+  // --- Premium passes (Phase 2) ---
+
+  getPassCatalog: () =>
+    apiRequest<PassCatalogEntry[]>('/tokens/passes'),
+
+  purchasePass: (passType: PassType) =>
+    apiRequest<{ passId: string; type: PassType; label: string; expiresAt: string; newBalance: number }>(
+      '/tokens/purchase-pass',
+      { method: 'POST', body: JSON.stringify({ passType }) },
+    ),
+
+  getActivePass: () =>
+    apiRequest<PremiumPass | null>('/tokens/active-pass'),
 
   getMyEntitlements: () =>
     apiRequest<UserEntitlement[]>('/store/entitlements'),

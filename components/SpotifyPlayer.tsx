@@ -47,7 +47,7 @@ const SpotifyPlayer: React.FC<SpotifyPlayerProps> = ({ title, artist, spotifyId,
   const [loadingElapsed, setLoadingElapsed] = useState(0);
 
   useEffect(() => {
-    if (audioUrl && songId) {
+    if (songId && !songId.startsWith('spotify:')) {
       loadTrackBySongId(songId, title, artist);
     } else if (spotifyId) {
       loadTrackById(spotifyId, title, artist);
@@ -164,6 +164,7 @@ const SpotifyPlayer: React.FC<SpotifyPlayerProps> = ({ title, artist, spotifyId,
   const trackArtist = currentTrack?.artistName ?? artist;
   const hasPreview = Boolean(currentTrack?.previewUrl);
   const isSdkMode = playbackMode === 'sdk';
+  const isYoutubeMode = playbackMode === 'youtube';
 
   return (
     <div
@@ -211,6 +212,37 @@ const SpotifyPlayer: React.FC<SpotifyPlayerProps> = ({ title, artist, spotifyId,
               aria-label="Next track"
             >
               &#9197;
+            </button>
+            <span className="text-xs text-gray-300">
+              {formatTime(currentTime)} / {formatTime(duration)}
+            </span>
+          </div>
+
+          <div
+            onClick={handleSeek}
+            className="relative h-2 w-full cursor-pointer rounded-full bg-gray-700"
+            aria-label="Seek track"
+          >
+            <div
+              className="absolute left-0 top-0 h-2 rounded-full bg-green-500 transition-[width] duration-100"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+        </>
+      ) : isYoutubeMode ? (
+        <>
+          <div className="mb-1">
+            <span className="inline-flex items-center gap-1 rounded bg-red-900/40 px-1.5 py-0.5 text-[10px] font-medium text-red-300">
+              Playing via YouTube
+            </span>
+          </div>
+          <div className="mb-2 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={togglePlayPause}
+              className="rounded-md bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-500 transition-colors"
+            >
+              {isPlaying ? 'Pause' : 'Play'}
             </button>
             <span className="text-xs text-gray-300">
               {formatTime(currentTime)} / {formatTime(duration)}
@@ -313,14 +345,14 @@ const SpotifyPlayer: React.FC<SpotifyPlayerProps> = ({ title, artist, spotifyId,
           {user && !isSpotifyPremium && (
             <div className="rounded-md bg-gray-700/30 border border-gray-600/30 p-2 space-y-1.5">
               <p className="text-[11px] text-gray-400 leading-tight">
-                Spotify previews are not available for this track. Connect Spotify Premium to stream full tracks.
+                No playable source was found for this track yet. Try again later.
               </p>
               <button
                 type="button"
-                onClick={() => window.dispatchEvent(new CustomEvent('spotify-link-dialog:open'))}
+                onClick={retryPlayback}
                 className="text-[11px] text-green-400 hover:text-green-300 leading-tight underline transition-colors"
               >
-                Connect Spotify Premium
+                Try again
               </button>
             </div>
           )}
@@ -328,14 +360,14 @@ const SpotifyPlayer: React.FC<SpotifyPlayerProps> = ({ title, artist, spotifyId,
           {!user && (
             <div className="rounded-md bg-gray-700/30 border border-gray-600/30 p-2 space-y-1.5">
               <p className="text-[11px] text-gray-400 leading-tight">
-                Sign in to access full playback and track previews.
+                No playable source was found for this track yet. Try again later.
               </p>
               <button
                 type="button"
-                onClick={() => window.dispatchEvent(new CustomEvent('login-modal:open'))}
+                onClick={retryPlayback}
                 className="text-[11px] text-green-400 hover:text-green-300 leading-tight underline transition-colors"
               >
-                Sign in with Spotify
+                Try again
               </button>
             </div>
           )}

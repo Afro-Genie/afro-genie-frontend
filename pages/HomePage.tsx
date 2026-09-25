@@ -73,7 +73,7 @@ const HomePage: React.FC = () => {
     });
     const [showTranslationInfo, setShowTranslationInfo] = useState(false);
 
-    const { isSpotifyPremium, user } = useAuth();
+    const { user } = useAuth();
     const { loadTrackById, loadTrackBySongId, currentTrack, isPlaying, togglePlayPause } = useAudioPlayer();
     const navigate = useNavigate();
 
@@ -344,10 +344,10 @@ const HomePage: React.FC = () => {
                                                             e.preventDefault();
                                                             if (isThisPlaying) {
                                                                 togglePlayPause();
+                                                            } else if (song.id && !song.id.startsWith('spotify:')) {
+                                                                loadTrackBySongId(song.id, song.title, artistName);
                                                             } else if (song.spotifyId) {
                                                                 loadTrackById(song.spotifyId!, song.title, artistName);
-                                                            } else {
-                                                                loadTrackBySongId(song.id, song.title, artistName);
                                                             }
                                                         }}
                                                         className="text-sm font-semibold text-gray-500 hover:text-green-400 transition-colors w-6 h-6 flex items-center justify-center"

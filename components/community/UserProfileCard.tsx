@@ -63,7 +63,7 @@ const UserProfileCard: React.FC = () => {
             {profile && (
                 <div className="pt-4 border-t border-gray-700 space-y-4">
                     <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-400">Tokens</span>
+                        <span className="text-sm text-gray-400">GT</span>
                         <Link
                             to="/tokens"
                             className="flex items-center gap-1.5 text-amber-400 font-bold hover:text-amber-300 transition-colors"
@@ -71,7 +71,7 @@ const UserProfileCard: React.FC = () => {
                             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
                             </svg>
-                            {profile.tokenBalance}
+                            {profile.tokenBalance} GT
                         </Link>
                     </div>
 

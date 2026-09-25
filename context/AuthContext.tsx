@@ -20,6 +20,7 @@ import {
 } from "../services/spotifyAuthService";
 import { toApiUrl } from "../lib/apiBase";
 import { clearAllAuthData } from "../lib/fallbacks";
+import { useBalanceStream, BalanceUpdateEvent } from "../hooks/useBalanceStream";
 
 interface AuthUser {
   uid: string;
@@ -82,6 +83,10 @@ interface AuthContextType {
   user: AuthUser | null;
   userProfile: UserProfile | null;
   loading: boolean;
+  balance: number | null;
+  balanceStatus: "idle" | "connecting" | "open" | "error";
+  lastBalanceEvent: BalanceUpdateEvent | null;
+  refreshBalance: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (
     email: string,
@@ -170,6 +175,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [user, setUser] = useState<AuthUser | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const { balance, status: balanceStatus, lastEvent: lastBalanceEvent, refresh: refreshBalance } = useBalanceStream(
+    user?.id ?? null,
+  );
 
   const initFromAuthResult = useCallback(
     (authResult: {
@@ -685,6 +694,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     user,
     userProfile,
     loading,
+    balance,
+    balanceStatus,
+    lastBalanceEvent,
+    refreshBalance,
     signIn,
     signUp,
     signUpAsArtist,

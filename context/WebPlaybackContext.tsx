@@ -1,3 +1,14 @@
+/**
+ * @deprecated Phase 3 playback redesign. Playback no longer depends on Spotify
+ * Premium — the audio engine (AudioContext) resolves sources through the
+ * 3-tier fallback: own audio → YouTube → 30s Spotify preview.
+ *
+ * This context is retained only to keep the Spotify SDK available as an
+ * *enhancement* for Premium users (full-track streaming) and to fetch Spotify
+ * metadata (artist sync, search). Do not add new consumers that rely on it for
+ * basic playback, and remove it from the provider tree once the SDK path is
+ * fully retired.
+ */
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { spotifyAuthService } from '../services/spotifyAuthService';
@@ -69,6 +80,13 @@ const logDiagnostic = (event: DiagnosticEvent) => {
 
 const WebPlaybackContext = createContext<WebPlaybackContextValue | null>(null);
 
+/**
+ * @deprecated Phase 3 playback redesign replaces the Spotify Web Playback SDK
+ * with a 3-tier fallback (own audio → YouTube → Spotify preview) that requires
+ * no Premium subscription. The SDK still powers optional full-track playback for
+ * existing Premium users, but new code should use {@link useAudioPlayer} /
+ * {@link usePlayback} instead.
+ */
 export function useWebPlayback(): WebPlaybackContextValue {
   const ctx = useContext(WebPlaybackContext);
   if (!ctx) {

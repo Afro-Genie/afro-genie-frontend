@@ -22,7 +22,7 @@ interface LyricContentProps {
 }
 
 const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) => {
-    const { user: currentUser, authFetch, isSpotifyPremium } = useAuth();
+    const { user: currentUser, authFetch } = useAuth();
     const { fontSize, resetTranslationSignal } = usePlaybackSettings();
     const { setCurrentSongId } = useAudioPlayer();
     const [showLoginPrompt, setShowLoginPrompt] = useState(false);
@@ -832,38 +832,8 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
                 </div>
             )}
 
-            {/* Premium Gate – non-premium users see skeleton instead of lyrics/translation */}
-            {!isSpotifyPremium && !loading && !error && (
-              <div className="mb-8">
-                <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-8">
-                  <div className="flex flex-col items-center justify-center text-center space-y-4">
-                    <div className="w-16 h-16 rounded-full bg-green-900/30 flex items-center justify-center animate-pulse">
-                      <svg className="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-green-400 font-bold text-lg animate-pulse">
-                        Connect Spotify Premium
-                      </p>
-                      <p className="text-gray-400 text-sm mt-2">
-                        Sign in with Spotify Premium to access lyrics and translations
-                      </p>
-                    </div>
-                    <div className="w-full space-y-3 mt-4">
-                      <div className="h-4 bg-gray-800 rounded animate-pulse w-3/4 mx-auto"></div>
-                      <div className="h-4 bg-gray-800 rounded animate-pulse w-1/2 mx-auto"></div>
-                      <div className="h-4 bg-gray-800 rounded animate-pulse w-5/6 mx-auto"></div>
-                      <div className="h-4 bg-gray-800 rounded animate-pulse w-2/3 mx-auto"></div>
-                      <div className="h-4 bg-gray-800 rounded animate-pulse w-4/5 mx-auto"></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* Generate Translation Button - Show when original lyrics exist but translation is empty */}
-            {isSpotifyPremium && !loading && !error && canGenerateTranslation && (
+            {!loading && !error && canGenerateTranslation && (
                 <div className="mb-4">
                     <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4">
                         {/* Language Selector - Only Target Language */}
@@ -931,7 +901,7 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
             )}
 
             {/* Request Translation Button - Show when no lyrics or translation */}
-            {isSpotifyPremium && !loading && !error && (hasNoLyrics || (hasNoTranslation && !canGenerateTranslation)) && (
+            {!loading && !error && (hasNoLyrics || (hasNoTranslation && !canGenerateTranslation)) && (
                 <div className="mb-4">
                     <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4">
                         <div className="mb-3">
@@ -971,12 +941,12 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
 
 
             {/* Cultural Context Display */}
-            {isSpotifyPremium && !loading && !error && formattedCulturalContext && formattedCulturalContext.trim() && (
+            {!loading && !error && formattedCulturalContext && formattedCulturalContext.trim() && (
                 <CulturalContextCarousel culturalContext={formattedCulturalContext} />
             )}
 
             {/* Lyrics Display - Main Focus */}
-            {isSpotifyPremium && !loading && !error && (
+            {!loading && !error && (
                 <div data-testid="translation-result">
                     {renderLyrics()}
                 </div>
