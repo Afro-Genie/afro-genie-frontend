@@ -23,6 +23,7 @@ const PlaybackManager: React.FC = () => {
     reportYouTubeState,
     handleYouTubeEnded,
     handleYouTubeError,
+    handleYouTubePlay,
   } = useAudioPlayer();
 
   const handleRef = useRef<YouTubePlayerHandle | null>(null);
@@ -57,6 +58,7 @@ const PlaybackManager: React.FC = () => {
       artist={currentTrack?.artistName}
       onReady={() => registerYouTubeController(controller)}
       onStateChange={reportYouTubeState}
+      onPlay={handleYouTubePlay}
       onEnd={handleYouTubeEnded}
       onError={handleYouTubeError}
     />

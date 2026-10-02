@@ -53,9 +53,31 @@ const ensureYouTubeApi = (): Promise<void> => {
 
   apiPromise = new Promise<void>((resolve, reject) => {
     const previousReady = window.onYouTubeIframeAPIReady;
-    window.onYouTubeIframeAPIReady = () => {
+    const onReady = () => {
+      // Put the previous handler back rather than leaving a wrapper installed,
+      // so a later attempt does not chain another closure around this one.
+      if (window.onYouTubeIframeAPIReady === onReady) {
+        window.onYouTubeIframeAPIReady = previousReady;
+      }
       previousReady?.();
       resolve();
+    };
+    window.onYouTubeIframeAPIReady = onReady;
+
+    // Undo everything this attempt installed. Without this the module caches a
+    // rejected promise for the lifetime of the page and every later call returns
+    // that rejection, so one network blip permanently breaks the component
+    // until a full reload (2.23 / M-2).
+    const fail = (error: Error) => {
+      if (window.onYouTubeIframeAPIReady === onReady) {
+        window.onYouTubeIframeAPIReady = previousReady;
+      }
+      // The failed <script> is still in the DOM. Leaving it would make the next
+      // attempt take the "script exists, wait for the callback" branch below and
+      // hang forever, because a script that errored will never call back.
+      document.getElementById(SCRIPT_ID)?.remove();
+      apiPromise = null;
+      reject(error);
     };
 
     if (document.getElementById(SCRIPT_ID)) {
@@ -67,7 +89,7 @@ const ensureYouTubeApi = (): Promise<void> => {
     script.id = SCRIPT_ID;
     script.src = 'https://www.youtube.com/iframe_api';
     script.async = true;
-    script.onerror = () => reject(new Error('Failed to load the YouTube IFrame API'));
+    script.onerror = () => fail(new Error('Failed to load the YouTube IFrame API'));
     document.head.appendChild(script);
   });
 
@@ -108,6 +130,17 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
     const timeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const callbacksRef = useRef({ onReady, onStateChange, onPlay, onPause, onEnd, onTimeUpdate, onError });
     callbacksRef.current = { onReady, onStateChange, onPlay, onPause, onEnd, onTimeUpdate, onError };
+
+    // The mount effect below runs once with `[]` deps, so anything it reads
+    // directly is frozen at the first render. `videoId` and `autoplay` are read
+    // there, and a video id that arrives *after* mount — or changes while
+    // `ensureYouTubeApi()` is still pending — was silently dropped, leaving the
+    // player on the wrong video (2.22 / M-1). Reading them through a ref means
+    // the constructor always sees the latest value at the moment it runs.
+    const latestVideoIdRef = useRef(videoId);
+    latestVideoIdRef.current = videoId;
+    const latestAutoplayRef = useRef(autoplay);
+    latestAutoplayRef.current = autoplay;
 
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
@@ -163,11 +196,11 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
           if (destroyed || !mountedRef.current || !hostRef.current || playerRef.current) return;
 
           playerRef.current = new window.YT!.Player(hostRef.current, {
-            videoId,
+            videoId: latestVideoIdRef.current,
             width: '200',
             height: '200',
             playerVars: {
-              autoplay: autoplay ? 1 : 0,
+              autoplay: latestAutoplayRef.current ? 1 : 0,
               controls: 0,
               disablekb: 1,
               modestbranding: 1,
@@ -179,7 +212,7 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
               onReady: (event) => {
                 event.target.setVolume(Math.round(internalVolume * 100));
                 callbacksRef.current.onReady?.(handle);
-                if (autoplay) {
+                if (latestAutoplayRef.current) {
                   event.target.playVideo();
                 }
               },

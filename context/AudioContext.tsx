@@ -68,6 +68,8 @@ interface AudioContextValue extends AudioState {
   handleYouTubeEnded: () => void;
   /** Called by <PlaybackManager> when the YouTube embed errors — falls back to preview. */
   handleYouTubeError: () => void;
+  /** Called by <PlaybackManager> when the YouTube embed actually starts playing. */
+  handleYouTubePlay: () => void;
 }
 
 const AudioContext = createContext<AudioContextValue | null>(null);
@@ -103,6 +105,10 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const youtubeFallbackRef = useRef<string | null>(null);
   const currentSongIdRef = useRef<string | null>(null);
   const playbackSourceRef = useRef<PlaybackSourceKind | null>(null);
+  /** The tier the server resolved for the current song. Diverges from
+   *  `playbackSourceRef` only when the YouTube embed fails and the client falls
+   *  back to the Spotify preview; reporting must use this one. */
+  const resolvedSourceRef = useRef<PlaybackSourceKind | null>(null);
   const currentTimeRef = useRef(0);
   const { isSpotifyPremium } = useAuth();
   const webPlayback = useWebPlayback();
@@ -115,7 +121,13 @@ export function AudioProvider({ children }: { children: ReactNode }) {
 
   const reportEvent = useCallback((eventType: PlaybackEventType) => {
     const songId = currentSongIdRef.current;
-    const source = playbackSourceRef.current;
+    // Report the source the *server* resolved for this song, not whatever tier
+    // the client has degraded to. `POST /api/playback/report` rejects a `play`
+    // whose source disagrees with its own resolution (409 SOURCE_MISMATCH), so
+    // reporting the YouTube embed's Spotify-preview fallback as
+    // `SPOTIFY_PREVIEW` would have the play refused and the view/leaderboard
+    // increment lost — the one case where the two legitimately differ.
+    const source = resolvedSourceRef.current ?? playbackSourceRef.current;
     if (!songId || !source || songId.startsWith('spotify:')) return;
     void playbackApi.reportPlaybackEvent({
       songId,
@@ -124,6 +136,26 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       positionMs: Math.round(currentTimeRef.current * 1000),
     });
   }, []);
+
+  /**
+   * 2.24 / M-6 — `play` must mean "playback actually started", not "a source was
+   * selected". It used to be reported the moment a source tier was chosen: after
+   * `audio.load()` but before `audio.play()`, and for YouTube before the embed
+   * existed at all. A track that was never actually played still produced a
+   * `play` row, and a play that then failed (blocked autoplay, geo/embed error)
+   * left the same phantom row behind with nothing to retract it.
+   *
+   * Reporting is now driven by the media element's own `play` event and by the
+   * YouTube embed's `onPlay`, and is gated so a track reports at most one
+   * `play` however many times it is paused and resumed. That preserves the
+   * previous one-per-track volume while making it truthful.
+   */
+  const playReportedRef = useRef(false);
+  const reportPlayOnce = useCallback(() => {
+    if (playReportedRef.current) return;
+    playReportedRef.current = true;
+    reportEvent('play');
+  }, [reportEvent]);
 
   const registerYouTubeController = useCallback((controller: YouTubeController | null) => {
     ytControllerRef.current = controller;
@@ -141,6 +173,15 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     reportEvent('complete');
   }, [reportEvent]);
 
+  /**
+   * The embed genuinely started playing. This is the only trustworthy `play`
+   * signal for the YouTube tier — `setYoutubeVideoId` merely schedules a mount.
+   */
+  const handleYouTubePlay = useCallback(() => {
+    setIsPlaying(true);
+    reportPlayOnce();
+  }, [reportPlayOnce]);
+
   /** Called by <PlaybackManager> when the YouTube embed errors (blocked/geo).
    *  Falls back to the Tier 3 Spotify preview when one is available. */
   const handleYouTubeError = useCallback(() => {
@@ -154,12 +195,25 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     }
     setCurrentTrack((prev) => (prev ? { ...prev, previewUrl: fallbackUrl } : prev));
     setPlaybackMode('preview');
+    // Update the ref synchronously, not via the [playbackMode] effect. The
+    // element's `play` event below is dispatched by the browser rather than by
+    // React, and the `play` listener gates on this ref — if React had not
+    // committed the state change yet, a genuine fallback play would be
+    // misclassified and go unreported. Same reason `playbackSourceRef` is
+    // assigned inline a few lines below.
+    playbackModeRef.current = 'preview';
     setYoutubeVideoId(null);
     setPlaybackSource('SPOTIFY_PREVIEW');
     playbackSourceRef.current = 'SPOTIFY_PREVIEW';
     if (audio) {
       audio.src = fallbackUrl;
       audio.load();
+      // Always start the fallback. The gate is `reportPlayOnce`, not this call:
+      // if the embed really did start before it died, the track has already been
+      // counted, but the user still expects the replacement to play, and
+      // suppressing it here left them in silence. `playReportedRef` is not
+      // consulted so a genuine fallback play is never skipped, and so a late
+      // `onPlay` from the dying embed cannot re-report under the new source.
       audio.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
     }
   }, []);
@@ -273,19 +327,33 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         reportEvent('complete');
       }
     };
+    // The element's own `play` event is the first moment playback is real, so
+    // this — not the `audio.load()` that precedes it — is where `play` is
+    // reported. It also covers the paths that start the element without going
+    // through source selection: a pause/resume in `togglePlayPause`, and the
+    // Spotify-preview fallback in `handleYouTubeError`. A play attempt rejected
+    // by the browser fires no event, so a blocked autoplay reports nothing
+    // rather than a phantom play (2.24 / M-6).
+    const onPlay = () => {
+      if (playbackModeRef.current !== 'preview') return;
+      setIsPlaying(true);
+      reportPlayOnce();
+    };
 
     audio.addEventListener('timeupdate', onTimeUpdate);
     audio.addEventListener('loadedmetadata', onLoadedMetadata);
     audio.addEventListener('ended', onEnded);
+    audio.addEventListener('play', onPlay);
 
     return () => {
       audio.removeEventListener('timeupdate', onTimeUpdate);
       audio.removeEventListener('loadedmetadata', onLoadedMetadata);
       audio.removeEventListener('ended', onEnded);
+      audio.removeEventListener('play', onPlay);
       audio.pause();
       audio.src = '';
     };
-  }, [reportEvent]);
+  }, [reportEvent, reportPlayOnce]);
 
   const loadTrack = useCallback(async (artist: string, title: string) => {
     const key = `${artist}::${title}`;
@@ -515,16 +583,22 @@ export function AudioProvider({ children }: { children: ReactNode }) {
 
       setPlaybackSource(src.source);
       playbackSourceRef.current = src.source;
+      resolvedSourceRef.current = src.source;
+
+      // A new track: re-arm the `play` gate. The event itself is emitted later,
+      // by the media element's `play` event or the embed's `onPlay`, so a source
+      // that is selected but never actually played reports nothing (2.24 / M-6).
+      playReportedRef.current = false;
 
       // Tier 1: own uploaded audio
       if (src.source === 'AUDIO_URL' && src.audioUrl) {
         const url = toMediaUrl(src.audioUrl);
         setCurrentTrack({ ...baseTrack, previewUrl: url, audioUrl: url });
         setPlaybackMode('preview');
+        playbackModeRef.current = 'preview';
         setSdkPending(false);
         audio.src = url;
         audio.load();
-        reportEvent('play');
         return;
       }
 
@@ -532,10 +606,10 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       if (src.source === 'YOUTUBE' && src.youtubeVideoId && featureFlags.youtubePlayback) {
         setCurrentTrack(baseTrack);
         setPlaybackMode('youtube');
+        playbackModeRef.current = 'youtube';
         setSdkPending(false);
         setYoutubeVideoId(src.youtubeVideoId);
         youtubeFallbackRef.current = src.previewUrl ?? null;
-        reportEvent('play');
         return;
       }
       youtubeFallbackRef.current = null;
@@ -544,10 +618,10 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       if (src.source === 'SPOTIFY_PREVIEW' && src.previewUrl) {
         setCurrentTrack({ ...baseTrack, previewUrl: src.previewUrl });
         setPlaybackMode('preview');
+        playbackModeRef.current = 'preview';
         setSdkPending(false);
         audio.src = src.previewUrl;
         audio.load();
-        reportEvent('play');
         return;
       }
 
@@ -601,6 +675,9 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       reportEvent('pause');
     } else {
       try {
+        // No `reportEvent('play')` here on purpose: the element's own `play`
+        // event reports it, which is also why a rejected attempt (blocked
+        // autoplay) reports nothing instead of a phantom play (2.24 / M-6).
         await audio.play();
         setIsPlaying(true);
       } catch {
@@ -697,8 +774,9 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       reportYouTubeState,
       handleYouTubeEnded,
       handleYouTubeError,
+      handleYouTubePlay,
     }),
-    [currentTrack, isPlaying, currentTime, duration, loading, playbackMode, playbackSource, youtubeVideoId, trackEndedCount, sdkPending, sdkPlaybackFailed, sdkPlaybackError, loadTrack, loadTrackById, loadTrackBySongId, togglePlayPause, play, pause, seek, retryPlayback, retrySdkPlayback, getAudioElement, currentSongId, setCurrentSongId, registerYouTubeController, reportYouTubeState, handleYouTubeEnded, handleYouTubeError],
+    [currentTrack, isPlaying, currentTime, duration, loading, playbackMode, playbackSource, youtubeVideoId, trackEndedCount, sdkPending, sdkPlaybackFailed, sdkPlaybackError, loadTrack, loadTrackById, loadTrackBySongId, togglePlayPause, play, pause, seek, retryPlayback, retrySdkPlayback, getAudioElement, currentSongId, setCurrentSongId, registerYouTubeController, reportYouTubeState, handleYouTubeEnded, handleYouTubeError, handleYouTubePlay],
   );
 
   return <AudioContext.Provider value={value}>{children}</AudioContext.Provider>;

@@ -32,6 +32,7 @@ export interface TokenHistoryResponse {
 
 export interface BalanceResponse {
   balance: number;
+  translationCredits?: number;
 }
 
 export interface UserProfile {
@@ -431,7 +432,7 @@ export const tokenApi = {
     apiRequest<PassCatalogEntry[]>('/tokens/passes'),
 
   purchasePass: (passType: PassType) =>
-    apiRequest<{ passId: string; type: PassType; label: string; expiresAt: string; newBalance: number }>(
+    apiRequest<{ passId: string; type: PassType; label: string; expiresAt: string; newBalance: number; translationCredits: number }>(
       '/tokens/purchase-pass',
       { method: 'POST', body: JSON.stringify({ passType }) },
     ),

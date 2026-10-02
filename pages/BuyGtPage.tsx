@@ -183,7 +183,11 @@ const BuyGtPage: React.FC = () => {
     setMessage(null);
     try {
       const result = await tokenApi.purchasePass(passType as any);
-      setMessage({ type: 'success', text: `${result.label} activated!` });
+      const creditsSuffix =
+        typeof result.translationCredits === 'number'
+          ? ` Translation credits remaining: ${result.translationCredits}`
+          : '';
+      setMessage({ type: 'success', text: `${result.label} activated!${creditsSuffix}` });
       await refreshBalance();
       const fresh = await tokenApi.getActivePass().catch(() => null);
       setActivePass(fresh);
