@@ -63,10 +63,12 @@ import AccountPage from './pages/AccountPage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import TokenHistoryPage from './pages/TokenHistoryPage';
 import StorePage from './pages/StorePage';
+import BuyGtPage from './pages/BuyGtPage';
 import ReferralsPage from './pages/ReferralsPage';
-import SpotifyLinkDialog from './components/SpotifyLinkDialog';
 import NowPlayingBar from './components/NowPlayingBar';
+import PlaybackManager from './components/PlaybackManager';
 import ScrollToTop from './components/ScrollToTop';
+import { PlaybackProvider } from './context/PlaybackContext';
 import { featureFlags } from './config/featureFlags';
 
 function App() {
@@ -74,10 +76,12 @@ function App() {
     <AuthProvider>
       <WebPlaybackProvider>
         <AudioProvider>
-        <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-          <AppRoutes />
-        </HashRouter>
-
+          <PlaybackProvider>
+            <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+              <AppRoutes />
+            </HashRouter>
+            <PlaybackManager />
+          </PlaybackProvider>
         </AudioProvider>
       </WebPlaybackProvider>
     </AuthProvider>
@@ -107,6 +111,7 @@ function AppRoutes() {
               {featureFlags.leaderboardPage && <Route path="/leaderboard" element={<LeaderboardPage />} />}
               {featureFlags.tokensPage && <Route path="/tokens" element={<ProtectedRoute><TokenHistoryPage /></ProtectedRoute>} />}
               {featureFlags.storePage && <Route path="/store" element={<StorePage />} />}
+              {featureFlags.buyGtPage && <Route path="/buy-gt" element={<ProtectedRoute><BuyGtPage /></ProtectedRoute>} />}
               {featureFlags.referralsPage && <Route path="/referrals" element={<ProtectedRoute><ReferralsPage /></ProtectedRoute>} />}
               <Route path="/" element={<HomePage />} />
               <Route path="/song/:id" element={<TranslationPage />} />
@@ -186,7 +191,6 @@ function AppRoutes() {
                 <Route path="settings" element={<ModSettings />} />
               </Route>
             </Routes>
-            <SpotifyLinkDialog />
             {!isCommunityRedesign && !isSongPlayback && <NowPlayingBar />}
           </main>
           {isHomePage && <Footer />}

@@ -159,10 +159,10 @@ const LanguageResultPage: React.FC = () => {
                             e.preventDefault();
                             if (isThisPlaying) {
                               togglePlayPause();
+                            } else if (song.id && !song.id.startsWith('spotify:')) {
+                              loadTrackBySongId(song.id, song.title, song.artist);
                             } else if (song.spotifyId) {
                               loadTrackById(song.spotifyId!, song.title, song.artist);
-                            } else {
-                              loadTrackBySongId(song.id, song.title, song.artist);
                             }
                           }}
                           className="text-sm font-bold text-gray-500 hover:text-green-400 transition-colors w-full h-full flex items-center justify-center"

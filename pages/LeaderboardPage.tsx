@@ -109,7 +109,7 @@ const LeaderboardPage: React.FC = () => {
       <div className="container mx-auto px-4 py-8 max-w-3xl">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">Leaderboard</h1>
-          <p className="text-gray-400">Top contributors by token balance</p>
+          <p className="text-gray-400">Top contributors by GT balance</p>
         </div>
 
         {/* View Tabs */}
@@ -184,7 +184,7 @@ const LeaderboardPage: React.FC = () => {
 
             {!loading && entries.length === 0 && (
               <div className="text-center py-16">
-                <p className="text-gray-500">No contributors yet. Start translating to earn tokens!</p>
+                <p className="text-gray-500">No contributors yet. Start translating to earn GT!</p>
               </div>
             )}
 

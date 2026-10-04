@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { apiFetch } from '../lib/apiClient';
 import { useAudioPlayer } from '../context/AudioContext';
-import { useAuth } from '../context/AuthContext';
 import { SongListSkeleton } from '../components/PageSkeletons';
 import type { Song, Artist, Genre } from '../types';
 
@@ -19,7 +18,6 @@ const SongsCatalogPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const { isSpotifyPremium } = useAuth();
   const { loadTrackById, loadTrackBySongId, currentTrack, isPlaying, togglePlayPause, playbackMode } = useAudioPlayer();
 
   // Search and filters
@@ -374,10 +372,10 @@ const SongsCatalogPage: React.FC = () => {
                           e.preventDefault();
                           if (isThisPlaying) {
                             togglePlayPause();
+                          } else if (song.id && !song.id.startsWith('spotify:')) {
+                            loadTrackBySongId(song.id, song.title, song.artist);
                           } else if (song.spotifyId) {
                             loadTrackById(song.spotifyId!, song.title, song.artist);
-                          } else {
-                            loadTrackBySongId(song.id, song.title, song.artist);
                           }
                         }}
                         className="text-sm sm:text-base md:text-lg font-bold text-gray-500 hover:text-green-400 transition-colors w-full h-full flex items-center justify-center"

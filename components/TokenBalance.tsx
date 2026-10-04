@@ -1,75 +1,53 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { tokenApi } from '../services/tokenService';
 
 interface TokenBalanceProps {
   className?: string;
   showLink?: boolean;
 }
 
-const REFRESH_INTERVAL_MS = 60000;
-
+// Live balance pill. Reads the SSE-fed balance from AuthContext — updates are
+// pushed the moment the ledger commits, with a 30s polling fallback handled by
+// the useBalanceStream hook. When a balance event arrives the pill pulses green
+// (+delta badge) or red (−delta badge) for a moment, then fades back out.
 const TokenBalance: React.FC<TokenBalanceProps> = ({ className = '', showLink = true }) => {
-  const { user } = useAuth();
-  const [balance, setBalance] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const loadBalance = useCallback(async () => {
-    if (!user?.id) return;
-    try {
-      const profile = await tokenApi.getProfile(user.id);
-      setBalance(profile.tokenBalance);
-    } catch {
-      // Keep the last known balance on transient errors; only show 0 if we have nothing.
-      setBalance((prev) => prev ?? 0);
-    } finally {
-      setLoading(false);
-    }
-  }, [user?.id]);
+  const { user, balance, lastBalanceEvent } = useAuth();
+  const [delta, setDelta] = useState<number | null>(null);
+  const [pulseKey, setPulseKey] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user?.id) {
-      setLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    const run = async () => {
-      if (cancelled) return;
-      await loadBalance();
-    };
-
-    run();
-
-    // Keep the navbar balance current while the app stays open (tokens are
-    // earned/modified during a session and this component may never remount).
-    const interval = setInterval(run, REFRESH_INTERVAL_MS);
-    const onFocus = () => run();
-    window.addEventListener('focus', onFocus);
-
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-      window.removeEventListener('focus', onFocus);
-    };
-  }, [loadBalance]);
+    if (!lastBalanceEvent || typeof lastBalanceEvent.delta !== 'number') return;
+    setDelta(lastBalanceEvent.delta);
+    setPulseKey(lastBalanceEvent.timestamp);
+  }, [lastBalanceEvent]);
 
   if (!user) return null;
-  if (loading) {
-    return (
-      <span className={`inline-flex items-center gap-1 text-xs text-gray-500 ${className}`}>
-        <span className="w-3 h-3 rounded-full bg-gray-700 animate-pulse" />
-      </span>
-    );
-  }
+
+  const pulseCls =
+    delta === null ? '' : delta >= 0 ? 'gt-pulse-gain' : 'gt-pulse-loss';
 
   const content = (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/15 text-amber-400 border border-amber-500/30 ${className}`}>
+    <span
+      key={pulseKey ?? 'idle'}
+      className={`relative inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/15 text-amber-400 border border-amber-500/30 ${pulseCls} ${className}`}
+    >
       <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
         <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
       </svg>
-      {balance}
+      <span className="tabular-nums">{balance ?? 0}</span>
+      <span className="text-amber-500/70 font-semibold">GT</span>
+      {delta !== null && pulseKey !== null && (
+        <span
+          key={`delta-${pulseKey}`}
+          className={`absolute -top-3 -right-1 text-xs font-bold tabular-nums gt-delta-fade ${
+            delta >= 0 ? 'text-green-400' : 'text-red-400'
+          }`}
+        >
+          {delta >= 0 ? '+' : ''}
+          {delta}
+        </span>
+      )}
     </span>
   );
 

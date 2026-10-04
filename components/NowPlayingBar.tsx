@@ -2,6 +2,7 @@ import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAudioPlayer } from '../context/AudioContext';
 import { useWebPlayback } from '../context/WebPlaybackContext';
+import { usePlayback } from '../context/PlaybackContext';
 
 const formatTime = (seconds: number) => {
   const safe = Number.isFinite(seconds) && seconds >= 0 ? seconds : 0;
@@ -23,6 +24,7 @@ export default function NowPlayingBar() {
   } = useAudioPlayer();
 
   const webPlayback = useWebPlayback();
+  const playback = usePlayback();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -62,10 +64,10 @@ export default function NowPlayingBar() {
           {/* Controls */}
           <div onClick={(e) => e.stopPropagation()} className="flex items-center gap-2">
             <>
-              {playbackMode === 'sdk' && (
+              {(playbackMode === 'sdk' || playback.hasQueue) && (
                 <button
                   type="button"
-                  onClick={webPlayback.previousTrack}
+                  onClick={() => (playbackMode === 'sdk' ? webPlayback.previousTrack() : playback.previous())}
                   className="p-2 text-gray-400 hover:text-white transition-colors"
                   aria-label="Previous"
                 >
@@ -92,10 +94,10 @@ export default function NowPlayingBar() {
                 )}
               </button>
 
-              {playbackMode === 'sdk' && (
+              {(playbackMode === 'sdk' || playback.hasQueue) && (
                 <button
                   type="button"
-                  onClick={webPlayback.nextTrack}
+                  onClick={() => (playbackMode === 'sdk' ? webPlayback.nextTrack() : playback.next())}
                   className="p-2 text-gray-400 hover:text-white transition-colors"
                   aria-label="Next"
                 >
