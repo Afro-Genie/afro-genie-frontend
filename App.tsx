@@ -2,7 +2,6 @@ import React from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { AudioProvider } from './context/AudioContext';
-import { WebPlaybackProvider } from './context/WebPlaybackContext';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import HomePage from './pages/HomePage';
@@ -23,7 +22,6 @@ import CommunityManager from './pages/admin/CommunityManager';
 import UsersManager from './pages/admin/UsersManager';
 import UnifiedManager from './pages/admin/UnifiedManager';
 import GenieManager from './pages/admin/GenieManager';
-import SpotifyManager from './pages/admin/SpotifyManager';
 import TranslationRequestsPage from './pages/admin/TranslationRequestsPage';
 import RoleRequestsManager from './pages/admin/RoleRequestsManager';
 import EditSongPage from './pages/admin/EditSongPage';
@@ -74,16 +72,14 @@ import { featureFlags } from './config/featureFlags';
 function App() {
   return (
     <AuthProvider>
-      <WebPlaybackProvider>
-        <AudioProvider>
-          <PlaybackProvider>
-            <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-              <AppRoutes />
-            </HashRouter>
-            <PlaybackManager />
-          </PlaybackProvider>
-        </AudioProvider>
-      </WebPlaybackProvider>
+      <AudioProvider>
+        <PlaybackProvider>
+          <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <AppRoutes />
+          </HashRouter>
+          <PlaybackManager />
+        </PlaybackProvider>
+      </AudioProvider>
     </AuthProvider>
   );
 }
@@ -167,7 +163,6 @@ function AppRoutes() {
                 <Route path="store" element={<StoreManager />} />
                 <Route path="unified" element={<UnifiedManager />} />
                 <Route path="genie" element={<GenieManager />} />
-                <Route path="spotify" element={<SpotifyManager />} />
                 <Route path="translation-requests" element={<TranslationRequestsPage />} />
                 <Route path="artist-applications" element={<ArtistApplicationsManager />} />
               </Route>

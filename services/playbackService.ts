@@ -1,6 +1,6 @@
 import { apiRequest } from './api';
 
-export type PlaybackSourceKind = 'AUDIO_URL' | 'YOUTUBE' | 'SPOTIFY_PREVIEW' | 'NONE';
+export type PlaybackSourceKind = 'AUDIO_URL' | 'YOUTUBE' | 'NONE';
 
 export type PlaybackEventType = 'play' | 'pause' | 'complete' | 'skip';
 
@@ -16,7 +16,6 @@ export interface PlaybackSource {
   source: PlaybackSourceKind;
   audioUrl?: string;
   youtubeVideoId?: string;
-  previewUrl?: string;
   song?: PlaybackSourceSong;
 }
 

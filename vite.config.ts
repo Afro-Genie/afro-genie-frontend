@@ -1,7 +1,37 @@
 import path from 'path';
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import fs from 'fs';
+
+const isIpLiteralHost = (host: string): boolean => {
+  const hostname = host.split(':')[0].toLowerCase();
+  if (hostname.startsWith('[')) return true; // e.g. [::1]
+  return /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname);
+};
+
+// YouTube blocks embeds served from IP-literal origins (e.g. http://127.0.0.1:3000
+// fails with player error 150) but allows http://localhost:3000. Redirect any
+// document navigation from an IP-literal host to localhost, preserving
+// protocol, port and the #/ hash route.
+const redirectIpHostsToLocalhost = (): Plugin => ({
+  name: 'redirect-ip-hosts-to-localhost',
+  configureServer(server) {
+    server.middlewares.use((req, res, next) => {
+      const host = req.headers.host;
+      const acceptsHtml = (req.headers.accept || '').includes('text/html');
+      if (host && isIpLiteralHost(host) && acceptsHtml) {
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.end(
+          `<!doctype html><script>` +
+            `location.replace(location.protocol + '//localhost:' + location.port + location.pathname + location.search + location.hash)` +
+            `<\/script>`,
+        );
+        return;
+      }
+      next();
+    });
+  },
+});
 
 // HTTPS for local dev: optional, opt-in via VITE_DEV_HTTPS=true in .env
 // Run once: mkcert -install && mkcert 127.0.0.1
@@ -30,6 +60,7 @@ export default defineConfig(({ mode }) => {
     return {
       server: {
         port: 3000,
+        strictPort: true,
         host: '127.0.0.1',
         https: getHttpsConfig(),
         proxy: {
@@ -134,12 +165,10 @@ export default defineConfig(({ mode }) => {
           }
         }
       },
-      plugins: [react()],
+      plugins: [react(), redirectIpHostsToLocalhost()],
       define: {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
         'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'import.meta.env.VITE_SPOTIFY_CLIENT_ID': JSON.stringify(env.VITE_SPOTIFY_CLIENT_ID || env.SPOTIFY_CLIENT_ID || ''),
-        'import.meta.env.VITE_SPOTIFY_REDIRECT_URI': JSON.stringify(env.VITE_SPOTIFY_REDIRECT_URI || ''),
         'import.meta.env.VITE_LYRICFIND_API_KEY': JSON.stringify(env.LYRICFIND_API_KEY || ''),
         'import.meta.env.VITE_LYRICFIND_USERNAME': JSON.stringify(env.LYRICFIND_USERNAME || ''),
         'import.meta.env.VITE_GENIUS_ACCESS_TOKEN': JSON.stringify(env.GENIUS_ACCESS_TOKEN || '')

@@ -74,7 +74,7 @@ const HomePage: React.FC = () => {
     const [showTranslationInfo, setShowTranslationInfo] = useState(false);
 
     const { user } = useAuth();
-    const { loadTrackById, loadTrackBySongId, currentTrack, isPlaying, togglePlayPause } = useAudioPlayer();
+    const { loadTrackBySongId, currentTrack, isPlaying, togglePlayPause } = useAudioPlayer();
     const navigate = useNavigate();
 
     // Languages supported — built from canonical source
@@ -111,7 +111,6 @@ const HomePage: React.FC = () => {
                         genre: '',
                         album: s.albumName,
                         requestCount: 0,
-                        spotifyId: s.spotifyId || null,
                         source: s.source || null,
                     }));
                     const sortedSongs = fetchedSongs.sort((a: any, b: any) => {
@@ -329,7 +328,7 @@ const HomePage: React.FC = () => {
                                 <div className="flex md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-1 max-h-[600px] overflow-x-auto md:overflow-y-auto pr-2 pb-2 scroll-smooth-x">
                                     {songs.slice(0, 100).map((song, index) => {
                                         const artistName = song.artist || '';
-                                        const isThisPlaying = currentTrack?.id === (song.spotifyId ?? song.id) && isPlaying;
+                                        const isThisPlaying = currentTrack?.id === song.id && isPlaying;
 
                                         return (
                                         <div
@@ -337,7 +336,7 @@ const HomePage: React.FC = () => {
                                             className="group min-w-[240px] md:min-w-0 flex items-center gap-2 py-2.5 sm:py-1.5 px-2 min-h-[44px] hover:bg-gray-700/50 rounded transition-colors"
                                         >
                                             <div className="flex-shrink-0 w-6 text-right">
-                                                {song.spotifyId || song.id ? (
+{song.id ? (
                                                     <button
                                                         type="button"
                                                         onClick={(e) => {
@@ -346,8 +345,6 @@ const HomePage: React.FC = () => {
                                                                 togglePlayPause();
                                                             } else if (song.id && !song.id.startsWith('spotify:')) {
                                                                 loadTrackBySongId(song.id, song.title, artistName);
-                                                            } else if (song.spotifyId) {
-                                                                loadTrackById(song.spotifyId!, song.title, artistName);
                                                             }
                                                         }}
                                                         className="text-sm font-semibold text-gray-500 hover:text-green-400 transition-colors w-6 h-6 flex items-center justify-center"

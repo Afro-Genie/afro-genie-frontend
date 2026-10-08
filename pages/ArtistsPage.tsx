@@ -42,7 +42,6 @@ const ArtistsPage: React.FC = () => {
           name: a.name,
           genre: a.genres?.[0] || '',
           image: a.imageUrl || '',
-          spotifyId: a.spotifyId,
           bio: a.bio,
           popularity: a.popularity || 0,
           followers: a.followers || 0,

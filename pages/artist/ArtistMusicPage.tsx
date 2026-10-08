@@ -15,6 +15,7 @@ interface Song {
   requestCount: number;
   imageUrl?: string;
   audioUrl?: string;
+  youtubeVideoId?: string | null;
   released?: boolean;
   durationMs?: number;
   release?: { id: string; title: string; status: string } | null;

@@ -30,7 +30,6 @@ vi.mock('@/components/YouTubePlayer', () => ({
 // production shape once the flag is on.
 vi.mock('@/config/featureFlags', () => ({
   featureFlags: { youtubePlayback: true },
-  spotifyProxyBaseUrl: 'http://localhost:3001/api',
 }));
 
 const audioContext = {

@@ -49,7 +49,6 @@ const ArtistApplicationPage: React.FC = () => {
     yearsActive: '',
     imageUrl: '',
     bannerImageUrl: '',
-    spotifyArtistId: '',
     instagram: '',
     twitter: '',
     facebook: '',
@@ -95,7 +94,6 @@ const ArtistApplicationPage: React.FC = () => {
             tiktok: formData.tiktok || undefined,
             website: formData.website || undefined,
           },
-          spotifyArtistId: formData.spotifyArtistId || undefined,
           imageUrl: formData.imageUrl || undefined,
         }),
       });
@@ -461,21 +459,7 @@ const ArtistApplicationPage: React.FC = () => {
               <div className="space-y-6">
                 <div>
                   <h2 className="text-xl font-semibold text-white mb-1">Online Presence</h2>
-                  <p className="text-gray-400 text-sm">Connect your streaming and social media accounts.</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1.5">
-                    Spotify Artist ID
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.spotifyArtistId}
-                    onChange={(e) => update('spotifyArtistId', e.target.value)}
-                    className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    placeholder="Your Spotify Artist ID (from your Spotify artist page URL)"
-                  />
-                  <p className="text-gray-500 text-xs mt-1">Find this in your Spotify for Artists dashboard or your artist page URL.</p>
+                  <p className="text-gray-400 text-sm">Connect your social media accounts.</p>
                 </div>
 
                 <div className="border-t border-gray-700 pt-5">
@@ -565,7 +549,7 @@ const ArtistApplicationPage: React.FC = () => {
                 <div className="bg-gray-700/40 rounded-xl p-5 border border-gray-600/50">
                   <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3">Online Presence</h3>
                   <div className="grid grid-cols-2 gap-2 text-sm">
-                    {(['spotifyArtistId', 'instagram', 'twitter', 'tiktok', 'youtube', 'facebook', 'website'] as const).map((field) => (
+                    {(['instagram', 'twitter', 'tiktok', 'youtube', 'facebook', 'website'] as const).map((field) => (
                       formData[field] ? (
                         <div key={field}>
                           <span className="text-gray-500 capitalize">{field.replace(/([A-Z])/g, ' $1').trim()}</span>
@@ -574,7 +558,7 @@ const ArtistApplicationPage: React.FC = () => {
                       ) : null
                     ))}
                   </div>
-                  {!(formData.spotifyArtistId || formData.instagram || formData.twitter || formData.tiktok || formData.youtube || formData.facebook || formData.website) && (
+                  {!(formData.instagram || formData.twitter || formData.tiktok || formData.youtube || formData.facebook || formData.website) && (
                     <p className="text-gray-500 text-sm">No social links provided.</p>
                   )}
                 </div>

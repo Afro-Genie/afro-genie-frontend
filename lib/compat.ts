@@ -88,8 +88,6 @@ export interface NormalizableSong {
   artist?: string;
   genres?: any[];
   languages?: any[];
-  spotifyId?: string | null;
-  spotifyPreviewUrl?: string | null;
   [key: string]: any;
 }
 

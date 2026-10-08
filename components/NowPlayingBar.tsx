@@ -1,7 +1,6 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAudioPlayer } from '../context/AudioContext';
-import { useWebPlayback } from '../context/WebPlaybackContext';
 import { usePlayback } from '../context/PlaybackContext';
 
 const formatTime = (seconds: number) => {
@@ -21,14 +20,36 @@ export default function NowPlayingBar() {
     togglePlayPause,
     seek,
     currentSongId,
+    playbackUnavailable,
   } = useAudioPlayer();
 
-  const webPlayback = useWebPlayback();
   const playback = usePlayback();
   const location = useLocation();
   const navigate = useNavigate();
 
   const isOnSongPage = /^\/songs?\//.test(location.pathname);
+
+  // Nothing resolved to a playable source. Previously this returned `null`, so a
+  // catalog row with no audio was indistinguishable from a broken app. Say so.
+  if (playbackUnavailable && !isOnSongPage) {
+    return (
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#1a2b22]/95 backdrop-blur-sm border-t border-white/10">
+        <div className="container mx-auto px-3 sm:px-4 lg:px-8">
+          <div className="flex items-center gap-3 h-14 sm:h-16">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-white truncate">{currentTrack?.name ?? 'Preview unavailable'}</p>
+              <p className="text-xs text-gray-400 truncate">
+                {currentTrack?.artistName ?? 'No audio source for this track yet.'}
+              </p>
+            </div>
+            <span className="shrink-0 text-xs font-medium px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30">
+              Preview unavailable
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!currentTrack || playbackMode === 'none' || !isPlaying || isOnSongPage) return null;
 
@@ -64,10 +85,10 @@ export default function NowPlayingBar() {
           {/* Controls */}
           <div onClick={(e) => e.stopPropagation()} className="flex items-center gap-2">
             <>
-              {(playbackMode === 'sdk' || playback.hasQueue) && (
+              {playback.hasQueue && (
                 <button
                   type="button"
-                  onClick={() => (playbackMode === 'sdk' ? webPlayback.previousTrack() : playback.previous())}
+                  onClick={() => playback.previous()}
                   className="p-2 text-gray-400 hover:text-white transition-colors"
                   aria-label="Previous"
                 >
@@ -94,10 +115,10 @@ export default function NowPlayingBar() {
                 )}
               </button>
 
-              {(playbackMode === 'sdk' || playback.hasQueue) && (
+              {playback.hasQueue && (
                 <button
                   type="button"
-                  onClick={() => (playbackMode === 'sdk' ? webPlayback.nextTrack() : playback.next())}
+                  onClick={() => playback.next()}
                   className="p-2 text-gray-400 hover:text-white transition-colors"
                   aria-label="Next"
                 >
@@ -133,13 +154,7 @@ export default function NowPlayingBar() {
             </span>
           </div>
 
-          {/* Mode badge */}
-          {playbackMode === 'sdk' && (
-            <span className="hidden lg:inline-flex items-center gap-1 rounded bg-green-900/40 px-1.5 py-0.5 text-[10px] font-medium text-green-400">
-              Full Track
-            </span>
-          )}
-        </div>
+          </div>
       </div>
     </div>
   );

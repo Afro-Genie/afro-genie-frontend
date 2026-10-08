@@ -12,7 +12,7 @@ import { featureFlags } from '../config/featureFlags';
  * Visible controls live in <NowPlayingBar>.
  *
  * Gated on the Phase 4 rollout flag (`VITE_FLAG_PLAYBACK_YOUTUBE`): when the
- * flag is off the legacy Spotify player (SDK/preview) is used exclusively.
+ * flag is off a song with no own audio of its own resolves to no source.
  */
 const PlaybackManager: React.FC = () => {
   const {

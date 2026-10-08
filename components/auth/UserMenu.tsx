@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { usePendingRequests } from '../../hooks/usePendingRequests';
 import UserIcon from '../icons/UserIcon';
-import PremiumBadge from '../PremiumBadge';
 import TokenBalance from '../TokenBalance';
 import { useNotification } from '../../hooks/useNotification';
 import Notification from '../Notification';
@@ -15,7 +14,7 @@ interface UserMenuProps {
 }
 
 const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
-  const { user, isAdmin, isArtist, isModerator, isSpotifyPremium, logout } = useAuth();
+  const { user, isAdmin, isArtist, isModerator, logout } = useAuth();
   const { artistApplication, roleRequests, loading: pendingLoading } = usePendingRequests();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -155,9 +154,6 @@ const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
                       Admin
                     </span>
                   )}
-                  {isSpotifyPremium && user.spotifyId && (
-                    <PremiumBadge variant="compact" className="mt-1" />
-                  )}
                 </div>
 
                 {/* Menu Items */}
@@ -181,9 +177,6 @@ const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                     Profile & Account Settings
-                    {!isSpotifyPremium && user.spotifyId && (
-                      <span className="ml-auto w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
-                    )}
                   </Link>
 
                   {!isArtist && !isAdmin && !isModerator && (

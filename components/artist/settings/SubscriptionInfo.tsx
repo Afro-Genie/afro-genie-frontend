@@ -3,11 +3,10 @@ import { Crown, Check } from 'lucide-react';
 
 interface SubscriptionInfoProps {
   plan: 'FREE' | 'PREMIUM' | string;
-  isSpotifyPremium?: boolean;
 }
 
-const SubscriptionInfo: React.FC<SubscriptionInfoProps> = ({ plan, isSpotifyPremium }) => {
-  const isPremium = plan === 'PREMIUM' || isSpotifyPremium;
+const SubscriptionInfo: React.FC<SubscriptionInfoProps> = ({ plan }) => {
+  const isPremium = plan === 'PREMIUM';
 
   return (
     <div className="bg-gray-900/50 border border-gray-700/50 rounded-xl overflow-hidden">

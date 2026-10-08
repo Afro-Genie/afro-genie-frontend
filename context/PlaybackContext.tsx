@@ -6,8 +6,6 @@ export interface PlaybackQueueItem {
   id: string;
   title: string;
   artist: string;
-  /** Spotify track id, used when the song only exists in the Spotify catalog. */
-  spotifyId?: string | null;
 }
 
 interface PlaybackContextValue {
@@ -36,7 +34,7 @@ export function usePlayback(): PlaybackContextValue {
 }
 
 export function PlaybackProvider({ children }: { children: ReactNode }) {
-  const { loadTrackBySongId, loadTrackById, trackEndedCount } = useAudioPlayer();
+  const { loadTrackBySongId, trackEndedCount } = useAudioPlayer();
 
   const [queue, setQueue] = useState<PlaybackQueueItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(-1);
@@ -46,11 +44,9 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     (item: PlaybackQueueItem) => {
       if (item.id && !item.id.startsWith('spotify:')) {
         void loadTrackBySongId(item.id, item.title, item.artist);
-      } else if (item.spotifyId) {
-        void loadTrackById(item.spotifyId, item.title, item.artist);
       }
     },
-    [loadTrackBySongId, loadTrackById],
+    [loadTrackBySongId],
   );
 
   const playSong = useCallback(

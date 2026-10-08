@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiRequest, artistApplicationApi, roleRequestsApi } from '../services/api';
-import { spotifyAuthService } from '../services/spotifyAuthService';
 import { usePendingRequests } from '../hooks/usePendingRequests';
 import UserNotificationSettings, { NotificationToggles } from '../components/user/settings/UserNotificationSettings';
 import UserDataSettings from '../components/user/settings/UserDataSettings';
@@ -21,12 +20,6 @@ import {
   Loader2,
 } from 'lucide-react';
 
-const SpotifySvg: React.FC = () => (
-  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" />
-  </svg>
-);
-
 interface HistoryEntry {
   songId: string;
   songTitle: string;
@@ -43,12 +36,9 @@ interface FavoriteEntry {
 }
 
 const AccountPage: React.FC = () => {
-  const { user, userProfile, isSpotifyPremium, refreshSpotifyProduct, logout } = useAuth();
+  const { user, userProfile, logout } = useAuth();
   const navigate = useNavigate();
   const { artistApplication, roleRequests, refresh: refreshPending } = usePendingRequests();
-  const [spotifyProfile, setSpotifyProfile] = useState<{ displayName: string; email: string } | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const [lastChecked, setLastChecked] = useState<Date | null>(null);
   const [cancellingArtist, setCancellingArtist] = useState(false);
   const [cancellingRole, setCancellingRole] = useState<string | null>(null);
   const [cancelError, setCancelError] = useState('');
@@ -101,27 +91,6 @@ const AccountPage: React.FC = () => {
   };
 
   useEffect(() => {
-    if (!user?.spotifyId) return;
-
-    const loadSpotifyProfile = async () => {
-      try {
-        const token = spotifyAuthService.getStoredAccessToken();
-        if (token) {
-          const profile = await spotifyAuthService.getUserProfile(token);
-          setSpotifyProfile({
-            displayName: profile.display_name,
-            email: profile.email,
-          });
-        }
-      } catch {
-        // Non-fatal
-      }
-    };
-
-    loadSpotifyProfile();
-  }, [user?.spotifyId]);
-
-  useEffect(() => {
     if (!user) {
       navigate('/');
     }
@@ -146,26 +115,6 @@ const AccountPage: React.FC = () => {
       .catch(() => {})
       .finally(() => setLoadingFavorites(false));
   }, [user]);
-
-  const handleConnectSpotify = async () => {
-    try {
-      const { url } = await spotifyAuthService.getAuthorizationUrl({ action: 'link' });
-      sessionStorage.setItem('spotify_redirect_after_auth', window.location.pathname);
-      window.location.href = url;
-    } catch (error) {
-      console.error('Failed to initiate Spotify link:', error);
-    }
-  };
-
-  const handleRecheckStatus = async () => {
-    setRefreshing(true);
-    try {
-      await refreshSpotifyProduct();
-      setLastChecked(new Date());
-    } finally {
-      setRefreshing(false);
-    }
-  };
 
   const handleLogout = async () => {
     await logout();
@@ -416,84 +365,6 @@ const AccountPage: React.FC = () => {
                     </li>
                   ))}
                 </ul>
-              )}
-            </div>
-          </div>
-
-          {/* Spotify Connection */}
-          <div className="bg-gray-900/50 border border-gray-700/50 rounded-xl overflow-hidden">
-            <div className="p-5 border-b border-gray-700/50">
-              <div className="flex items-center gap-2">
-                <SpotifySvg />
-                <h2 className="text-lg font-semibold text-white">Spotify</h2>
-              </div>
-              <p className="text-sm text-gray-400 mt-1">Connect your Spotify account for playback</p>
-            </div>
-            <div className="p-5">
-              {!user.spotifyId ? (
-                <div className="text-center py-2">
-                  <p className="text-gray-400 text-sm mb-4">
-                    Link your Spotify account for full-track playback
-                  </p>
-                  <button
-                    onClick={handleConnectSpotify}
-                    className="bg-green-600 hover:bg-green-500 text-white font-semibold py-2.5 px-6 rounded-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] inline-flex items-center gap-2"
-                  >
-                    <SpotifySvg />
-                    Connect Spotify
-                  </button>
-                </div>
-              ) : (
-                <div>
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className={`p-2 rounded-full ${isSpotifyPremium ? 'bg-green-500/20' : 'bg-gray-700/50'}`}>
-                      <SpotifySvg />
-                    </div>
-                    <div className="min-w-0">
-                      {spotifyProfile ? (
-                        <>
-                          <p className="text-white font-medium text-sm truncate">{spotifyProfile.displayName}</p>
-                          <p className="text-gray-400 text-xs truncate">{spotifyProfile.email}</p>
-                        </>
-                      ) : (
-                        <p className="text-gray-400 text-sm">Spotify account linked</p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 mb-3">
-                    {isSpotifyPremium ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-green-900/50 text-green-300 rounded-full">
-                        <SpotifySvg />
-                        Premium
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center px-2.5 py-1 text-xs font-medium bg-gray-700/50 text-gray-300 rounded-full">
-                        Free
-                      </span>
-                    )}
-                    {lastChecked && (
-                      <span className="text-xs text-gray-500">
-                        Checked {lastChecked.toLocaleTimeString()}
-                      </span>
-                    )}
-                  </div>
-
-                  <button
-                    onClick={handleRecheckStatus}
-                    disabled={refreshing}
-                    className="bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg transition-all text-sm disabled:opacity-50 inline-flex items-center gap-2"
-                  >
-                    {refreshing ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Checking...
-                      </>
-                    ) : (
-                      'Re-check Status'
-                    )}
-                  </button>
-                </div>
               )}
             </div>
           </div>
