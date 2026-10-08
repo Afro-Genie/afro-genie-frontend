@@ -18,7 +18,9 @@ import {
   Clock,
   ExternalLink,
   Loader2,
+  Gift,
 } from 'lucide-react';
+import { tokenApi, type UserEntitlement } from '../services/tokenService';
 
 interface HistoryEntry {
   songId: string;
@@ -52,8 +54,10 @@ const AccountPage: React.FC = () => {
   // History & favorites state
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [favorites, setFavorites] = useState<FavoriteEntry[]>([]);
+  const [entitlements, setEntitlements] = useState<UserEntitlement[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [loadingFavorites, setLoadingFavorites] = useState(true);
+  const [loadingEntitlements, setLoadingEntitlements] = useState(true);
 
   // Sync displayName/photoUrl when user changes
   useEffect(() => {
@@ -114,6 +118,17 @@ const AccountPage: React.FC = () => {
       .then(setFavorites)
       .catch(() => {})
       .finally(() => setLoadingFavorites(false));
+  }, [user]);
+
+  // Fetch entitlements (store rewards)
+  useEffect(() => {
+    if (!user) return;
+    setLoadingEntitlements(true);
+    tokenApi
+      .getMyEntitlements()
+      .then(setEntitlements)
+      .catch(() => {})
+      .finally(() => setLoadingEntitlements(false));
   }, [user]);
 
   const handleLogout = async () => {
@@ -177,6 +192,41 @@ const AccountPage: React.FC = () => {
     return 'Unknown';
   };
 
+  const prettifyEntitlement = (ent: UserEntitlement): string => {
+    const meta = ent.metadata && typeof ent.metadata === 'object' && !Array.isArray(ent.metadata) ? (ent.metadata as Record<string, unknown>) : {};
+    const name = typeof meta.itemName === 'string' ? meta.itemName : null;
+    if (name) return name;
+    const type = ent.type || '';
+    return type
+      .replace(/^(avatar:)?border:/i, '')
+      .replace(/^(title:)/i, '')
+      .replace(/-/g, ' ')
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  };
+
+  const getBorderColor = (type: string): string | null => {
+    const t = type.toLowerCase();
+    if (t.includes('amber')) return 'border-amber-400';
+    if (t.includes('gold')) return 'border-yellow-400';
+    if (t.includes('sapphire')) return 'border-blue-400';
+    if (t.includes('emerald')) return 'border-emerald-400';
+    if (t.includes('border')) return 'border-amber-400';
+    return null;
+  };
+
+  const getTitleChips = (ents: UserEntitlement[]): string[] => {
+    return ents
+      .filter((e) => e.type.toLowerCase().startsWith('title:'))
+      .map((e) => prettifyEntitlement(e))
+      .slice(0, 2);
+  };
+
+  const lastBorder = entitlements
+    .filter((e) => e.type.toLowerCase().includes('border'))
+    .sort((a, b) => new Date(b.grantedAt).getTime() - new Date(a.grantedAt).getTime())[0];
+
+  const borderColor = lastBorder ? getBorderColor(lastBorder.type) : null;
+
   const timeAgo = (dateStr: string): string => {
     const diff = Date.now() - new Date(dateStr).getTime();
     const mins = Math.floor(diff / 60000);
@@ -195,7 +245,7 @@ const AccountPage: React.FC = () => {
         <div className="h-28 bg-gradient-to-r from-green-900/40 via-green-800/20 to-transparent" />
         <div className="px-6 pb-6 -mt-10">
           <div className="flex items-end gap-5">
-            <div className="w-20 h-20 rounded-full bg-gray-800 border-4 border-gray-900 overflow-hidden flex items-center justify-center flex-shrink-0">
+            <div className={`w-20 h-20 rounded-full bg-gray-800 border-4 ${borderColor || 'border-gray-900'} overflow-hidden flex items-center justify-center flex-shrink-0 shadow-lg`}>
               {user.photoURL ? (
                 <img src={user.photoURL} alt="" className="w-full h-full object-cover" />
               ) : (
@@ -203,7 +253,14 @@ const AccountPage: React.FC = () => {
               )}
             </div>
             <div className="pb-1 min-w-0">
-              <h1 className="text-2xl font-bold text-white truncate">{user.displayName || 'User'}</h1>
+              <div className="flex items-center flex-wrap gap-2">
+                <h1 className="text-2xl font-bold text-white truncate">{user.displayName || 'User'}</h1>
+                {getTitleChips(entitlements).map((t) => (
+                  <span key={t} className="px-2 py-0.5 text-[11px] font-medium rounded-full bg-amber-900/50 text-amber-300 border border-amber-500/30 whitespace-nowrap">
+                    {t}
+                  </span>
+                ))}
+              </div>
               <p className="text-gray-400 text-sm truncate">{user.email}</p>
             </div>
             <div className="ml-auto flex items-center gap-2 pb-1">
@@ -268,6 +325,62 @@ const AccountPage: React.FC = () => {
                   <span className="text-green-400 text-sm">Profile updated!</span>
                 )}
               </div>
+            </div>
+          </div>
+
+          {/* Store Rewards */}
+          <div className="bg-gray-900/50 border border-gray-700/50 rounded-xl overflow-hidden">
+            <div className="p-5 border-b border-gray-700/50 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Gift className="w-5 h-5 text-amber-400" />
+                <h2 className="text-lg font-semibold text-white">Store Rewards</h2>
+              </div>
+              {entitlements.length > 0 && (
+                <span className="text-xs text-gray-500">{entitlements.length} items</span>
+              )}
+            </div>
+            <div className="max-h-72 overflow-y-auto">
+              {loadingEntitlements ? (
+                <div className="p-6 text-center">
+                  <Loader2 className="w-5 h-5 text-gray-500 animate-spin mx-auto" />
+                </div>
+              ) : entitlements.length === 0 ? (
+                <div className="p-6 text-center">
+                  <p className="text-gray-500 text-sm">No rewards yet</p>
+                  <Link
+                    to="/store"
+                    className="text-green-400 text-sm hover:text-green-300 mt-1 inline-block"
+                  >
+                    Visit store
+                  </Link>
+                </div>
+              ) : (
+                <ul className="divide-y divide-gray-700/50">
+                  {entitlements.map((ent) => (
+                    <li key={ent.id} className="flex items-center justify-between px-5 py-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm text-white truncate">{prettifyEntitlement(ent)}</p>
+                        <p className="text-xs text-gray-500">
+                          Granted {new Date(ent.grantedAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      {ent.type.toLowerCase().startsWith('title:') ? (
+                        <span className="ml-3 px-2 py-0.5 text-[10px] font-medium rounded-full bg-amber-900/50 text-amber-300 border border-amber-500/30 whitespace-nowrap">
+                          Title
+                        </span>
+                      ) : ent.type.toLowerCase().includes('border') ? (
+                        <span className="ml-3 px-2 py-0.5 text-[10px] font-medium rounded-full bg-blue-900/50 text-blue-300 border border-blue-500/30 whitespace-nowrap">
+                          Border
+                        </span>
+                      ) : (
+                        <span className="ml-3 px-2 py-0.5 text-[10px] font-medium rounded-full bg-gray-800/60 text-gray-400 border border-gray-700/50 whitespace-nowrap">
+                          Item
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
 

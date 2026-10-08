@@ -144,6 +144,23 @@ export default defineConfig(({ mode }) => {
           '/api': {
             target: 'http://localhost:3001',
             changeOrigin: true,
+            configure: (proxy) => {
+              proxy.on('error', (err, _req, res) => {
+                // Vite proxies both HTTP and WS; only write a body to plain
+                // HTTP responses (WS handlers get a Socket/ServerResponse-like
+                // object without writable `end`).
+                const body = JSON.stringify({
+                  error:
+                    'Backend API is not running on http://localhost:3001. Start it with: npm run dev (in afro-genie-backend)',
+                  code: 'BACKEND_UNAVAILABLE',
+                });
+                if (res && typeof (res as any).write === 'function' && !(res as any).writableEnded) {
+                  (res as any).statusCode = 502;
+                  (res as any).setHeader?.('Content-Type', 'application/json');
+                  (res as any).end(body);
+                }
+              });
+            },
           },
           // Proxy uploaded media (images/audio) served by the backend so
           // relative "/uploads/..." URLs work during local development.

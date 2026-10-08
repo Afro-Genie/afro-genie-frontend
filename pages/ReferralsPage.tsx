@@ -4,6 +4,9 @@ import { tokenApi, type ReferralInfo } from '../services/tokenService';
 const ReferralsPage: React.FC = () => {
   const [data, setData] = useState<ReferralInfo | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [codeError, setCodeError] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
   const [applyCode, setApplyCode] = useState('');
   const [applyLoading, setApplyLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -11,18 +14,34 @@ const ReferralsPage: React.FC = () => {
 
   const fetchData = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const result = await tokenApi.getMyReferrals();
       setData(result);
       if (!result.referralCode) {
-        await tokenApi.getReferralCode();
-        const updated = await tokenApi.getMyReferrals();
-        setData(updated);
+        await generateCode();
       }
-    } catch {
-      // silent
+    } catch (e: any) {
+      setLoadError(e.message || 'Failed to load referrals');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const generateCode = async () => {
+    setGenerating(true);
+    setCodeError(null);
+    try {
+      await tokenApi.getReferralCode();
+      const updated = await tokenApi.getMyReferrals();
+      setData(updated);
+      if (!updated.referralCode) {
+        setCodeError('Could not create a referral code. Please try again.');
+      }
+    } catch (e: any) {
+      setCodeError(e.message || 'Failed to generate referral code');
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -79,6 +98,18 @@ const ReferralsPage: React.FC = () => {
           </div>
         )}
 
+        {!loading && loadError && !data && (
+          <div className="bg-gray-800/50 border border-red-700/50 rounded-xl p-6 text-center">
+            <p className="text-red-300 text-sm mb-4">{loadError}</p>
+            <button
+              onClick={fetchData}
+              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg transition-colors"
+            >
+              Try again
+            </button>
+          </div>
+        )}
+
         {!loading && data && (
           <>
             {/* Referral Code */}
@@ -100,7 +131,16 @@ const ReferralsPage: React.FC = () => {
                   </button>
                 </div>
               ) : (
-                <p className="text-gray-500">Generating code...</p>
+                <div>
+                  {codeError && <p className="text-sm text-red-300 mb-3">{codeError}</p>}
+                  <button
+                    onClick={generateCode}
+                    disabled={generating}
+                    className="px-4 py-3 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors"
+                  >
+                    {generating ? 'Generating...' : 'Generate referral code'}
+                  </button>
+                </div>
               )}
             </div>
 
