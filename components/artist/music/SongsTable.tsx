@@ -10,6 +10,8 @@ interface Song {
   durationMs?: number;
   imageUrl?: string;
   audioUrl?: string;
+  /** Matched YouTube video. */
+  youtubeVideoId?: string | null;
   released?: boolean;
   release?: { title: string; status: string } | null;
   createdAt: string;
@@ -72,6 +74,7 @@ const SongsTable: React.FC<SongsTableProps> = ({ songs, loading, onAdd, onEdit, 
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-400">Streams</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-400">Requests</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-400">Released</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-400">Playable</th>
                 <th className="px-6 py-4 text-right text-sm font-semibold text-gray-400"></th>
               </tr>
             </thead>
@@ -110,6 +113,21 @@ const SongsTable: React.FC<SongsTableProps> = ({ songs, loading, onAdd, onEdit, 
                       </span>
                     ) : (
                       <span className="text-sm text-gray-500">—</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4">
+                    {song.audioUrl ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/30">
+                        Own audio
+                      </span>
+                    ) : song.youtubeVideoId ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/30">
+                        YouTube
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/30">
+                        None
+                      </span>
                     )}
                   </td>
                   <td className="px-6 py-4 text-right">

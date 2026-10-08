@@ -106,8 +106,6 @@ type AuthUserResponse = {
   email: string;
   displayName: string;
   role: string;
-  spotifyId?: string | null;
-  spotifyProduct?: string | null;
 };
 type AuthResultResponse = {
   user: AuthUserResponse;
@@ -157,30 +155,6 @@ export const authApi = {
     }),
 
   getGoogleUrl: () => `${API_BASE}/auth/google`,
-
-  signInWithSpotify: (accessToken: string) =>
-    apiRequest<AuthResultResponse>("/auth/spotify", {
-      method: "POST",
-      body: JSON.stringify({ accessToken }),
-    }),
-
-  syncSpotifyProduct: (spotifyAccessToken: string) =>
-    apiRequest<{ spotifyProduct: string | null }>(
-      "/auth/spotify/sync-product",
-      {
-        method: "POST",
-        body: JSON.stringify({ spotifyAccessToken }),
-      },
-    ),
-
-  linkSpotify: (spotifyAccessToken: string) =>
-    apiRequest<{ spotifyProduct: string | null; linked: boolean }>(
-      "/auth/spotify/link",
-      {
-        method: "POST",
-        body: JSON.stringify({ spotifyAccessToken }),
-      },
-    ),
 
   forgotPassword: (email: string) =>
     apiRequest<{ success: boolean }>("/auth/forgot-password", {

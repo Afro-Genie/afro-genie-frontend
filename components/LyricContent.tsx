@@ -7,7 +7,7 @@ import { getSongById, getSongTranslations } from '../lib/apiClient';
 import { SUPPORTED_LANGUAGES } from '../constants';
 import HeartIcon from './icons/HeartIcon';
 import ShareIcon from './icons/ShareIcon';
-import SpotifyPlayer from './SpotifyPlayer';
+import SongPlayer from './SongPlayer';
 import CulturalContextCarousel from './CulturalContextCarousel';
 import ReportModal from './moderation/ReportModal';
 import type { Song } from '../types';
@@ -32,8 +32,6 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
     const [error, setError] = useState<string>('');
     const [title, setTitle] = useState<string>('');
     const [artist, setArtist] = useState<string>('');
-    const [songSpotifyId, setSongSpotifyId] = useState<string | null>(null);
-    const [songAudioUrl, setSongAudioUrl] = useState<string | null>(null);
     const [originalLyrics, setOriginalLyrics] = useState<string>('');
     const [translatedLyrics, setTranslatedLyrics] = useState<string>('');
     const [culturalContext, setCulturalContext] = useState<string>('');
@@ -56,16 +54,6 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
     const elapsedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const [sourceProvider, setSourceProvider] = useState<string | null>(null);
     const [songSource, setSongSource] = useState<string | null>(null);
-
-    const isSpotifyImageUrl = (url?: string): boolean => {
-        if (!url || typeof url !== 'string') return false;
-        try {
-            const parsed = new URL(url);
-            return parsed.hostname === 'i.scdn.co';
-        } catch {
-            return false;
-        }
-    };
 
     const formattedCulturalContext = useMemo(() => {
         if (!culturalContext) return '';
@@ -191,20 +179,11 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
                     setCurrentSongId(songId);
                     setTitle(normalizedSong.title);
                     setArtist(normalizedSong.artist);
-                    setSongSpotifyId(songResponse.spotifyId || null);
-                    setSongAudioUrl(songResponse.audioUrl || null);
 
-                    if (!normalizedSong.image || !isSpotifyImageUrl(normalizedSong.image)) {
-                        try {
-                            const searchData = await authFetch('/api/search/spotify-image?artist=' + encodeURIComponent(normalizedSong.artist) + '&track=' + encodeURIComponent(normalizedSong.title)).catch(() => null);
-                            if (searchData?.imageUrl && !cancelled) {
-                                setSong({ ...normalizedSong, image: searchData.imageUrl });
-                            } else {
-                                setSong({ ...normalizedSong, image: '' });
-                            }
-                        } catch {
-                            setSong({ ...normalizedSong, image: '' });
-                        }
+                    // The Spotify-image CDN fallback (Phase 4) is gone; a song
+                    // without a usable image simply renders the placeholder.
+                    if (!normalizedSong.image) {
+                        setSong({ ...normalizedSong, image: '' });
                     } else {
                         setSong(normalizedSong);
                     }
@@ -789,19 +768,19 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
                         </button>
                     </div>
 
-                    {/* Compact Spotify Player */}
+                    {/* Song Player */}
                     {title && artist && (
                         <div className="flex-shrink-0 hidden md:block">
-                            <SpotifyPlayer title={title} artist={artist} spotifyId={songSpotifyId} songId={songId} audioUrl={songAudioUrl} compact={true} />
+                            <SongPlayer songId={songId} title={title} artist={artist} />
                         </div>
                     )}
                 </div>
             )}
 
-            {/* Mobile Spotify Player */}
+            {/* Mobile Song Player */}
             {!loading && !error && song && title && artist && (
                 <div className="mb-4 md:hidden">
-                    <SpotifyPlayer title={title} artist={artist} spotifyId={songSpotifyId} songId={songId} audioUrl={songAudioUrl} compact={true} />
+                    <SongPlayer songId={songId} title={title} artist={artist} />
                 </div>
             )}
 

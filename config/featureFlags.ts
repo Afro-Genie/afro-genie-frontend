@@ -28,8 +28,6 @@ const firstDefined = (...values: FlagValue[]): FlagValue => {
  */
 export const featureFlags = {
   // Existing flags (preserved)
-  // Phase 1 (original): backend-first Spotify/search migration
-  useSpotifyProxy: asBoolean(import.meta.env.VITE_FLAG_USE_SPOTIFY_PROXY as FlagValue, true),
   // Phase 3 (original): request confirmation modal and contributor copy
   requestFeedbackModal: asBoolean(import.meta.env.VITE_FLAG_REQUEST_FEEDBACK_MODAL as FlagValue, true),
   // Phase 3 (original): in-app notification polling/listening
@@ -95,7 +93,3 @@ export const featureFlags = {
     false,
   ),
 };
-
-export const spotifyProxyBaseUrl =
-  import.meta.env.VITE_SPOTIFY_PROXY_BASE_URL ||
-  `http://localhost:3001/api`;

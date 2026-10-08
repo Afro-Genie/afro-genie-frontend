@@ -34,14 +34,12 @@ export const normalizeArtist = (a: any): Artist | null => {
     name: a.name,
     genre: a.genres?.[0] || '',
     image: sanitizeImageUrl(a.imageUrl || a.image || ''),
-    spotifyId: a.spotifyId,
     bio: a.bio,
     popularity: a.popularity,
     followers: a.followers,
     externalUrl: a.externalUrl,
     genres: a.genres,
     updatedAt: a.updatedAt,
-    spotifySyncedAt: a.spotifySyncedAt,
   };
 };
 

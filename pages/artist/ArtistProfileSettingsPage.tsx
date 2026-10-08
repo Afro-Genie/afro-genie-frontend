@@ -16,7 +16,6 @@ interface ArtistProfile {
   genres: string[];
   profileImageUrl?: string;
   bannerImageUrl?: string;
-  spotifyArtistId?: string;
   verified: boolean;
   totalStreams: number;
   totalListeners: number;
@@ -37,13 +36,6 @@ interface ArtistProfile {
 interface AnalyticsData {
   totalUniqueListeners: number;
   series: { date: string; uniqueListeners: number }[];
-}
-
-interface SpotifyResult {
-  id: string;
-  name: string;
-  images?: { url: string }[];
-  genres?: string[];
 }
 
 const ArtistProfileSettingsPage: React.FC = () => {
@@ -94,14 +86,6 @@ const ArtistProfileSettingsPage: React.FC = () => {
     setProfile((prev) => (prev ? { ...prev, socialLinks } : prev));
   };
 
-  const handleSaveSpotify = async (spotifyArtistId: string) => {
-    await apiRequest('/artists/me/profile', {
-      method: 'PUT',
-      body: JSON.stringify({ spotifyArtistId }),
-    });
-    setProfile((prev) => (prev ? { ...prev, spotifyArtistId } : prev));
-  };
-
   const handleUploadProfileImage = async (url: string) => {
     await apiRequest('/artists/me/profile', {
       method: 'PUT',
@@ -116,19 +100,6 @@ const ArtistProfileSettingsPage: React.FC = () => {
       body: JSON.stringify({ bannerImageUrl: url }),
     });
     setProfile((prev) => (prev ? { ...prev, bannerImageUrl: url } : prev));
-  };
-
-  const handleSpotifySearch = async (query: string): Promise<SpotifyResult[]> => {
-    const raw = await apiRequest<{ artists: any[] }>('/artists/me/spotify-search', {
-      method: 'POST',
-      body: JSON.stringify({ query }),
-    });
-    return (raw.artists ?? []).map((a: any) => ({
-      id: a.spotifyArtistId,
-      name: a.name,
-      images: a.imageUrl ? [{ url: a.imageUrl }] : [],
-      genres: a.genres ?? [],
-    }));
   };
 
   return (
@@ -180,10 +151,7 @@ const ArtistProfileSettingsPage: React.FC = () => {
           </div>
           <ProfileSocial
             socialLinks={profile?.socialLinks ?? {}}
-            spotifyArtistId={profile?.spotifyArtistId}
             onSaveSocial={handleSaveSocial}
-            onSaveSpotify={handleSaveSpotify}
-            onSpotifySearch={handleSpotifySearch}
             loading={loading}
           />
           <ListenerTrends series={analytics?.series ?? []} loading={loading} />

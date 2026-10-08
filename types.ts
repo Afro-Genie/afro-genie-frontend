@@ -25,15 +25,12 @@ export interface Artist {
   name: string;
   genre: string;
   image: string;
-  // Spotify integration fields
-  spotifyId?: string;
   bio?: string;
   popularity?: number;
   followers?: number;
-  externalUrl?: string; // Spotify profile URL
-  genres?: string[]; // Multiple genres from Spotify
+  externalUrl?: string; // Profile URL
+  genres?: string[]; // Multiple genres
   updatedAt?: any;
-  spotifySyncedAt?: any; // Last time synced with Spotify
 }
 
 export interface Song {
@@ -57,9 +54,7 @@ export interface Song {
   popularity?: number; // Popularity score
   requestCount?: number; // Number of translation requests
   lyrics?: string;
-  spotifyUrl?: string;
-  spotifyId?: string | null;
-  source?: 'DB' | 'SPOTIFY' | 'HYBRID';
+  source?: 'DB' | 'HYBRID';
 }
 
 export interface Genre {

@@ -85,7 +85,6 @@ const EditSongPage: React.FC = () => {
           genre: Array.isArray(artist.genres) ? artist.genres[0] || '' : artist.genre || '',
           image: artist.imageUrl || artist.image || '',
           genres: artist.genres || [],
-          spotifyId: artist.spotifyId,
           bio: artist.bio,
           popularity: artist.popularity,
           followers: artist.followers,

@@ -21,7 +21,7 @@ const LanguageResultPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const { loadTrackById, loadTrackBySongId, currentTrack, isPlaying, togglePlayPause } = useAudioPlayer();
+  const { loadTrackBySongId, currentTrack, isPlaying, togglePlayPause } = useAudioPlayer();
 
   useEffect(() => {
     if (!decodedCode) return;
@@ -54,7 +54,6 @@ const LanguageResultPage: React.FC = () => {
           image: s.imageUrl || s.image || '',
           views: s.views || 0,
           requestCount: s.requestCount || 0,
-          spotifyId: s.spotifyId || null,
           genre: s.genre || '',
           year: s.year || null,
         }));
@@ -145,14 +144,14 @@ const LanguageResultPage: React.FC = () => {
             </h2>
             <div className="space-y-2">
               {songs.map((song, index) => {
-                const isThisPlaying = currentTrack?.id === (song.spotifyId ?? song.id) && isPlaying;
+                const isThisPlaying = currentTrack?.id === song.id && isPlaying;
                 return (
                   <div
                     key={song.id}
                     className="group flex items-center gap-3 p-3 sm:p-4 bg-gray-800/50 hover:bg-gray-700/50 rounded-xl border border-gray-700 hover:border-green-400/50 transition-all duration-300"
                   >
                     <div className="flex-shrink-0 w-8 sm:w-10 text-center">
-                      {song.spotifyId || song.id ? (
+                      {song.id ? (
                         <button
                           type="button"
                           onClick={(e) => {
@@ -161,8 +160,6 @@ const LanguageResultPage: React.FC = () => {
                               togglePlayPause();
                             } else if (song.id && !song.id.startsWith('spotify:')) {
                               loadTrackBySongId(song.id, song.title, song.artist);
-                            } else if (song.spotifyId) {
-                              loadTrackById(song.spotifyId!, song.title, song.artist);
                             }
                           }}
                           className="text-sm font-bold text-gray-500 hover:text-green-400 transition-colors w-full h-full flex items-center justify-center"

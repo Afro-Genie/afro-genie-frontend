@@ -4,10 +4,9 @@ import { authApi } from '../../../services/api';
 
 interface AccountSettingsProps {
   email: string;
-  isSpotifyLinked?: boolean;
 }
 
-const AccountSettings: React.FC<AccountSettingsProps> = ({ email, isSpotifyLinked }) => {
+const AccountSettings: React.FC<AccountSettingsProps> = ({ email }) => {
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -138,25 +137,6 @@ const AccountSettings: React.FC<AccountSettingsProps> = ({ email, isSpotifyLinke
         </div>
 
         <div className="border-t border-gray-700/50" />
-
-        {/* Linked Accounts */}
-        <div>
-          <h3 className="text-sm font-medium text-gray-300 mb-3">Linked Accounts</h3>
-          <div className="flex items-center justify-between py-2">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">🎵</span>
-              <span className="text-sm text-white">Spotify</span>
-            </div>
-            {isSpotifyLinked ? (
-              <span className="inline-flex items-center gap-1 text-xs text-green-400">
-                <CheckCircle className="w-3.5 h-3.5" />
-                Linked
-              </span>
-            ) : (
-              <span className="text-xs text-gray-500">Not linked</span>
-            )}
-          </div>
-        </div>
 
         {/* Status message */}
         {message && (

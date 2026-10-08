@@ -12,12 +12,11 @@ import DataSettings from '../../components/artist/settings/DataSettings';
 
 interface ArtistProfile {
   email: string;
-  spotifyArtistId?: string;
   plan?: string;
 }
 
 const ArtistSettingsPage: React.FC = () => {
-  const { logout, isSpotifyPremium } = useAuth();
+  const { logout } = useAuth();
   const navigate = useNavigate();
   const [profile, setProfile] = useState<ArtistProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -64,7 +63,6 @@ const ArtistSettingsPage: React.FC = () => {
         <>
           <SubscriptionInfo
             plan={profile?.plan ?? 'FREE'}
-            isSpotifyPremium={isSpotifyPremium}
           />
           <NotificationSettings onSave={async (toggles) => {
             localStorage.setItem('artist_notifications', JSON.stringify(toggles));
@@ -74,7 +72,6 @@ const ArtistSettingsPage: React.FC = () => {
           <DataSettings />
           <AccountSettings
             email={profile?.email ?? ''}
-            isSpotifyLinked={!!profile?.spotifyArtistId}
           />
           <DangerZone
             onLogout={handleLogout}

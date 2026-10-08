@@ -47,10 +47,8 @@ This document defines baseline metrics, reproducible bug scripts, and feature-fl
 
 Flags are controlled via Vite env variables:
 
-- `VITE_FLAG_USE_SPOTIFY_PROXY=true|false`
 - `VITE_FLAG_REQUEST_FEEDBACK_MODAL=true|false`
 - `VITE_FLAG_REQUEST_COMPLETION_NOTIFICATIONS=true|false`
-- `VITE_SPOTIFY_PROXY_BASE_URL=<functions-base-url>`
 
 ## 4) Acceptance Gate for Phase 0 Complete
 

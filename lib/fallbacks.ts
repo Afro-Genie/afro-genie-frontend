@@ -124,16 +124,7 @@ export function isStale(
  * Used for safe logout and stale session recovery.
  */
 export function clearAllAuthData(): void {
-  const authKeys = [
-    'accessToken',
-    'refreshToken',
-    'spotify_access_token',
-    'spotify_refresh_token',
-    'spotify_token_expiry',
-    'spotify_code_verifier',
-    'spotify_oauth_state',
-    'spotify_redirect_after_auth',
-  ];
+  const authKeys = ['accessToken', 'refreshToken'];
 
   for (const key of authKeys) {
     try {
@@ -156,7 +147,6 @@ export function clearAllAuthData(): void {
 export type RecoverableErrorKind =
   | 'network'
   | 'auth'
-  | 'spotify_api'
   | 'rate_limit'
   | 'unknown';
 
@@ -175,9 +165,6 @@ export function classifyError(error: unknown): RecoverableErrorKind {
   if (msg.includes('401') || msg.includes('unauthorized') || msg.includes('session expired')) {
     return 'auth';
   }
-  if (msg.includes('spotify') || msg.includes('premium')) {
-    return 'spotify_api';
-  }
   if (msg.includes('429') || msg.includes('rate limit')) {
     return 'rate_limit';
   }
@@ -194,8 +181,6 @@ export function friendlyErrorMessage(kind: RecoverableErrorKind): string {
       return 'Network error. Please check your connection and try again.';
     case 'auth':
       return 'Your session has expired. Please sign in again.';
-    case 'spotify_api':
-      return 'Spotify is temporarily unavailable. Please try again shortly.';
     case 'rate_limit':
       return 'Too many requests. Please wait a moment and try again.';
     default:
