@@ -19,15 +19,16 @@ const REASON_ICONS: Record<string, string> = {
   'Referral bonus': '🤝',
 };
 
-type TypeFilter = '' | 'EARN' | 'SPEND' | 'PENALTY' | 'TAX' | 'ADMIN_ADJUST';
+type TypeFilter = '' | 'EARN' | 'SPEND' | 'PENALTY' | 'TAX' | 'ADMIN_ADJUST' | 'REFUND';
 
-const TYPE_FILTERS: TypeFilter[] = ['', 'EARN', 'SPEND', 'PENALTY', 'TAX', 'ADMIN_ADJUST'];
+const TYPE_FILTERS: TypeFilter[] = ['', 'EARN', 'SPEND', 'PENALTY', 'TAX', 'ADMIN_ADJUST', 'REFUND'];
 
 const SUMMARY_STYLES: Record<string, { label: string; cls: string }> = {
   earned: { label: 'Earned', cls: 'text-amber-400' },
   spent: { label: 'Spent', cls: 'text-red-400' },
   penalized: { label: 'Penalized', cls: 'text-orange-400' },
   adjusted: { label: 'Adjusted', cls: 'text-sky-400' },
+  refunded: { label: 'Refunded', cls: 'text-emerald-400' },
 };
 
 const PAGE_SIZE = 20;

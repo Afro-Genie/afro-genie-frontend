@@ -141,6 +141,17 @@ const StoreManager: React.FC = () => {
     }
   };
 
+  const handleRefund = async (purchaseId: string) => {
+    if (!window.confirm('Refund this purchase? The GT is returned to the buyer and the reward is revoked.')) return;
+    try {
+      const result = await tokenApi.adminRefundPurchase(purchaseId);
+      setMessage({ type: 'success', text: `Refunded ${result.refund.amount} GT to the buyer` });
+      fetchPurchases(purchaseStatus, pagination.page);
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || 'Failed to refund purchase' });
+    }
+  };
+
   return (
     <div className="space-y-8">
       <div>
@@ -363,16 +374,24 @@ const StoreManager: React.FC = () => {
                       {new Date(purchase.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </td>
                     <td className="py-3">
-                      <div className="flex justify-end">
-                        {purchase.status === 'PENDING_FULFILLMENT' && (
-                          <button
-                            onClick={() => handleFulfill(purchase.id)}
-                            className="px-2 py-1 text-xs text-green-300 border border-green-700/50 rounded-lg hover:bg-green-900/30"
-                          >
-                            Fulfill
-                          </button>
-                        )}
-                      </div>
+                        <div className="flex justify-end gap-2">
+                          {purchase.status === 'PENDING_FULFILLMENT' && (
+                            <button
+                              onClick={() => handleFulfill(purchase.id)}
+                              className="px-2 py-1 text-xs text-green-300 border border-green-700/50 rounded-lg hover:bg-green-900/30"
+                            >
+                              Fulfill
+                            </button>
+                          )}
+                          {purchase.status !== 'REFUNDED' && (
+                            <button
+                              onClick={() => handleRefund(purchase.id)}
+                              className="px-2 py-1 text-xs text-red-300 border border-red-700/50 rounded-lg hover:bg-red-900/30"
+                            >
+                              Refund
+                            </button>
+                          )}
+                        </div>
                     </td>
                   </tr>
                 ))}

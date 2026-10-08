@@ -17,6 +17,7 @@ export interface TokenSummary {
   spent: number;
   penalized: number;
   adjusted: number;
+  refunded?: number;
 }
 
 export interface TokenHistoryResponse {
@@ -183,14 +184,15 @@ export interface StorePurchase {
   id: string;
   spentAmount: number;
   status: string;
+  fulfilledAt?: string | null;
   createdAt: string;
   item: { id: string; name: string; description: string | null; category: string; metadata: unknown };
 }
 
 export interface UserEntitlement {
   id: string;
-  userId: string;
   type: string;
+  metadata: unknown;
   grantedAt: string;
 }
 
@@ -377,6 +379,12 @@ export const tokenApi = {
   adminFulfillPurchase: (id: string) =>
     apiRequest<AdminStorePurchase>(`/admin/store/purchases/${id}/fulfill`, { method: 'PATCH' }),
 
+  adminRefundPurchase: (id: string, reason?: string) =>
+    apiRequest<{ purchase: AdminStorePurchase; refund: { ledgerId: string; amount: number; balanceAfter: number } }>(
+      `/admin/store/purchases/${id}/refund`,
+      { method: 'PATCH', body: JSON.stringify(reason ? { reason } : {}) },
+    ),
+
   getStoreItems: () =>
     apiRequest<StoreItem[]>('/store/items'),
 
@@ -391,7 +399,7 @@ export const tokenApi = {
       typeof crypto !== 'undefined' && crypto.randomUUID
         ? crypto.randomUUID()
         : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    return apiRequest<StorePurchase>('/store/purchase', {
+    return apiRequest<{ success: boolean; message: string }>('/store/purchase', {
       method: 'POST',
       body: JSON.stringify({ itemId, purchaseToken }),
     });
@@ -444,10 +452,10 @@ export const tokenApi = {
     apiRequest<UserEntitlement[]>('/store/entitlements'),
 
   getMyReferrals: () =>
-    apiRequest<ReferralInfo>('/referrals'),
+    apiRequest<ReferralInfo>('/referrals/me'),
 
   getReferralCode: () =>
-    apiRequest<{ referralCode: string }>('/referrals/code', { method: 'POST' }),
+    apiRequest<{ code: string }>('/referrals/code', { method: 'POST' }),
 
   applyReferral: (code: string) =>
     apiRequest<{ success: boolean; message: string }>('/referrals/apply', {

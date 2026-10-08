@@ -50,6 +50,21 @@ const StorePage: React.FC = () => {
     fetchData();
   }, [fetchData]);
 
+  const hasPendingPurchases = purchases.some((p) => p.status === 'PENDING_FULFILLMENT');
+
+  useEffect(() => {
+    if (!user || !hasPendingPurchases) return;
+    const refresh = () => tokenApi.getMyPurchases().then(setPurchases).catch(() => {});
+    // Fulfilment is admin-driven, so the list is polled (and re-checked on
+    // window focus) until every pending purchase flips to FULFILLED.
+    const interval = setInterval(refresh, 20000);
+    window.addEventListener('focus', refresh);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', refresh);
+    };
+  }, [user, hasPendingPurchases]);
+
   const handlePurchase = async (itemId: string) => {
     if (!user) {
       navigate('/');
@@ -59,7 +74,7 @@ const StorePage: React.FC = () => {
     setMessage(null);
     try {
       const result = await tokenApi.purchaseItem(itemId);
-      setMessage({ type: 'success', text: `Purchased ${result.item.name}!` });
+      setMessage({ type: 'success', text: result.message || 'Purchase successful' });
       fetchData();
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message || 'Purchase failed' });
