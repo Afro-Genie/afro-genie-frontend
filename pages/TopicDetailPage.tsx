@@ -33,6 +33,17 @@ const getAuthorName = (topic: CommunityTopic) =>
 const getAuthorAvatar = (topic: CommunityTopic) =>
   topic.author?.photoUrl || topic.authorAvatar;
 
+const addCommentToTree = (items: CommunityComment[], parentCommentId: string, newComment: CommunityComment): CommunityComment[] =>
+  items.map((comment) => {
+    if (comment.id === parentCommentId) {
+      return { ...comment, replies: [...(comment.replies || []), newComment] };
+    }
+    if (comment.replies?.length) {
+      return { ...comment, replies: addCommentToTree(comment.replies, parentCommentId, newComment) };
+    }
+    return comment;
+  });
+
 const TopicDetailPage: React.FC = () => {
   const { topicId } = useParams<{ topicId: string }>();
   const navigate = useNavigate();
@@ -45,26 +56,47 @@ const TopicDetailPage: React.FC = () => {
   const [submittingComment, setSubmittingComment] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
 
+  const createLocalComment = (
+    created: Partial<CommunityComment> & Record<string, any>,
+    parentCommentId: string | undefined,
+    content: string,
+  ): CommunityComment => ({
+    ...created,
+    id: created.id || '',
+    topicId: created.topicId || topicId || '',
+    userId: created.userId || user?.id || '',
+    parentCommentId: parentCommentId || undefined,
+    content: created.content || content,
+    likes: created.likes || 0,
+    createdAt: created.createdAt || new Date().toISOString(),
+    replies: [],
+    user: created.user || {
+      id: user?.id || '',
+      displayName: user?.displayName || 'You',
+      photoUrl: userProfile?.photoURL ?? undefined,
+    },
+  });
+
   const isModOrAdmin = user && (user.role === 'MODERATOR' || user.role === 'ADMIN' || userProfile?.role === 'moderator' || userProfile?.role === 'admin');
 
-  const fetchTopic = useCallback(async () => {
+  const fetchTopic = useCallback(async (showLoading = false) => {
     if (!topicId) return;
-    setLoading(true);
+    if (showLoading) setLoading(true);
     try {
       const data = await authFetch(`/api/community/topics/${topicId}`);
       setTopic(data);
       setComments(data.comments || []);
     } catch (err: any) {
       showNotification({ message: err.message || 'Failed to load topic', type: 'error' });
-      navigate('/community');
+      if (showLoading) navigate('/community');
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }, [topicId, authFetch, showNotification, navigate]);
 
   useEffect(() => {
-    fetchTopic();
-  }, [fetchTopic]);
+    fetchTopic(true);
+  }, [topicId]);
 
   const handleVoteTopic = async (voteType: 1 | -1) => {
     if (!topicId) return;
@@ -84,11 +116,14 @@ const TopicDetailPage: React.FC = () => {
 
   const handleReply = async (parentCommentId: string, content: string) => {
     if (!topicId) return;
-    await authFetch(`/api/community/topics/${topicId}/comments`, {
+    const created = await authFetch(`/api/community/topics/${topicId}/comments`, {
       method: 'POST',
       body: JSON.stringify({ content, parentCommentId }),
     });
-    fetchTopic();
+    const localComment = createLocalComment(created, parentCommentId, content);
+    setComments((current) => addCommentToTree(current, parentCommentId, localComment));
+    setTopic((current) => current ? { ...current, commentCount: current.commentCount + 1 } : current);
+    void fetchTopic(false);
   };
 
   const handleSubmitComment = async (e: React.FormEvent) => {
@@ -96,12 +131,15 @@ const TopicDetailPage: React.FC = () => {
     if (!topicId || !commentText.trim() || submittingComment) return;
     setSubmittingComment(true);
     try {
-      await authFetch(`/api/community/topics/${topicId}/comments`, {
+      const created = await authFetch(`/api/community/topics/${topicId}/comments`, {
         method: 'POST',
         body: JSON.stringify({ content: commentText.trim() }),
       });
+      const localComment = createLocalComment(created, undefined, commentText.trim());
+      setComments((current) => [...current, localComment]);
+      setTopic((current) => current ? { ...current, commentCount: current.commentCount + 1 } : current);
       setCommentText('');
-      fetchTopic();
+      void fetchTopic(false);
     } catch (err: any) {
       showNotification({ message: err.message || 'Failed to post comment', type: 'error' });
     } finally {
@@ -190,46 +228,44 @@ const TopicDetailPage: React.FC = () => {
             Back
           </button>
 
-          <div className="bg-gray-800/50 rounded-xl border border-gray-700 p-6">
-            <div className="flex items-start gap-4">
-              <div className="flex-shrink-0 pt-1">
-                <VoteButtons
-                  score={topic.likes}
-                  userVote={topic.userVote === 'UPVOTE' ? 1 : topic.userVote === 'DOWNVOTE' ? -1 : null}
-                  onVote={handleVoteTopic}
-                />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    {topic.isPinned && (
-                      <div className="flex items-center gap-2 mb-2 text-amber-400 text-sm">
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
-                        </svg>
-                        <span>Pinned</span>
-                      </div>
-                    )}
-                    <h1 className="text-3xl font-bold text-gray-100 mb-2">{topic.title}</h1>
-                    <div className="flex items-center gap-4 text-sm text-gray-400">
-                      <div className="flex items-center gap-2">
-                        {authorAvatar ? (
-                          <img src={authorAvatar} alt={authorName} className="h-6 w-6 rounded-full" />
-                        ) : (
-                          <div className="h-6 w-6 rounded-full bg-gradient-to-br from-green-600 to-green-800 flex items-center justify-center">
-                            <span className="text-white font-bold text-xs">
-                              {authorName?.[0]?.toUpperCase() || 'U'}
-                            </span>
-                          </div>
-                        )}
-                        <span className="font-semibold text-gray-300">{authorName}</span>
-                      </div>
-                      <span>•</span>
-                      <span>{formatTimeAgo(topic.createdAt)}</span>
-                      <span>•</span>
-                      <span>{topic.commentCount} comments</span>
+          <div className="bg-gray-800/50 rounded-xl border border-gray-700 p-4 sm:p-6">
+            <div className="min-w-0">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+                <div className="min-w-0 flex-1">
+                  {topic.isPinned && (
+                    <div className="flex items-center gap-2 mb-2 text-amber-400 text-sm">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
+                      </svg>
+                      <span>Pinned</span>
                     </div>
+                  )}
+                  <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-100 break-words mb-2">{topic.title}</h1>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-2 text-xs sm:text-sm text-gray-400">
+                    <div className="flex items-center gap-2 min-w-0 max-w-full">
+                      {authorAvatar ? (
+                        <img src={authorAvatar} alt={authorName} className="h-6 w-6 rounded-full flex-shrink-0" />
+                      ) : (
+                        <div className="h-6 w-6 rounded-full bg-gradient-to-br from-green-600 to-green-800 flex items-center justify-center flex-shrink-0">
+                          <span className="text-white font-bold text-xs">
+                            {authorName?.[0]?.toUpperCase() || 'U'}
+                          </span>
+                        </div>
+                      )}
+                      <span className="font-semibold text-gray-300 truncate max-w-[10rem] sm:max-w-xs">{authorName}</span>
+                    </div>
+                    <span className="text-gray-600" aria-hidden="true">•</span>
+                    <span>{formatTimeAgo(topic.createdAt)}</span>
+                    <span className="text-gray-600" aria-hidden="true">•</span>
+                    <span className="whitespace-nowrap">{topic.commentCount} comments</span>
                   </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0">
+                  <VoteButtons
+                    score={topic.likes}
+                    userVote={topic.userVote === 'UPVOTE' ? 1 : topic.userVote === 'DOWNVOTE' ? -1 : null}
+                    onVote={handleVoteTopic}
+                  />
                   <button
                     onClick={() => setShowReportModal(true)}
                     className="flex-shrink-0 p-2 text-gray-400 hover:text-red-400 transition-colors rounded-lg hover:bg-white/5"
@@ -240,7 +276,7 @@ const TopicDetailPage: React.FC = () => {
                     </svg>
                   </button>
                   {isModOrAdmin && (
-                    <div className="flex gap-2 ml-4">
+                    <>
                       <button
                         onClick={handlePin}
                         className={`p-2 rounded-lg transition-colors ${
@@ -269,15 +305,15 @@ const TopicDetailPage: React.FC = () => {
                         title="Delete"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          <path strokeLinecap="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
                       </button>
-                    </div>
+                    </>
                   )}
                 </div>
-                <div className="text-gray-300 whitespace-pre-wrap leading-relaxed mb-4">
-                  {topic.content}
-                </div>
+              </div>
+              <div className="text-gray-300 whitespace-pre-wrap leading-relaxed mb-4">
+                {topic.content}
               </div>
             </div>
           </div>

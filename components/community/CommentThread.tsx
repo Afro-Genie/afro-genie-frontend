@@ -75,17 +75,18 @@ const CommentItem: React.FC<{
         </div>
         <div className="flex-1 min-w-0">
           <div className="bg-gray-800/50 rounded-lg p-3">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="font-semibold text-gray-200 text-sm">{displayName}</span>
-              <span className="text-xs text-gray-500">{formatTimeAgo(comment.createdAt)}</span>
+            <div className="flex flex-wrap items-center gap-2 mb-1">
+              <span className="font-semibold text-gray-200 text-sm truncate max-w-[120px] sm:max-w-none">{displayName}</span>
+              <span className="text-xs text-gray-500 whitespace-nowrap">{formatTimeAgo(comment.createdAt)}</span>
             </div>
-            <p className="text-gray-300 text-sm whitespace-pre-wrap">{comment.content}</p>
+            <p className="text-gray-300 text-sm whitespace-pre-wrap break-words">{comment.content}</p>
           </div>
           <div className="flex items-center gap-4 mt-2">
             <VoteButtons
-              score={comment.likes}
-              userVote={null}
+              score={comment.likes || 0}
+              userVote={comment.userVote === 'UPVOTE' || (comment as any).liked ? 1 : null}
               onVote={(voteType) => onVoteComment(comment.id, voteType)}
+              variant="comment"
               size="sm"
             />
             {user && depth < 2 && (
@@ -158,23 +159,39 @@ const CommentItem: React.FC<{
 
 const CommentThread: React.FC<CommentThreadProps> = ({ comments, topicId, depth = 0, onVoteComment, onReply }) => {
   const buildCommentTree = (flatComments: CommunityComment[]): CommunityComment[] => {
+    const nestedIds = new Set<string>();
+
+    const collectNestedIds = (items: CommunityComment[]) => {
+      items.forEach((comment) => {
+        (comment.replies || []).forEach((reply) => {
+          nestedIds.add(reply.id);
+          collectNestedIds(reply.replies || []);
+        });
+      });
+    };
+
+    collectNestedIds(flatComments);
+
+    const normalizeNestedReplies = (comment: CommunityComment): CommunityComment => ({
+      ...comment,
+      replies: (comment.replies || []).map(normalizeNestedReplies),
+    });
+
     const map = new Map<string, CommunityComment>();
+    flatComments.forEach((comment) => map.set(comment.id, normalizeNestedReplies(comment)));
+
     const roots: CommunityComment[] = [];
+    flatComments.forEach((comment) => {
+      if (nestedIds.has(comment.id)) return;
 
-    flatComments.forEach(c => map.set(c.id, { ...c, replies: [] }));
-
-    flatComments.forEach(c => {
-      const withReplies = map.get(c.id)!;
-      if (c.parentCommentId) {
-        const parent = map.get(c.parentCommentId);
-        if (parent) {
-          if (!parent.replies) parent.replies = [];
-          parent.replies.push(withReplies);
-        } else {
-          roots.push(withReplies);
-        }
+      const normalized = map.get(comment.id)!;
+      if (comment.parentCommentId && map.has(comment.parentCommentId)) {
+        const parent = map.get(comment.parentCommentId)!;
+        parent.replies = [...(parent.replies || []), normalized];
+      } else if (!comment.parentCommentId || nestedIds.has(comment.id)) {
+        roots.push(normalized);
       } else {
-        roots.push(withReplies);
+        roots.push(normalized);
       }
     });
 
