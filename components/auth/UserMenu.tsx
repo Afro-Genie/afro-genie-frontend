@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { usePendingRequests } from '../../hooks/usePendingRequests';
@@ -20,6 +20,17 @@ const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
   const [loggingOut, setLoggingOut] = useState(false);
   const [pendingReports, setPendingReports] = useState(0);
   const { notification, showNotification, hideNotification } = useNotification();
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     if (!isModerator) return;
@@ -93,7 +104,7 @@ const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
             </Link>
           )}
         </div>
-        <div className="relative">
+        <div className="relative" ref={menuRef}>
           <button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
             className="flex items-center justify-center min-h-[44px] min-w-[44px] rounded-md text-gray-300 hover:text-white focus:outline-none focus:ring-2 focus:ring-green-400"
@@ -125,14 +136,14 @@ const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
           {/* Dropdown Menu */}
           {isMenuOpen && (
             <>
-              {/* Backdrop to close menu when clicking outside */}
+              {/* Backdrop to close menu when clicking outside on mobile */}
               <div
-                className="fixed inset-0 z-10"
+                className="fixed inset-0 z-10 md:hidden"
                 onClick={() => setIsMenuOpen(false)}
               />
 
               {/* Menu */}
-              <div className="absolute right-0 mt-2 w-56 bg-gray-800 rounded-lg shadow-xl py-1 z-20 border border-gray-700">
+              <div className="fixed md:absolute inset-x-2 top-16 md:top-auto md:right-0 md:inset-x-auto mt-0 md:mt-2 w-auto md:w-56 bg-gray-800 rounded-lg shadow-xl py-1 z-20 border border-gray-700 max-h-[70vh] overflow-y-auto">
                 {/* User Info */}
                 <div className="px-4 py-3 border-b border-gray-700">
                   <p className="text-sm text-white font-medium truncate">

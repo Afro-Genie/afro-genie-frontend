@@ -83,7 +83,9 @@ const TopicCard: React.FC<TopicCardProps> = React.memo(({ topic, onLike, onShare
               <span className="px-2 py-0.5 bg-gray-700 rounded text-gray-300 text-[10px]">{categoryName}</span>
             )}
           </div>
-          <TopicActions topic={topic} onLike={onLike} onShare={onShare} isLiked={isLiked} compact />
+          <div onClick={(e) => e.stopPropagation()}>
+            <TopicActions topic={topic} onLike={onLike} onShare={onShare} isLiked={isLiked} compact />
+          </div>
         </div>
       </CommunityContentCard>
     </div>

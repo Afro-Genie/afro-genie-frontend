@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import LogoIcon from './icons/LogoIcon';
 import SearchBar from './SearchBar';
 import UserMenu from './auth/UserMenu';
@@ -64,12 +64,14 @@ const subscribeToUnreadNotifications = (
 };
 
 const Header: React.FC = () => {
+  const navigate = useNavigate();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [toast, setToast] = useState<NotificationData | null>(null);
   const [notifications, setNotifications] = useState<BackendNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
   const { user, loading } = useAuth();
 
   const refreshUnreadCount = useCallback(async () => {
@@ -113,6 +115,16 @@ const Header: React.FC = () => {
     });
     return () => unsubscribe();
   }, [user?.uid, loading]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
+        setIsNotifOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     if (loading) return;
@@ -170,7 +182,7 @@ const Header: React.FC = () => {
                 onClose={() => setIsSearchOpen(false)}
               />
               {!isSearchOpen && user?.uid && (
-                <div className="relative flex-shrink-0">
+                <div className="relative flex-shrink-0" ref={notifRef}>
                   <button
                     onClick={() => setIsNotifOpen((open) => !open)}
                     className="relative p-2 text-gray-300 hover:text-white transition-colors"
@@ -184,40 +196,54 @@ const Header: React.FC = () => {
                     )}
                   </button>
                   {isNotifOpen && (
-                    <div className="absolute right-0 mt-2 w-80 bg-[#1A2B22] border border-white/10 rounded-lg shadow-xl z-50">
-                      <div className="p-3 border-b border-white/10 flex items-center justify-between">
-                        <span className="text-sm font-semibold text-white">Notifications</span>
-                        <button
-                          onClick={() => setIsNotifOpen(false)}
-                          className="text-xs text-gray-400 hover:text-white"
-                        >
-                          Close
-                        </button>
-                      </div>
-                      <div className="max-h-96 overflow-y-auto">
-                        {notifications.length === 0 ? (
-                          <p className="p-4 text-sm text-gray-400">No notifications yet.</p>
-                        ) : (
-                          notifications.map((n) => (
-                            <div
-                              key={n.id}
-                              className={`p-3 border-b border-white/5 ${n.read ? 'opacity-60' : ''}`}
+                    <>
+                      <div
+                        className="fixed inset-0 z-40 md:hidden"
+                        onClick={() => setIsNotifOpen(false)}
+                      />
+                      <div className="fixed md:absolute inset-x-2 top-16 md:top-auto md:right-0 md:mt-2 md:inset-x-auto w-auto md:w-80 bg-[#1A2B22] border border-white/10 rounded-lg shadow-xl z-50 max-h-[70vh] md:max-h-96 overflow-hidden flex flex-col">
+                        <div className="p-3 border-b border-white/10 flex items-center justify-between">
+                          <span className="text-sm font-semibold text-white">Notifications</span>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => { setIsNotifOpen(false); navigate('/account?tab=notifications'); }}
+                              className="text-xs text-green-400 hover:text-green-300 md:hidden"
                             >
-                              <p className="text-sm font-medium text-white">{n.title}</p>
-                              <p className="text-xs text-gray-400 mt-1">{n.message}</p>
-                              {!n.read && (
-                                <button
-                                  onClick={() => handleMarkRead(n.id)}
-                                  className="mt-2 text-xs text-green-400 hover:text-green-300"
-                                >
-                                  Mark as read
-                                </button>
-                              )}
-                            </div>
-                          ))
-                        )}
+                              View all
+                            </button>
+                            <button
+                              onClick={() => setIsNotifOpen(false)}
+                              className="text-xs text-gray-400 hover:text-white"
+                            >
+                              Close
+                            </button>
+                          </div>
+                        </div>
+                        <div className="overflow-y-auto flex-1">
+                          {notifications.length === 0 ? (
+                            <p className="p-4 text-sm text-gray-400">No notifications yet.</p>
+                          ) : (
+                            notifications.map((n) => (
+                              <div
+                                key={n.id}
+                                className={`p-3 border-b border-white/5 ${n.read ? 'opacity-60' : ''}`}
+                              >
+                                <p className="text-sm font-medium text-white">{n.title}</p>
+                                <p className="text-xs text-gray-400 mt-1">{n.message}</p>
+                                {!n.read && (
+                                  <button
+                                    onClick={() => handleMarkRead(n.id)}
+                                    className="mt-2 text-xs text-green-400 hover:text-green-300"
+                                  >
+                                    Mark as read
+                                  </button>
+                                )}
+                              </div>
+                            ))
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    </>
                   )}
                 </div>
               )}

@@ -257,6 +257,7 @@ export interface CommunityTopic {
   artistId?: string;
   imageUrl?: string;
   userVote?: 'UPVOTE' | 'DOWNVOTE' | null;
+  liked?: boolean;
   author?: { id: string; displayName: string; photoUrl?: string; role?: string };
   forumCategory?: { id: string; name: string };
 }
@@ -268,6 +269,7 @@ export interface CommunityComment {
   parentCommentId?: string;
   content: string;
   likes: number;
+  userVote?: 'UPVOTE' | 'DOWNVOTE' | null;
   createdAt: string;
   updatedAt?: string;
   user: { id: string; displayName: string; photoUrl?: string; role?: string };

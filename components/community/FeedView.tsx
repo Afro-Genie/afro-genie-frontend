@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { communityApi } from '../../services/communityService';
+import { useAuth } from '../../context/AuthContext';
 import TopicCard from './TopicCard';
 import type { CommunityTopicExtended } from '../../types';
 
@@ -30,6 +31,7 @@ function EmptyFeedIcon() {
 }
 
 const FeedView: React.FC = React.memo(() => {
+  const { authFetch } = useAuth();
   const [topics, setTopics] = useState<CommunityTopicExtended[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -58,6 +60,23 @@ const FeedView: React.FC = React.memo(() => {
     setPage(next);
     fetch(next, true);
   };
+
+  const handleLike = useCallback(async (topicId: string) => {
+    try {
+      await authFetch('/api/community/vote/topic', {
+        method: 'POST',
+        body: JSON.stringify({ topicId, voteType: 'LIKE' }),
+      });
+      fetch(1, false);
+    } catch (e) {
+      // ignore
+    }
+  }, [authFetch, fetch]);
+
+  const handleShare = useCallback((topicId: string) => {
+    const url = `${window.location.origin}/#/community/topic/${topicId}`;
+    navigator.clipboard.writeText(url).catch(() => {});
+  }, []);
 
   if (loading && topics.length === 0) {
     return (
@@ -91,7 +110,15 @@ const FeedView: React.FC = React.memo(() => {
 
   return (
     <div className="space-y-4">
-      {topics.map(topic => <TopicCard key={topic.id} topic={topic} />)}
+      {topics.map(topic => (
+        <TopicCard
+          key={topic.id}
+          topic={topic}
+          onLike={handleLike}
+          onShare={handleShare}
+          isLiked={topic.userVote === 'UPVOTE' || (topic as any).liked}
+        />
+      ))}
       {hasMore && (
         <div className="text-center">
           <button
