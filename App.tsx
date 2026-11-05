@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { AudioProvider } from './context/AudioContext';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import HomePage from './pages/HomePage';
+const GamesPage = lazy(() => import('./pages/GamesPage'));
+const GamesPlayPage = lazy(() => import('./pages/GamesPlayPage'));
 import TranslationPage from './pages/TranslationPage';
 import SearchResultsPage from './pages/SearchResultsPage';
 import CommunityPage from './pages/CommunityPage';
@@ -110,6 +112,8 @@ function AppRoutes() {
               {featureFlags.buyGtPage && <Route path="/buy-gt" element={<ProtectedRoute><BuyGtPage /></ProtectedRoute>} />}
               {featureFlags.referralsPage && <Route path="/referrals" element={<ProtectedRoute><ReferralsPage /></ProtectedRoute>} />}
               <Route path="/" element={<HomePage />} />
+              <Route path="/games" element={<Suspense fallback={<div role="status" className="p-6 text-gray-300">Loading games…</div>}><GamesPage /></Suspense>} />
+              <Route path="/games/:gameId" element={<Suspense fallback={<div role="status" className="p-6 text-gray-300">Loading game…</div>}><GamesPlayPage /></Suspense>} />
               <Route path="/song/:id" element={<TranslationPage />} />
               <Route path="/songs/:id" element={<TranslationPage />} />
               <Route path="/artists/:id" element={<ArtistDetailPage />} />
