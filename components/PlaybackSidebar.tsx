@@ -75,7 +75,7 @@ const PlaybackSidebar: React.FC<PlaybackSidebarProps> = ({
   onNavigate,
   isMobile = false,
 }) => {
-  const { user, userProfile, logout } = useAuth();
+  const { user, userProfile, loading: authLoading, logout } = useAuth();
   const userRole = userProfile?.role ? userProfile.role.toUpperCase() : user ? 'USER' : null;
   const navigate = useNavigate();
   const [signingOut, setSigningOut] = useState(false);
@@ -164,19 +164,28 @@ const PlaybackSidebar: React.FC<PlaybackSidebarProps> = ({
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white truncate">{userName}</p>
-            {userRole ? (
-              <span className="inline-block mt-0.5 px-1.5 py-0.5 text-[10px] font-semibold bg-green-900/60 text-green-400 rounded">
-                {userRole}
-              </span>
+            {authLoading ? (
+              <>
+                <div className="h-3.5 w-24 rounded bg-gray-700/60 animate-pulse" />
+                <div className="mt-1 h-2.5 w-12 rounded bg-gray-700/50 animate-pulse" />
+              </>
             ) : (
-              <Link
-                to="/"
-                onClick={onNavigate}
-                className="text-xs text-gray-400 hover:text-white transition-colors"
-              >
-                Sign In
-              </Link>
+              <>
+                <p className="text-sm font-medium text-white truncate">{userName}</p>
+                {userRole ? (
+                  <span className="inline-block mt-0.5 px-1.5 py-0.5 text-[10px] font-semibold bg-green-900/60 text-green-400 rounded">
+                    {userRole}
+                  </span>
+                ) : (
+                  <Link
+                    to="/"
+                    onClick={onNavigate}
+                    className="text-xs text-gray-400 hover:text-white transition-colors"
+                  >
+                    Sign In
+                  </Link>
+                )}
+              </>
             )}
           </div>
         </div>

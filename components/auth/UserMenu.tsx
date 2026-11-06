@@ -14,7 +14,7 @@ interface UserMenuProps {
 }
 
 const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
-  const { user, isAdmin, isArtist, isModerator, logout } = useAuth();
+  const { user, loading: authLoading, isAdmin, isArtist, isModerator, logout } = useAuth();
   const { artistApplication, roleRequests, loading: pendingLoading } = usePendingRequests();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -65,6 +65,15 @@ const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
       setLoggingOut(false);
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="flex items-center space-x-2 sm:space-x-4" aria-hidden="true">
+        <div className="hidden md:block h-7 w-28 rounded-full bg-gray-700/50 animate-pulse" />
+        <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-gray-700/50 animate-pulse" />
+      </div>
+    );
+  }
 
   if (user) {
     return (

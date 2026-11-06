@@ -212,7 +212,7 @@ const SongsCatalogPage: React.FC = () => {
                     setSelectedArtist(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="w-full px-3 py-2.5 text-base bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="select-chevron w-full px-3 pr-10 py-2.5 text-base bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
                 >
                   <option value="all">All Artists</option>
                   {artists.map(artist => (
@@ -230,7 +230,7 @@ const SongsCatalogPage: React.FC = () => {
                     setSelectedGenre(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="w-full px-3 py-2.5 text-base bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="select-chevron w-full px-3 pr-10 py-2.5 text-base bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
                 >
                   <option value="all">All Genres</option>
                   {genres.map(genre => (
@@ -248,7 +248,7 @@ const SongsCatalogPage: React.FC = () => {
                     setSelectedYear(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="w-full px-3 py-2.5 text-base bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="select-chevron w-full px-3 pr-10 py-2.5 text-base bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
                 >
                   <option value="all">All Years</option>
                   {availableYears.map(year => (
@@ -267,7 +267,7 @@ const SongsCatalogPage: React.FC = () => {
                       setSelectedLanguage(e.target.value);
                       setCurrentPage(1);
                     }}
-                    className="w-full px-3 py-2.5 text-base bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                    className="select-chevron w-full px-3 pr-10 py-2.5 text-base bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
                   >
                     <option value="all">All Languages</option>
                     {availableLanguages.map(lang => (
@@ -287,7 +287,7 @@ const SongsCatalogPage: React.FC = () => {
                       setSortBy(e.target.value as SortOption);
                       setCurrentPage(1);
                     }}
-                    className="flex-1 px-3 py-2.5 text-base bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                    className="select-chevron flex-1 px-3 pr-10 py-2.5 text-base bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
                   >
                     <option value="popularity">Popularity</option>
                     <option value="title">Title</option>

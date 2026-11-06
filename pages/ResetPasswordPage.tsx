@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { authApi } from '../services/api';
+import {
+  getPasswordValidationError,
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_REQUIREMENTS_MESSAGE,
+} from '../lib/passwordValidation';
 
 const ResetPasswordPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -21,8 +26,9 @@ const ResetPasswordPage: React.FC = () => {
       return;
     }
 
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters');
+    const passwordError = getPasswordValidationError(password);
+    if (passwordError) {
+      setError(passwordError);
       return;
     }
 
@@ -101,10 +107,11 @@ const ResetPasswordPage: React.FC = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                minLength={8}
+                minLength={PASSWORD_MIN_LENGTH}
                 className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
-                placeholder="Minimum 8 characters"
+                placeholder="At least 8 characters"
               />
+              <p className="text-xs text-gray-400 mt-1">{PASSWORD_REQUIREMENTS_MESSAGE}</p>
             </div>
 
             <div>

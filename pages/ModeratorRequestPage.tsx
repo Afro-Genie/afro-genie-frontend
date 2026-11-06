@@ -271,7 +271,6 @@ const ModeratorRequestPage: React.FC = () => {
                     value={formData.fullName}
                     onChange={(e) => update('fullName', e.target.value)}
                     className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Your full name"
                   />
                 </div>
 
@@ -284,7 +283,6 @@ const ModeratorRequestPage: React.FC = () => {
                     onChange={(e) => update('motivation', e.target.value)}
                     rows={4}
                     className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                    placeholder="Describe your motivation for wanting to help moderate the AfroGenie community..."
                   />
                 </div>
 
@@ -297,7 +295,6 @@ const ModeratorRequestPage: React.FC = () => {
                     onChange={(e) => update('platformKnowledge', e.target.value)}
                     rows={2}
                     className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                    placeholder="How long have you been using AfroGenie? What features do you use most?"
                   />
                 </div>
               </div>
@@ -320,7 +317,6 @@ const ModeratorRequestPage: React.FC = () => {
                     onChange={(e) => update('communityExperience', e.target.value)}
                     rows={3}
                     className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                    placeholder="Have you moderated any online communities before? (Discord, Reddit, forums, etc.)"
                   />
                 </div>
 
@@ -333,7 +329,6 @@ const ModeratorRequestPage: React.FC = () => {
                     onChange={(e) => update('moderationExperience', e.target.value)}
                     rows={3}
                     className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                    placeholder="Any experience with content review, fact-checking, or quality assurance?"
                   />
                 </div>
 
@@ -346,7 +341,6 @@ const ModeratorRequestPage: React.FC = () => {
                     value={formData.languages}
                     onChange={(e) => update('languages', e.target.value)}
                     className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="e.g. English, Yoruba, French, Pidgin"
                   />
                   <p className="text-gray-500 text-xs mt-1">Multilingual moderators are especially valuable for reviewing translations.</p>
                 </div>
@@ -409,7 +403,6 @@ const ModeratorRequestPage: React.FC = () => {
                     onChange={(e) => update('additionalInfo', e.target.value)}
                     rows={3}
                     className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                    placeholder="Anything else you'd like us to know?"
                   />
                 </div>
               </div>
