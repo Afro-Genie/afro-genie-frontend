@@ -214,6 +214,13 @@ const HomePage: React.FC = () => {
                                 </svg>
                                 Join Community
                             </Link>
+                            <Link
+                                to="/games"
+                                data-testid="games-btn"
+                                className="w-full sm:w-auto min-h-[44px] bg-emerald-400 hover:bg-emerald-300 text-[#102017] font-semibold py-3 px-6 sm:px-8 rounded-full transition-all duration-300 shadow-lg hover:shadow-emerald-400/30 flex items-center justify-center gap-2 text-base sm:text-lg"
+                            >
+                                Play Daily Games
+                            </Link>
                         </div>
                     </div>
                 </div>
