@@ -287,7 +287,6 @@ const ArtistApplicationPage: React.FC = () => {
                       value={formData.stageName}
                       onChange={(e) => update('stageName', e.target.value)}
                       className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                      placeholder="Your stage /艺名 name"
                     />
                   </div>
                   <div>
@@ -299,7 +298,6 @@ const ArtistApplicationPage: React.FC = () => {
                       value={formData.realName}
                       onChange={(e) => update('realName', e.target.value)}
                       className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                      placeholder="Your real / legal name"
                     />
                   </div>
                 </div>
@@ -329,7 +327,6 @@ const ArtistApplicationPage: React.FC = () => {
                       value={formData.subGenres}
                       onChange={(e) => update('subGenres', e.target.value)}
                       className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                      placeholder="e.g. Amapiano, Kwaito, House"
                     />
                   </div>
                 </div>
@@ -344,7 +341,6 @@ const ArtistApplicationPage: React.FC = () => {
                       value={formData.origin}
                       onChange={(e) => update('origin', e.target.value)}
                       className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                      placeholder="City, Country"
                     />
                   </div>
                   <div>
@@ -356,7 +352,6 @@ const ArtistApplicationPage: React.FC = () => {
                       value={formData.yearsActive}
                       onChange={(e) => update('yearsActive', e.target.value)}
                       className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                      placeholder="e.g. 3 years, Since 2020"
                     />
                   </div>
                 </div>
@@ -370,7 +365,6 @@ const ArtistApplicationPage: React.FC = () => {
                     onChange={(e) => update('bio', e.target.value)}
                     rows={4}
                     className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
-                    placeholder="Tell us about yourself, your musical journey, and what makes your sound unique..."
                   />
                   <p className="text-gray-500 text-xs mt-1">This will be displayed on your public artist profile.</p>
                 </div>
@@ -394,7 +388,6 @@ const ArtistApplicationPage: React.FC = () => {
                     onChange={(e) => update('notableWorks', e.target.value)}
                     rows={3}
                     className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
-                    placeholder="List your notable releases, collaborations, or achievements (e.g. 'Featured on African Heat playlist, 500K+ streams on single X')..."
                   />
                 </div>
 
@@ -407,7 +400,6 @@ const ArtistApplicationPage: React.FC = () => {
                     onChange={(e) => update('inspiration', e.target.value)}
                     rows={3}
                     className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
-                    placeholder="Who are your musical influences? What drives your creative process?"
                   />
                 </div>
 
@@ -420,7 +412,6 @@ const ArtistApplicationPage: React.FC = () => {
                     value={formData.imageUrl}
                     onChange={(e) => update('imageUrl', e.target.value)}
                     className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    placeholder="https://example.com/your-photo.jpg"
                   />
                   <p className="text-gray-500 text-xs mt-1">A clear, high-resolution photo of yourself.</p>
                 </div>
@@ -434,7 +425,6 @@ const ArtistApplicationPage: React.FC = () => {
                     value={formData.bannerImageUrl}
                     onChange={(e) => update('bannerImageUrl', e.target.value)}
                     className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    placeholder="https://example.com/banner.jpg"
                   />
                   <p className="text-gray-500 text-xs mt-1">A wide banner image for your profile header (16:9 ratio recommended).</p>
                 </div>
@@ -448,7 +438,6 @@ const ArtistApplicationPage: React.FC = () => {
                     onChange={(e) => update('additionalInfo', e.target.value)}
                     rows={3}
                     className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
-                    placeholder="Anything else you'd like us to know? Upcoming projects, management info, etc."
                   />
                 </div>
               </div>
@@ -467,13 +456,13 @@ const ArtistApplicationPage: React.FC = () => {
                   <p className="text-gray-500 text-xs mb-4">Add your social profiles to help fans connect with you.</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {[
-                      { field: 'instagram', label: 'Instagram', placeholder: '@yourusername' },
-                      { field: 'twitter', label: 'Twitter / X', placeholder: '@yourusername' },
-                      { field: 'tiktok', label: 'TikTok', placeholder: '@yourusername' },
-                      { field: 'youtube', label: 'YouTube', placeholder: 'Channel URL' },
-                      { field: 'facebook', label: 'Facebook', placeholder: 'Page URL' },
-                      { field: 'website', label: 'Website', placeholder: 'https://yourwebsite.com' },
-                    ].map(({ field, label, placeholder }) => (
+                      { field: 'instagram', label: 'Instagram' },
+                      { field: 'twitter', label: 'Twitter / X' },
+                      { field: 'tiktok', label: 'TikTok' },
+                      { field: 'youtube', label: 'YouTube' },
+                      { field: 'facebook', label: 'Facebook' },
+                      { field: 'website', label: 'Website' },
+                    ].map(({ field, label }) => (
                       <div key={field}>
                         <label className="block text-sm font-medium text-gray-400 mb-1">{label}</label>
                         <input
@@ -481,7 +470,6 @@ const ArtistApplicationPage: React.FC = () => {
                           value={(formData as any)[field]}
                           onChange={(e) => update(field, e.target.value)}
                           className="w-full px-4 py-2.5 bg-gray-700 border border-gray-600 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                          placeholder={placeholder}
                         />
                       </div>
                     ))}

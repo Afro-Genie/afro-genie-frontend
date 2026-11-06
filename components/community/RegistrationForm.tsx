@@ -86,7 +86,6 @@ const RegistrationForm: React.FC = () => {
                                 required 
                                 disabled={loading}
                                 className={inputStyles} 
-                                placeholder="Your name"
                             />
                         </div>
                         <div>
@@ -99,7 +98,6 @@ const RegistrationForm: React.FC = () => {
                                 required 
                                 disabled={loading}
                                 className={inputStyles} 
-                                placeholder="your@email.com"
                             />
                         </div>
                         <div>
@@ -113,7 +111,6 @@ const RegistrationForm: React.FC = () => {
                                 disabled={loading}
                                 minLength={PASSWORD_MIN_LENGTH}
                                 className={inputStyles} 
-                                placeholder="At least 8 characters"
                             />
                             <p className="text-xs text-gray-500 mt-1">{PASSWORD_REQUIREMENTS_MESSAGE}</p>
                         </div>
