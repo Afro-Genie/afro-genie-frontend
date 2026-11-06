@@ -142,16 +142,19 @@ export default defineConfig(({ mode }) => {
           },
           // Proxy API requests to the Express backend
           '/api': {
-            target: 'http://localhost:3001',
+            target: 'http://127.0.0.1:4000',
             changeOrigin: true,
             configure: (proxy) => {
+              proxy.on('proxyReq', (proxyReq) => {
+                proxyReq.removeHeader('origin');
+              });
               proxy.on('error', (err, _req, res) => {
                 // Vite proxies both HTTP and WS; only write a body to plain
                 // HTTP responses (WS handlers get a Socket/ServerResponse-like
                 // object without writable `end`).
                 const body = JSON.stringify({
                   error:
-                    'Backend API is not running on http://localhost:3001. Start it with: npm run dev (in afro-genie-backend)',
+                    'Backend API is not running on http://127.0.0.1:4000. Start it with: npm run dev (in afro-genie-backend)',
                   code: 'BACKEND_UNAVAILABLE',
                 });
                 if (res && typeof (res as any).write === 'function' && !(res as any).writableEnded) {
@@ -165,7 +168,7 @@ export default defineConfig(({ mode }) => {
           // Proxy uploaded media (images/audio) served by the backend so
           // relative "/uploads/..." URLs work during local development.
           '/uploads': {
-            target: 'http://localhost:3001',
+            target: 'http://127.0.0.1:4000',
             changeOrigin: true,
           },
           // Proxy TheAudioDB API to avoid CORS issues
