@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import UserIcon from '../icons/UserIcon';
+import {
+    getPasswordValidationError,
+    PASSWORD_MIN_LENGTH,
+    PASSWORD_REQUIREMENTS_MESSAGE,
+} from '../../lib/passwordValidation';
 
 const RegistrationForm: React.FC = () => {
     const { signUp, signInWithGoogle } = useAuth();
@@ -14,6 +19,13 @@ const RegistrationForm: React.FC = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
+
+        const passwordError = getPasswordValidationError(password);
+        if (passwordError) {
+            setError(passwordError);
+            return;
+        }
+
         setLoading(true);
 
         try {
@@ -99,11 +111,11 @@ const RegistrationForm: React.FC = () => {
                                 onChange={(e) => setPassword(e.target.value)} 
                                 required 
                                 disabled={loading}
-                                minLength={6}
+                                minLength={PASSWORD_MIN_LENGTH}
                                 className={inputStyles} 
-                                placeholder="At least 6 characters"
+                                placeholder="At least 8 characters"
                             />
-                            <p className="text-xs text-gray-500 mt-1">Minimum 6 characters</p>
+                            <p className="text-xs text-gray-500 mt-1">{PASSWORD_REQUIREMENTS_MESSAGE}</p>
                         </div>
                         <div className="pt-2">
                             <button 

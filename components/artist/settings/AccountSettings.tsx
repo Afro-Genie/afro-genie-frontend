@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
 import { Shield, Mail, Eye, EyeOff, CheckCircle, AlertCircle } from 'lucide-react';
 import { authApi } from '../../../services/api';
+import {
+  getPasswordValidationError,
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_REQUIREMENTS_MESSAGE,
+} from '../../../lib/passwordValidation';
 
 interface AccountSettingsProps {
   email: string;
@@ -22,8 +27,9 @@ const AccountSettings: React.FC<AccountSettingsProps> = ({ email }) => {
       setMessage({ type: 'error', text: 'New passwords do not match' });
       return;
     }
-    if (newPassword.length < 8) {
-      setMessage({ type: 'error', text: 'Password must be at least 8 characters' });
+    const passwordError = getPasswordValidationError(newPassword);
+    if (passwordError) {
+      setMessage({ type: 'error', text: passwordError });
       return;
     }
     setChanging(true);
@@ -103,6 +109,7 @@ const AccountSettings: React.FC<AccountSettingsProps> = ({ email }) => {
                     type={showNew ? 'text' : 'password'}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
+                    minLength={PASSWORD_MIN_LENGTH}
                     className="w-full px-3 py-2 pr-10 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                     placeholder="At least 8 characters"
                   />
@@ -114,6 +121,7 @@ const AccountSettings: React.FC<AccountSettingsProps> = ({ email }) => {
                     {showNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
+                <p className="text-xs text-gray-500 mt-1">{PASSWORD_REQUIREMENTS_MESSAGE}</p>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-400 mb-1">Confirm New Password</label>

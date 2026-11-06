@@ -1,6 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import {
+  getPasswordValidationError,
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_REQUIREMENTS_MESSAGE,
+} from '../../lib/passwordValidation';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -17,11 +22,39 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
 
   const { signIn, signUp, signInWithGoogle } = useAuth();
 
+  useEffect(() => {
+    if (!isOpen) {
+      setIsSignUp(false);
+      setEmail('');
+      setPassword('');
+      setDisplayName('');
+      setError('');
+      setLoading(false);
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
+
+  const handleToggleMode = () => {
+    setIsSignUp((prev) => !prev);
+    setEmail('');
+    setPassword('');
+    setDisplayName('');
+    setError('');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (isSignUp) {
+      const passwordError = getPasswordValidationError(password);
+      if (passwordError) {
+        setError(passwordError);
+        return;
+      }
+    }
+
     setLoading(true);
 
     try {
@@ -134,7 +167,11 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
               onChange={(e) => setPassword(e.target.value)}
               className="w-full px-3 py-2.5 min-h-[44px] text-base bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
               required
+              minLength={PASSWORD_MIN_LENGTH}
             />
+            {isSignUp && (
+              <p className="text-xs text-gray-400 mt-1">{PASSWORD_REQUIREMENTS_MESSAGE}</p>
+            )}
             {!isSignUp && (
               <Link
                 to="/forgot-password"
@@ -187,7 +224,7 @@ Continue with Google
         <div className="mt-6 text-center">
           <button
             type="button"
-            onClick={() => setIsSignUp(!isSignUp)}
+            onClick={handleToggleMode}
             className="min-h-[44px] flex items-center justify-center mx-auto text-green-400 hover:text-green-300 text-sm"
           >
             {isSignUp
