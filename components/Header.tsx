@@ -176,14 +176,14 @@ const Header: React.FC = () => {
             {!isSearchOpen && (
               <Link
                 to="/games"
-                className="flex min-h-10 items-center rounded-full border border-emerald-400/30 px-3 text-sm font-semibold text-emerald-200 transition hover:border-emerald-300 hover:bg-emerald-300/10"
+                className="hidden md:flex min-h-10 items-center rounded-full border border-emerald-400/30 px-3 text-sm font-semibold text-emerald-200 transition hover:border-emerald-300 hover:bg-emerald-300/10"
               >
                 Games
               </Link>
             )}
 
             {/* Right side: Search + Notifications + User */}
-            <div className={`flex items-center justify-end space-x-1 sm:space-x-2 flex-1 min-w-0 ${isSearchOpen ? '' : ''}`}>
+            <div className={`flex items-center justify-end space-x-2 sm:space-x-4 flex-1 min-w-0 ${isSearchOpen ? '' : ''}`}>
               <SearchBar
                 variant="header"
                 isOpen={isSearchOpen}

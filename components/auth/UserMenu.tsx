@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { usePendingRequests } from '../../hooks/usePendingRequests';
 import UserIcon from '../icons/UserIcon';
+import { PlayIcon } from '../icons/PlayIcon';
 import TokenBalance from '../TokenBalance';
 import { useNotification } from '../../hooks/useNotification';
 import Notification from '../Notification';
@@ -178,6 +179,15 @@ const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
 
                 {/* Menu Items */}
                 <div className="py-1">
+                  <Link
+                    to="/games"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="flex items-center min-h-[44px] px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
+                  >
+                    <PlayIcon className="w-4 h-4 mr-3 flex-shrink-0" />
+                    Games
+                  </Link>
+
                   <Link
                     to="/community"
                     onClick={() => setIsMenuOpen(false)}

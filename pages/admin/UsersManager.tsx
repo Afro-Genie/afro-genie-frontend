@@ -139,8 +139,8 @@ const UsersManager: React.FC = () => {
         ) : (
           <div className="divide-y divide-gray-700">
             {filteredUsers.map((user) => (
-              <div key={user.uid} className="p-6 flex items-center justify-between">
-                <div className="flex items-center space-x-4">
+              <div key={user.uid} className="p-4 sm:p-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                <div className="flex items-center space-x-4 min-w-0">
                   <div className="flex-shrink-0">
                     {user.photoURL ? (
                       <img
@@ -166,14 +166,14 @@ const UsersManager: React.FC = () => {
                       </span>
                     </div>
                     <p className="text-gray-400 text-sm truncate">{user.email}</p>
-                    <div className="flex space-x-4 text-xs text-gray-500 mt-1">
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 mt-1">
                       <span>Joined: {formatDate(user.createdAt)}</span>
                       <span>Last login: {formatDate(user.lastLogin)}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center space-x-3">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3 lg:flex-shrink-0">
                   {/* Role Selector */}
                   <select
                     value={user.role}
@@ -182,7 +182,7 @@ const UsersManager: React.FC = () => {
                       if (newRole === 'admin' && !window.confirm('Promote this user to Admin?')) return;
                       handleRoleUpdate(user.uid, newRole);
                     }}
-                    className="bg-gray-700 border border-gray-600 rounded px-3 py-1 text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                    className="bg-gray-700 select-chevron px-3 pr-10 py-1 text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                   >
                     <option value="user">User</option>
                     <option value="moderator">Moderator</option>

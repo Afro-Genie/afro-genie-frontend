@@ -258,7 +258,7 @@ const LanguagesManager: React.FC = () => {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full min-w-[640px]">
               <thead className="bg-gray-700/50">
                 <tr>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">Code</th>

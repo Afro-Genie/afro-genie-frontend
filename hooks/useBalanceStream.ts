@@ -48,6 +48,16 @@ export const useBalanceStream = (userId: string | null) => {
     }
   }, [userId]);
 
+  // Apply an authoritative balance returned directly by a mutating endpoint
+  // (e.g. a moderation action that also credits GT). This makes the header
+  // balance update in the same tick as the action instead of waiting for the
+  // SSE push or the 30s polling fallback.
+  const applyBalance = useCallback((nextBalance: number, event?: BalanceUpdateEvent) => {
+    if (typeof nextBalance !== 'number') return;
+    setBalance(nextBalance);
+    if (event) setLastEvent(event);
+  }, []);
+
   useEffect(() => {
     if (!userId) {
       setBalance(null);
@@ -121,5 +131,5 @@ export const useBalanceStream = (userId: string | null) => {
     };
   }, [userId, loadBalance]);
 
-  return { balance, status, lastEvent, refresh: loadBalance };
+  return { balance, status, lastEvent, refresh: loadBalance, applyBalance };
 };

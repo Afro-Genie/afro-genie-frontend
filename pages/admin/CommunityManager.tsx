@@ -24,7 +24,7 @@ const sortToApiParam: Record<SortBy, string> = {
 };
 
 const CommunityManager: React.FC = () => {
-  const { authFetch } = useAuth();
+  const { authFetch, applyBalance } = useAuth();
   const [viewMode, setViewMode] = useState<ViewMode>('topics');
   const [topics, setTopics] = useState<Topic[]>([]);
   const [categories, setCategories] = useState<ForumCategory[]>([]);
@@ -80,19 +80,51 @@ const CommunityManager: React.FC = () => {
   };
 
   const handlePinTopic = async (topicId: string, isPinned: boolean) => {
+    const nextPinned = !isPinned;
+    setTopics((current) =>
+      current.map((t) => (t.id === topicId ? { ...t, isPinned: nextPinned } : t))
+    );
     try {
-      await authFetch(`/api/community/topics/${topicId}/pin`, { method: 'PATCH' });
-      loadData();
+      const result = await authFetch(`/api/community/topics/${topicId}/pin`, {
+        method: 'PATCH',
+      });
+      setTopics(
+        current =>
+          current.map((t) =>
+            t.id === topicId ? { ...t, isPinned: result?.isPinned ?? nextPinned } : t
+          )
+      );
+      if (result?.reward?.balance != null) applyBalance(result.reward.balance);
     } catch (error) {
+      setTopics(
+        current =>
+          current.map((t) => (t.id === topicId ? { ...t, isPinned } : t))
+      );
       console.error('Error pinning topic:', error);
     }
   };
 
   const handleLockTopic = async (topicId: string, isLocked: boolean) => {
+    const nextLocked = !isLocked;
+    setTopics((current) =>
+      current.map((t) => (t.id === topicId ? { ...t, isLocked: nextLocked } : t))
+    );
     try {
-      await authFetch(`/api/community/topics/${topicId}/lock`, { method: 'PATCH' });
-      loadData();
+      const result = await authFetch(`/api/community/topics/${topicId}/lock`, {
+        method: 'PATCH',
+      });
+      setTopics(
+        current =>
+          current.map((t) =>
+            t.id === topicId ? { ...t, isLocked: result?.isLocked ?? nextLocked } : t
+          )
+      );
+      if (result?.reward?.balance != null) applyBalance(result.reward.balance);
     } catch (error) {
+      setTopics(
+        current =>
+          current.map((t) => (t.id === topicId ? { ...t, isLocked } : t))
+      );
       console.error('Error locking topic:', error);
     }
   };
@@ -275,7 +307,7 @@ const CommunityManager: React.FC = () => {
               <select
                 value={selectedCategory || ''}
                 onChange={(e) => setSelectedCategory(e.target.value || undefined)}
-                className="px-4 py-2 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+                className="select-chevron px-4 py-2 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
               >
                 <option value="">All Categories</option>
                 {categories.map((cat) => (
@@ -287,7 +319,7 @@ const CommunityManager: React.FC = () => {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as SortBy)}
-                className="px-4 py-2 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+                className="select-chevron px-4 py-2 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
               >
                 <option value="latest">Latest</option>
                 <option value="mostLiked">Most Liked</option>
@@ -454,19 +486,19 @@ const CommunityManager: React.FC = () => {
                 placeholder="Category name"
                 value={newCategory.name}
                 onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
-                className="px-4 py-2 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+                className="select-chevron px-4 py-2 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
               />
               <input
                 type="text"
                 placeholder="Description"
                 value={newCategory.description}
                 onChange={(e) => setNewCategory({ ...newCategory, description: e.target.value })}
-                className="px-4 py-2 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+                className="select-chevron px-4 py-2 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
               />
               <select
                 value={newCategory.icon}
                 onChange={(e) => setNewCategory({ ...newCategory, icon: e.target.value })}
-                className="px-4 py-2 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+                className="select-chevron px-4 py-2 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
               >
                 <option value="chat">Chat</option>
                 <option value="translate">Translate</option>
@@ -478,7 +510,7 @@ const CommunityManager: React.FC = () => {
                 placeholder="Order"
                 value={newCategory.order}
                 onChange={(e) => setNewCategory({ ...newCategory, order: parseInt(e.target.value) || 0 })}
-                className="px-4 py-2 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+                className="select-chevron px-4 py-2 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
               />
             </div>
             <button

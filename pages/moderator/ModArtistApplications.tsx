@@ -70,8 +70,8 @@ const ModArtistApplications: React.FC = () => {
         <p className="text-gray-400 text-center py-12">No applications found.</p>
       ) : (
         <>
-          <div className="bg-gray-800 rounded-lg overflow-hidden">
-            <table className="w-full">
+          <div className="bg-gray-800 rounded-lg overflow-x-auto">
+            <table className="w-full min-w-[640px]">
               <thead>
                 <tr className="border-b border-gray-700 text-gray-400 text-sm">
                   <th className="text-left px-4 py-3">Applicant</th>

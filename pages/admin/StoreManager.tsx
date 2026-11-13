@@ -199,7 +199,7 @@ const StoreManager: React.FC = () => {
           <select
             value={form.category}
             onChange={(e) => setForm({ ...form, category: e.target.value })}
-            className="px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:border-green-500"
+            className="select-chevron px-3 pr-10 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:border-green-500"
           >
             <option value="avatar">Avatar</option>
             <option value="title">Title</option>
@@ -254,7 +254,7 @@ const StoreManager: React.FC = () => {
           <p className="text-gray-500 text-center py-8">No items yet.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[640px] text-sm">
               <thead>
                 <tr className="text-left text-gray-400 border-b border-gray-700">
                   <th className="pb-3 font-medium">Item</th>
@@ -322,7 +322,7 @@ const StoreManager: React.FC = () => {
           <select
             value={purchaseStatus}
             onChange={(e) => setPurchaseStatus(e.target.value)}
-            className="px-3 py-1.5 bg-gray-900 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:border-green-500"
+            className="select-chevron px-3 pr-1.5 bg-gray-900 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:border-green-500"
           >
             <option value="PENDING_FULFILLMENT">Pending</option>
             <option value="FULFILLED">Fulfilled</option>
@@ -339,7 +339,7 @@ const StoreManager: React.FC = () => {
           <p className="text-gray-500 text-center py-8">No purchases found.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[640px] text-sm">
               <thead>
                 <tr className="text-left text-gray-400 border-b border-gray-700">
                   <th className="pb-3 font-medium">Buyer</th>

@@ -57,6 +57,9 @@ function getHttpsConfig() {
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
+    // Backend API origin for the dev proxy. Must match PORT in
+    // afro-genie-backend/.env (default 3001).
+    const apiProxyTarget = env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:3001';
     return {
       server: {
         port: 3000,
@@ -142,7 +145,7 @@ export default defineConfig(({ mode }) => {
           },
           // Proxy API requests to the Express backend
           '/api': {
-            target: 'http://127.0.0.1:4000',
+            target: apiProxyTarget,
             changeOrigin: true,
             configure: (proxy) => {
               proxy.on('proxyReq', (proxyReq) => {
@@ -154,7 +157,7 @@ export default defineConfig(({ mode }) => {
                 // object without writable `end`).
                 const body = JSON.stringify({
                   error:
-                    'Backend API is not running on http://127.0.0.1:4000. Start it with: npm run dev (in afro-genie-backend)',
+                    `Backend API is not running on ${apiProxyTarget}. Start it with: npm run dev (in afro-genie-backend)`,
                   code: 'BACKEND_UNAVAILABLE',
                 });
                 if (res && typeof (res as any).write === 'function' && !(res as any).writableEnded) {
@@ -168,7 +171,7 @@ export default defineConfig(({ mode }) => {
           // Proxy uploaded media (images/audio) served by the backend so
           // relative "/uploads/..." URLs work during local development.
           '/uploads': {
-            target: 'http://127.0.0.1:4000',
+            target: apiProxyTarget,
             changeOrigin: true,
           },
           // Proxy TheAudioDB API to avoid CORS issues
