@@ -79,7 +79,6 @@ const RecommendedModeratorsView: React.FC = React.memo(() => {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-gray-400">Top contributors who help keep the community safe and organized.</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {moderators.map(mod => (
           <ModeratorProfileCard key={mod.id} moderator={mod} />

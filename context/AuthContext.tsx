@@ -73,6 +73,7 @@ interface AuthContextType {
   balanceStatus: "idle" | "connecting" | "open" | "error";
   lastBalanceEvent: BalanceUpdateEvent | null;
   refreshBalance: () => Promise<void>;
+  applyBalance: (balance: number, event?: BalanceUpdateEvent) => void;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (
     email: string,
@@ -151,7 +152,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const { balance, status: balanceStatus, lastEvent: lastBalanceEvent, refresh: refreshBalance } = useBalanceStream(
+  const { balance, status: balanceStatus, lastEvent: lastBalanceEvent, refresh: refreshBalance, applyBalance } = useBalanceStream(
     user?.id ?? null,
   );
 
@@ -401,6 +402,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     balanceStatus,
     lastBalanceEvent,
     refreshBalance,
+    applyBalance,
     signIn,
     signUp,
     signUpAsArtist,

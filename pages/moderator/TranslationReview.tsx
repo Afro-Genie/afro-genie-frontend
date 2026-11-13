@@ -136,8 +136,8 @@ const TranslationsSection: React.FC = () => {
         <p className="text-gray-400 text-center py-12">No translations found.</p>
       ) : (
         <>
-          <div className="bg-gray-800 rounded-lg overflow-hidden">
-            <table className="w-full">
+          <div className="bg-gray-800 rounded-lg overflow-x-auto">
+            <table className="w-full min-w-[640px]">
               <thead>
                 <tr className="border-b border-gray-700 text-gray-400 text-sm">
                   <th className="text-left px-4 py-3">Song</th>
@@ -321,8 +321,8 @@ const CorrectionsSection: React.FC = () => {
         <p className="text-gray-400 text-center py-12">No corrections found.</p>
       ) : (
         <>
-          <div className="bg-gray-800 rounded-lg overflow-hidden">
-            <table className="w-full">
+          <div className="bg-gray-800 rounded-lg overflow-x-auto">
+            <table className="w-full min-w-[640px]">
               <thead>
                 <tr className="border-b border-gray-700 text-gray-400 text-sm">
                   <th className="text-left px-4 py-3">Song</th>
@@ -468,8 +468,8 @@ const CorrectionRequestsSection: React.FC = () => {
         <p className="text-gray-400 text-center py-12">No correction requests found.</p>
       ) : (
         <>
-          <div className="bg-gray-800 rounded-lg overflow-hidden">
-            <table className="w-full">
+          <div className="bg-gray-800 rounded-lg overflow-x-auto">
+            <table className="w-full min-w-[640px]">
               <thead>
                 <tr className="border-b border-gray-700 text-gray-400 text-sm">
                   <th className="text-left px-4 py-3">Title</th>
@@ -672,8 +672,8 @@ const TranslationRequestsSection: React.FC = () => {
         <p className="text-gray-400 text-center py-12">No translation requests found.</p>
       ) : (
         <>
-          <div className="bg-gray-800 rounded-lg overflow-hidden">
-            <table className="w-full">
+          <div className="bg-gray-800 rounded-lg overflow-x-auto">
+            <table className="w-full min-w-[640px]">
               <thead>
                 <tr className="border-b border-gray-700 text-gray-400 text-sm">
                   <th className="text-left px-4 py-3">Song</th>

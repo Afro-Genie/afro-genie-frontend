@@ -47,7 +47,7 @@ const addCommentToTree = (items: CommunityComment[], parentCommentId: string, ne
 const TopicDetailPage: React.FC = () => {
   const { topicId } = useParams<{ topicId: string }>();
   const navigate = useNavigate();
-  const { user, userProfile, authFetch } = useAuth();
+  const { user, userProfile, authFetch, applyBalance } = useAuth();
   const { notification, showNotification, hideNotification } = useNotification();
   const [topic, setTopic] = useState<CommunityTopic | null>(null);
   const [comments, setComments] = useState<CommunityComment[]>([]);
@@ -148,23 +148,33 @@ const TopicDetailPage: React.FC = () => {
   };
 
   const handlePin = async () => {
-    if (!topicId) return;
+    if (!topicId || !topic) return;
+    const nextPinned = !topic.isPinned;
+    // Optimistic: reflect the toggle and confirm instantly; the request runs
+    // in the background and the reward balance is applied from the response.
+    setTopic((current) => (current ? { ...current, isPinned: nextPinned } : current));
+    showNotification({ message: nextPinned ? 'Topic pinned' : 'Topic unpinned', type: 'success' });
     try {
-      await authFetch(`/api/community/topics/${topicId}/pin`, { method: 'PATCH' });
-      showNotification({ message: topic?.isPinned ? 'Topic unpinned' : 'Topic pinned', type: 'success' });
-      fetchTopic();
+      const result = await authFetch(`/api/community/topics/${topicId}/pin`, { method: 'PATCH' });
+      setTopic((current) => (current ? { ...current, isPinned: result?.isPinned ?? nextPinned } : current));
+      if (result?.reward?.balance != null) applyBalance(result.reward.balance);
     } catch (err: any) {
+      setTopic((current) => (current ? { ...current, isPinned: !nextPinned } : current));
       showNotification({ message: err.message || 'Failed to pin topic', type: 'error' });
     }
   };
 
   const handleLock = async () => {
-    if (!topicId) return;
+    if (!topicId || !topic) return;
+    const nextLocked = !topic.isLocked;
+    setTopic((current) => (current ? { ...current, isLocked: nextLocked } : current));
+    showNotification({ message: nextLocked ? 'Topic locked' : 'Topic unlocked', type: 'success' });
     try {
-      await authFetch(`/api/community/topics/${topicId}/lock`, { method: 'PATCH' });
-      showNotification({ message: topic?.isLocked ? 'Topic unlocked' : 'Topic locked', type: 'success' });
-      fetchTopic();
+      const result = await authFetch(`/api/community/topics/${topicId}/lock`, { method: 'PATCH' });
+      setTopic((current) => (current ? { ...current, isLocked: result?.isLocked ?? nextLocked } : current));
+      if (result?.reward?.balance != null) applyBalance(result.reward.balance);
     } catch (err: any) {
+      setTopic((current) => (current ? { ...current, isLocked: !nextLocked } : current));
       showNotification({ message: err.message || 'Failed to lock topic', type: 'error' });
     }
   };

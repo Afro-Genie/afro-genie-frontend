@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { communityApi, type TopicItem } from '../../services/communityService';
+import { useAuth } from '../../context/AuthContext';
 
 const CommunityTopics: React.FC = () => {
+  const { applyBalance } = useAuth();
   const [topics, setTopics] = useState<TopicItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +41,44 @@ const CommunityTopics: React.FC = () => {
       await action();
       await loadTopics();
     } catch (err) {
+      console.error('Community moderation action failed:', err);
+      setError('Action failed. You need MODERATOR or ADMIN access.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  // Optimistic pin/lock: flip the row immediately, then reconcile with the
+  // server response and apply the reward balance in the same tick.
+  const handlePinToggle = async (topic: TopicItem) => {
+    const nextPinned = !topic.isPinned;
+    setBusyId(topic.id);
+    setError(null);
+    setTopics((current) => current.map((t) => (t.id === topic.id ? { ...t, isPinned: nextPinned } : t)));
+    try {
+      const result = await communityApi.pinTopic(topic.id);
+      setTopics((current) => current.map((t) => (t.id === topic.id ? { ...t, isPinned: result.isPinned } : t)));
+      if (result.reward?.balance != null) applyBalance(result.reward.balance);
+    } catch (err) {
+      setTopics((current) => current.map((t) => (t.id === topic.id ? { ...t, isPinned: !nextPinned } : t)));
+      console.error('Community moderation action failed:', err);
+      setError('Action failed. You need MODERATOR or ADMIN access.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleLockToggle = async (topic: TopicItem) => {
+    const nextLocked = !topic.isLocked;
+    setBusyId(topic.id);
+    setError(null);
+    setTopics((current) => current.map((t) => (t.id === topic.id ? { ...t, isLocked: nextLocked } : t)));
+    try {
+      const result = await communityApi.lockTopic(topic.id);
+      setTopics((current) => current.map((t) => (t.id === topic.id ? { ...t, isLocked: result.isLocked } : t)));
+      if (result.reward?.balance != null) applyBalance(result.reward.balance);
+    } catch (err) {
+      setTopics((current) => current.map((t) => (t.id === topic.id ? { ...t, isLocked: !nextLocked } : t)));
       console.error('Community moderation action failed:', err);
       setError('Action failed. You need MODERATOR or ADMIN access.');
     } finally {
@@ -107,9 +147,7 @@ const CommunityTopics: React.FC = () => {
                 </div>
                 <div className="flex flex-col gap-2 flex-shrink-0">
                   <button
-                    onClick={() =>
-                      handleAction(topic.id, () => communityApi.pinTopic(topic.id))
-                    }
+                    onClick={() => handlePinToggle(topic)}
                     disabled={busyId === topic.id}
                     className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                       topic.isPinned
@@ -120,9 +158,7 @@ const CommunityTopics: React.FC = () => {
                     {topic.isPinned ? 'Unpin' : 'Pin'}
                   </button>
                   <button
-                    onClick={() =>
-                      handleAction(topic.id, () => communityApi.lockTopic(topic.id))
-                    }
+                    onClick={() => handleLockToggle(topic)}
                     disabled={busyId === topic.id}
                     className="px-4 py-2 text-sm font-medium bg-gray-600 hover:bg-gray-500 text-white rounded-lg transition-colors disabled:opacity-50"
                   >

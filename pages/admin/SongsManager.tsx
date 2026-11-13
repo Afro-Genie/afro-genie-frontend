@@ -281,7 +281,7 @@ const SongsManager: React.FC = () => {
                 setSelectedArtist(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full px-3 py-2.5 text-base bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full select-chevron px-3 pr-10 py-2.5 text-base bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
             >
               <option value="all">All Artists</option>
               {artists.map(artist => (
@@ -299,7 +299,7 @@ const SongsManager: React.FC = () => {
                 setSelectedGenre(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full px-3 py-2.5 text-base bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full select-chevron px-3 pr-10 py-2.5 text-base bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
             >
               <option value="all">All Genres</option>
               {availableGenres.map(genre => (
@@ -318,7 +318,7 @@ const SongsManager: React.FC = () => {
                   setSortBy(e.target.value as any);
                   setCurrentPage(1);
                 }}
-                className="flex-1 px-3 py-2.5 text-base bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="flex-1 select-chevron px-3 pr-10 py-2.5 text-base bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
               >
                 <option value="createdAt">Date Added</option>
                 <option value="title">Title</option>
@@ -370,7 +370,7 @@ const SongsManager: React.FC = () => {
           <>
             {/* Desktop Table View */}
             <div className="hidden md:block overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full min-w-[640px]">
                 <thead className="bg-gray-900 border-b border-gray-700">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">

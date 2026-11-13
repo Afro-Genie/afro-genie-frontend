@@ -92,7 +92,7 @@ const ArtistManagementPage: React.FC = () => {
           <div className="p-12 text-center text-gray-400">No artists found</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full min-w-[640px]">
               <thead>
                 <tr className="border-b border-gray-700">
                   <th className="text-left px-6 py-4 text-xs font-medium text-gray-400 uppercase tracking-wider">

@@ -39,6 +39,11 @@ export interface TopicListResponse {
   limit: number;
 }
 
+export interface ModerationReward {
+  amount: number;
+  balance: number;
+}
+
 export const communityApi = {
   getFeed: (params?: { page?: number; limit?: number; categoryId?: string; search?: string }) =>
     apiRequest<CommunityFeedResponse>(`/community/feed?${toParams(params || {})}`),
@@ -71,11 +76,11 @@ export const communityApi = {
     apiRequest<TopicListResponse>(`/community/topics?${toParams(params || {})}`),
 
   pinTopic: (id: string) =>
-    apiRequest<{ isPinned: boolean }>(`/community/topics/${id}/pin`, { method: 'PATCH' }),
+    apiRequest<{ isPinned: boolean; reward: ModerationReward | null }>(`/community/topics/${id}/pin`, { method: 'PATCH' }),
 
   lockTopic: (id: string) =>
-    apiRequest<{ isLocked: boolean }>(`/community/topics/${id}/lock`, { method: 'PATCH' }),
+    apiRequest<{ isLocked: boolean; reward: ModerationReward | null }>(`/community/topics/${id}/lock`, { method: 'PATCH' }),
 
   deleteTopic: (id: string) =>
-    apiRequest<{ deleted: boolean }>(`/community/topics/${id}`, { method: 'DELETE' }),
+    apiRequest<{ deleted: boolean; reward: ModerationReward | null }>(`/community/topics/${id}`, { method: 'DELETE' }),
 };

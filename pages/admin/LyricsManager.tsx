@@ -596,8 +596,8 @@ const LyricsManager: React.FC = () => {
           </div>
 
           {/* Table */}
-          <div className="bg-gray-800 rounded-lg overflow-hidden">
-            <table className="w-full">
+          <div className="bg-gray-800 rounded-lg overflow-x-auto">
+            <table className="w-full min-w-[640px]">
               <thead className="bg-gray-700">
                 <tr>
                   <th className="px-4 py-3 text-left">

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { communityApi } from '../../services/communityService';
 import CommunityContentCard from './CommunityContentCard';
 import PlaylistCard from './PlaylistCard';
@@ -31,6 +32,7 @@ const ExploreView: React.FC = React.memo(() => {
   const [data, setData] = useState<ExploreData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const fetch = useCallback(async () => {
     setLoading(true);
@@ -86,6 +88,7 @@ const ExploreView: React.FC = React.memo(() => {
                 key={genre.genreId}
                 title={genre.genreName}
                 stats={[{ label: 'plays', value: genre.playCount }]}
+                onClick={() => navigate(`/genre/${genre.genreName}`)}
               />
             ))}
           </div>
@@ -120,6 +123,7 @@ const ExploreView: React.FC = React.memo(() => {
                 title={track.title}
                 subtitle={track.artistName}
                 stats={[{ label: 'plays', value: track.playCount }]}
+                onClick={() => navigate(`/songs/${track.songId}`)}
               />
             ))}
           </div>

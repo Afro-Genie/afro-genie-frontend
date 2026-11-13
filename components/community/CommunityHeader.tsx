@@ -16,7 +16,7 @@ interface CommunityHeaderProps {
 
 const CommunityHeader: React.FC<CommunityHeaderProps> = React.memo(({ title, description, bannerImage, chips, action, actionPlacement }) => {
   return (
-    <div className="relative w-full min-h-[200px] sm:h-52 rounded-xl overflow-hidden mb-6">
+    <div className="relative w-full min-h-[200px] sm:min-h-52 rounded-xl overflow-hidden mb-6 flex items-end">
       {bannerImage ? (
         <img src={bannerImage} alt="" className="absolute inset-0 w-full h-full object-cover" />
       ) : (
@@ -28,7 +28,7 @@ const CommunityHeader: React.FC<CommunityHeaderProps> = React.memo(({ title, des
           {action}
         </div>
       )}
-      <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6">
+      <div className="relative z-10 w-full p-4 sm:p-6">
         {action && actionPlacement === 'before-title' && (
           <div className="sm:hidden mb-3">{action}</div>
         )}

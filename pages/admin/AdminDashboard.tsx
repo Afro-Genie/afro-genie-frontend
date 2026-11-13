@@ -150,32 +150,32 @@ const AdminDashboard: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
       {/* Header Section */}
-      <div className="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4 mb-8">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
+      <div className="bg-gradient-to-r from-red-600 to-red-700 px-4 sm:px-6 py-4 mb-6 sm:mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
             <div className="flex items-center space-x-2">
-              <GridIcon className="w-8 h-8 text-white" />
-              <h1 className="text-2xl font-bold text-white">AfroGenie Admin</h1>
+              <GridIcon className="w-7 h-7 sm:w-8 sm:h-8 text-white flex-shrink-0" />
+              <h1 className="text-xl sm:text-2xl font-bold text-white">AfroGenie Admin</h1>
             </div>
             <div className="text-white/80">
               <span className="text-sm">Control Panel</span>
             </div>
           </div>
           <div className="text-white">
-            <span className="text-sm">Today: {new Date().toLocaleDateString()}</span>
+            <span className="text-xs sm:text-sm">Today: {new Date().toLocaleDateString()}</span>
           </div>
         </div>
       </div>
 
-      <div className="px-6 space-y-8">
+      <div className="px-4 sm:px-6 space-y-6 sm:space-y-8">
         {/* Welcome Section */}
-        <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
-          <div className="flex items-center justify-between">
+        <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-white/10">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h2 className="text-3xl font-bold text-white mb-2">Welcome Admin!</h2>
+              <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">Welcome Admin!</h2>
               <p className="text-gray-300">Manage your AfroGenie platform with ease</p>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 flex-shrink-0">
               <StatsIcon className="w-6 h-6 text-green-400" />
               <span className="text-green-400 font-semibold">Live Dashboard</span>
             </div>
@@ -399,16 +399,16 @@ const AdminDashboard: React.FC = () => {
         )}
 
         {/* Quick Actions - Enhanced Design */}
-        <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-white">Quick Actions</h2>
+        <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-white/10">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
+            <h2 className="text-xl sm:text-2xl font-bold text-white">Quick Actions</h2>
             <div className="flex items-center space-x-2">
               <PlusIcon className="w-5 h-5 text-green-400" />
               <span className="text-green-400 text-sm font-medium">Add New Content</span>
             </div>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
             <Link
               to="/admin/artists"
               className="group bg-gradient-to-r from-gray-700 to-gray-600 rounded-xl p-6 hover:from-purple-600 hover:to-purple-700 transition-all duration-300 hover:scale-105 hover:shadow-lg"
@@ -489,9 +489,9 @@ const AdminDashboard: React.FC = () => {
         </div>
 
         {/* Sync Status Panel */}
-        <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-white">Sync Status</h2>
+        <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-white/10">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
+            <h2 className="text-xl sm:text-2xl font-bold text-white">Sync Status</h2>
             <div className="flex items-center space-x-2">
               <div className={`w-2.5 h-2.5 rounded-full ${syncDashboard ? 'bg-green-400 animate-pulse' : 'bg-gray-500'}`} />
               <span className={`text-sm font-medium ${syncDashboard ? 'text-green-400' : 'text-gray-400'}`}>
@@ -540,13 +540,13 @@ const AdminDashboard: React.FC = () => {
 
               {/* Popular Tracks Sync */}
               <div className="bg-gradient-to-r from-green-600/20 to-green-700/20 rounded-lg p-4 border border-green-600/30">
-                <div className="flex items-center justify-between">
-                  <div>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="min-w-0">
                     <h3 className="text-lg font-bold text-white mb-1">Popular African Tracks</h3>
                     <p className="text-green-200 text-sm">
                       Weekly sync across 10 genres (Afrobeats, Amapiano, Afropop, etc.)
                     </p>
-                    <div className="flex items-center gap-4 mt-2 text-xs text-gray-400">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-gray-400">
                       <span>
                         Last sync:{' '}
                         {syncDashboard.popularTracksStats?.lastSync
@@ -584,19 +584,19 @@ const AdminDashboard: React.FC = () => {
         </div>
 
         {/* API Management Section */}
-        <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-white">Industry-Standard API Management</h2>
+        <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-white/10">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
+            <h2 className="text-xl sm:text-2xl font-bold text-white">Industry-Standard API Management</h2>
             <div className="flex items-center space-x-2">
               <PlusIcon className="w-5 h-5 text-blue-400" />
               <span className="text-blue-400 text-sm font-medium">Multi-Source Integration</span>
             </div>
           </div>
           
-          <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-6 text-white mb-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-xl font-bold mb-2">Advanced API Integration</h3>
+          <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-4 sm:p-6 text-white mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="min-w-0">
+                <h3 className="text-lg sm:text-xl font-bold mb-2">Advanced API Integration</h3>
                 <p className="text-blue-100 mb-4">Pull from Genius, MusicBrainz, Last.fm, TheAudioDB with rate limiting, caching & admin controls</p>
                 <button
                   onClick={() => setShowAPIManagement(!showAPIManagement)}
@@ -606,8 +606,8 @@ const AdminDashboard: React.FC = () => {
                   <span>{showAPIManagement ? 'Hide' : 'Show'} API Management</span>
                 </button>
               </div>
-              <div className="bg-white/20 rounded-full p-4">
-                <MusicNoteIcon className="w-12 h-12" />
+              <div className="bg-white/20 rounded-full p-3 sm:p-4 hidden sm:block flex-shrink-0">
+                <MusicNoteIcon className="w-10 h-10 sm:w-12 sm:h-12" />
               </div>
             </div>
           </div>
@@ -618,19 +618,19 @@ const AdminDashboard: React.FC = () => {
         </div>
 
         {/* Unified Management Section */}
-        <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-white">Unified Content Management</h2>
+        <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-white/10">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
+            <h2 className="text-xl sm:text-2xl font-bold text-white">Unified Content Management</h2>
             <div className="flex items-center space-x-2">
               <GridIcon className="w-5 h-5 text-green-400" />
               <span className="text-green-400 text-sm font-medium">All-in-One</span>
             </div>
           </div>
           
-          <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-xl p-6 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-xl font-bold mb-2">Master Control Panel</h3>
+          <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-xl p-4 sm:p-6 text-white">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="min-w-0">
+                <h3 className="text-lg sm:text-xl font-bold mb-2">Master Control Panel</h3>
                 <p className="text-green-100 mb-4">Manage all content types in one powerful interface</p>
                 <Link
                   to="/admin/unified"
@@ -640,8 +640,8 @@ const AdminDashboard: React.FC = () => {
                   <span>Open Unified Manager</span>
                 </Link>
               </div>
-              <div className="bg-white/20 rounded-full p-4">
-                <GridIcon className="w-12 h-12" />
+              <div className="bg-white/20 rounded-full p-3 sm:p-4 hidden sm:block flex-shrink-0">
+                <GridIcon className="w-10 h-10 sm:w-12 sm:h-12" />
               </div>
             </div>
           </div>
