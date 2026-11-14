@@ -34,7 +34,8 @@ const labels: Record<string, string> = {
 };
 
 export default function StarSeeker({ puzzle, play, feedback, busy, onAction }: StarSeekerProps) {
-  const [artistId, setArtistId] = useState('');
+  const [artistName, setArtistName] = useState('');
+  const [guessError, setGuessError] = useState('');
   const state = play.state;
   const candidates = puzzle.candidates ?? [];
   const guesses = Array.isArray(state.guesses) ? state.guesses : [];
@@ -44,14 +45,24 @@ export default function StarSeeker({ puzzle, play, feedback, busy, onAction }: S
   const active = play.status === 'IN_PROGRESS';
 
   useEffect(() => {
-    if (guesses.length !== previousGuessCount.current) setArtistId('');
+    if (guesses.length !== previousGuessCount.current) {
+      setArtistName('');
+      setGuessError('');
+    }
     previousGuessCount.current = guesses.length;
   }, [guesses.length]);
 
   const submitGuess = async (event: FormEvent) => {
     event.preventDefault();
-    if (!artistId || !active || busy) return;
-    await onAction({ type: 'guess', artistId });
+    const guess = artistName.trim();
+    if (!guess || !active || busy) return;
+    const candidate = candidates.find(({ name }) => name.toLowerCase() === guess.toLowerCase());
+    if (!candidate) {
+      setGuessError('Enter an artist from today’s game.');
+      return;
+    }
+    setGuessError('');
+    await onAction({ type: 'guess', artistId: candidate.artistId });
   };
 
   return (
@@ -64,19 +75,19 @@ export default function StarSeeker({ puzzle, play, feedback, busy, onAction }: S
 
       {active ? (
         <form onSubmit={submitGuess} className="flex flex-col gap-3 sm:flex-row">
-          <label htmlFor="artist-guess" className="sr-only">Choose an artist guess</label>
-          <select
+          <label htmlFor="artist-guess" className="sr-only">Artist name guess</label>
+          <input
             id="artist-guess"
-            value={artistId}
-            onChange={(event) => setArtistId(event.target.value)}
+            autoComplete="off"
+            value={artistName}
+            onChange={(event) => {
+              setArtistName(event.target.value);
+              setGuessError('');
+            }}
+            placeholder="Type an artist name"
             className="min-h-12 flex-1 rounded-lg border border-white/15 bg-[#0f1b14] px-4 text-white focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/30"
-          >
-            <option value="">Choose an artist</option>
-            {candidates.map((candidate) => (
-              <option key={candidate.artistId} value={candidate.artistId}>{candidate.name}</option>
-            ))}
-          </select>
-          <button type="submit" disabled={busy || !artistId} className="min-h-12 rounded-lg bg-sky-400 px-6 font-semibold text-[#102017] hover:bg-sky-300 disabled:opacity-50">
+          />
+          <button type="submit" disabled={busy || !artistName.trim()} className="min-h-12 rounded-lg bg-sky-400 px-6 font-semibold text-[#102017] hover:bg-sky-300 disabled:opacity-50">
             Guess
           </button>
           <button
@@ -94,6 +105,7 @@ export default function StarSeeker({ puzzle, play, feedback, busy, onAction }: S
           {typeof state.answer === 'string' && <p className="mt-2 font-semibold">{state.answer}</p>}
         </div>
       )}
+      {guessError && <p role="alert" className="text-sm text-rose-300">{guessError}</p>}
 
       {hints.length > 0 && (
         <ul aria-label="Revealed hints" className="space-y-2">
