@@ -70,7 +70,7 @@ export default function StarSeeker({ puzzle, play, feedback, busy, onAction }: S
       <header>
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-sky-300">Star Seeker</p>
         <h2 id="star-seeker-title" className="mt-2 text-2xl font-bold text-white">Find the artist</h2>
-        <p className="mt-2 text-sm text-gray-300">Compare artist attributes, use up to three hints, and solve it in ten guesses.</p>
+        <p className="mt-2 text-sm text-gray-300">Type an artist’s name as your answer (there’s no dropdown). Compare attributes, use up to three hints, and solve it in ten guesses.</p>
       </header>
 
       {active ? (
