@@ -37,7 +37,7 @@ describe('game interaction components', () => {
     expect(onAction).toHaveBeenCalledWith({ type: 'guess', value: 'The Song' });
   });
 
-  it('submits Star Seeker artist choices from the keyboard', async () => {
+  it('submits typed Star Seeker artist names from the keyboard', async () => {
     const user = userEvent.setup();
     const onAction = vi.fn().mockResolvedValue(undefined);
     const puzzle: DailyGamePuzzle = {
@@ -49,14 +49,29 @@ describe('game interaction components', () => {
 
     render(<StarSeeker puzzle={puzzle} play={activePlay} busy={false} onAction={onAction} />);
 
-    const select = screen.getByRole('combobox', { name: 'Choose an artist guess' });
-    expect(select.closest('form')).toHaveClass('sm:flex-row');
-    await user.selectOptions(select, 'artist-1');
-    await user.tab();
-    await user.keyboard('{Enter}');
+    const input = screen.getByRole('textbox', { name: 'Artist name guess' });
+    expect(input.closest('form')).toHaveClass('sm:flex-row');
+    await user.type(input, ' artist one {Enter}');
 
     expect(onAction).toHaveBeenCalledWith({ type: 'guess', artistId: 'artist-1' });
     expect(screen.getByRole('button', { name: /Reveal a hint/ })).toBeEnabled();
+  });
+
+  it('shows an error when a typed Star Seeker artist is not in the game', async () => {
+    const user = userEvent.setup();
+    const onAction = vi.fn().mockResolvedValue(undefined);
+    const puzzle: DailyGamePuzzle = {
+      game: 'STAR_SEEKER',
+      level: 1,
+      puzzleDate: '2026-11-04',
+      candidates: [{ artistId: 'artist-1', name: 'Artist One' }],
+    };
+
+    render(<StarSeeker puzzle={puzzle} play={activePlay} busy={false} onAction={onAction} />);
+    await user.type(screen.getByRole('textbox', { name: 'Artist name guess' }), 'Unknown Artist{Enter}');
+
+    expect(onAction).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent('Enter an artist from today’s game.');
   });
 
   it('supports keyboard selection and responsive layout for Rhythm Groups tiles', async () => {
