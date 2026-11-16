@@ -106,6 +106,7 @@ type AuthUserResponse = {
   email: string;
   displayName: string;
   role: string;
+  photoUrl: string | null;
 };
 type AuthResultResponse = {
   user: AuthUserResponse;

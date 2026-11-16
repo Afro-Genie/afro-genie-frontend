@@ -6,6 +6,7 @@ import Notification from '../components/Notification';
 import VoteButtons from '../components/community/VoteButtons';
 import CommentThread from '../components/community/CommentThread';
 import ReportModal from '../components/moderation/ReportModal';
+import { toMediaUrl } from '../lib/apiBase';
 import type { CommunityTopic, CommunityComment } from '../types';
 
 const formatTimeAgo = (timestamp: string) => {
@@ -322,6 +323,13 @@ const TopicDetailPage: React.FC = () => {
                   )}
                 </div>
               </div>
+              {topic.imageUrl && (
+                <img
+                  src={toMediaUrl(topic.imageUrl)}
+                  alt={topic.title}
+                  className="mb-4 max-h-[32rem] w-full rounded-lg object-contain"
+                />
+              )}
               <div className="text-gray-300 whitespace-pre-wrap leading-relaxed mb-4">
                 {topic.content}
               </div>
