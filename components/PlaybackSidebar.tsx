@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { toMediaUrl } from '../lib/apiBase';
 import {
   Heart,
   Search,
@@ -158,7 +159,7 @@ const PlaybackSidebar: React.FC<PlaybackSidebarProps> = ({
         <div className="flex items-center gap-3 px-3 py-3 rounded-lg">
           <div className="w-9 h-9 rounded-full bg-gradient-to-br from-green-500 to-green-700 flex items-center justify-center flex-shrink-0 ring-2 ring-transparent">
             {user?.photoURL ? (
-              <img src={user.photoURL} alt="" className="w-9 h-9 rounded-full object-cover" />
+              <img src={toMediaUrl(user.photoURL)} alt="" className="w-9 h-9 rounded-full object-cover" />
             ) : (
               <span className="text-sm font-bold text-white">{initial}</span>
             )}

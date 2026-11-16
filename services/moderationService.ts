@@ -203,7 +203,7 @@ export const moderationApi = {
     apiRequest<Guideline>('/admin/moderation/guidelines', { method: 'PUT', body: JSON.stringify({ content }) }),
 
   sendWelcomeMessage: (userId: string, message: string) =>
-    apiRequest<{ ok: boolean }>(`/admin/moderation/users/${userId}/welcome`, { method: 'POST', body: JSON.stringify({ message }) }),
+    apiRequest<{ ok: boolean; emailSent: boolean }>(`/admin/moderation/users/${userId}/welcome`, { method: 'POST', body: JSON.stringify({ message }) }),
 
   submitCorrectionRequest: (translationId: string, title: string, description: string) =>
     apiRequest<CorrectionRequestItem>(`/translations/${translationId}/correction-request`, { method: 'POST', body: JSON.stringify({ title, description }) }),

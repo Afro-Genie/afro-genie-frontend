@@ -9,14 +9,14 @@ interface CreateTopicModalProps {
 }
 
 const CreateTopicModal: React.FC<CreateTopicModalProps> = ({ categoryId, open, onClose, onSubmit }) => {
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isModeratorOnly, setIsModeratorOnly] = useState(false);
 
-  const isModerator = user?.role === 'moderator' || user?.role === 'admin';
+  const isModerator = userProfile?.role === 'moderator' || userProfile?.role === 'admin';
 
   if (!open) return null;
 

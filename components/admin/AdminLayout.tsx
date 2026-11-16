@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { toMediaUrl } from '../../lib/apiBase';
 import LogoIcon from '../icons/LogoIcon';
 import { Menu, X } from 'lucide-react';
 import { 
@@ -101,7 +102,7 @@ const AdminLayout: React.FC = () => {
             {user?.photoURL ? (
               <img
                 className="h-8 w-8 rounded-full"
-                src={user.photoURL}
+                src={toMediaUrl(user.photoURL)}
                 alt="User avatar"
               />
             ) : (

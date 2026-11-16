@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { AdminListPageSkeleton } from '../../components/PageSkeletons';
 import type { UserProfile } from '../../types';
+import { toMediaUrl } from '../../lib/apiBase';
 
 const UsersManager: React.FC = () => {
   const { authFetch } = useAuth();
@@ -144,7 +145,7 @@ const UsersManager: React.FC = () => {
                   <div className="flex-shrink-0">
                     {user.photoURL ? (
                       <img
-                        src={user.photoURL}
+                        src={toMediaUrl(user.photoURL)}
                         alt="User avatar"
                         className="h-12 w-12 rounded-full"
                       />
@@ -219,4 +220,3 @@ const UsersManager: React.FC = () => {
 };
 
 export default UsersManager;
-

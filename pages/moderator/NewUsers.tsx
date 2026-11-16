@@ -9,14 +9,17 @@ const NewUsers: React.FC = () => {
   const [welcomeModal, setWelcomeModal] = useState<{ userId: string; name: string } | null>(null);
   const [welcomeMessage, setWelcomeMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const fetch = useCallback(async () => {
     setLoading(true);
     try {
       const result = await moderationApi.getNewUsers({ days, page, limit: 20 });
       setData(result);
+      return result;
     } catch (err) {
       console.error('Failed to load new users:', err);
+      return null;
     } finally {
       setLoading(false);
     }
@@ -26,13 +29,29 @@ const NewUsers: React.FC = () => {
 
   const handleSendWelcome = async () => {
     if (!welcomeModal || !welcomeMessage.trim()) return;
+    const welcomedName = welcomeModal.name;
     setSending(true);
+    setFeedback(null);
     try {
-      await moderationApi.sendWelcomeMessage(welcomeModal.userId, welcomeMessage);
+      const result = await moderationApi.sendWelcomeMessage(welcomeModal.userId, welcomeMessage);
       setWelcomeModal(null);
       setWelcomeMessage('');
+      setFeedback({
+        type: 'success',
+        message: result.emailSent
+          ? `Welcome message sent to ${welcomedName}.`
+          : `Welcome notification sent to ${welcomedName}, but the email could not be sent.`,
+      });
+      const updatedData = await fetch();
+      if (updatedData && page > Math.max(1, updatedData.pagination.totalPages)) {
+        setPage(Math.max(1, updatedData.pagination.totalPages));
+      }
     } catch (err) {
       console.error('Failed to send welcome message:', err);
+      setFeedback({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to send welcome message. Please try again.',
+      });
     } finally {
       setSending(false);
     }
@@ -41,6 +60,19 @@ const NewUsers: React.FC = () => {
   return (
     <div>
       <h1 className="text-3xl font-bold text-white mb-6">New Users</h1>
+
+      {feedback && (
+        <div
+          role={feedback.type === 'success' ? 'status' : 'alert'}
+          className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
+            feedback.type === 'success'
+              ? 'border-green-700 bg-green-900/30 text-green-300'
+              : 'border-red-700 bg-red-900/30 text-red-300'
+          }`}
+        >
+          {feedback.message}
+        </div>
+      )}
 
       <div className="flex items-center space-x-4 mb-6">
         <span className="text-gray-400">Users joined in last:</span>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { toMediaUrl } from '../../lib/apiBase';
 
 interface StatItem {
   label: string;
@@ -33,7 +34,7 @@ const CommunityContentCard: React.FC<CommunityContentCardProps> = React.memo(({
     <Wrapper {...wrapperProps}>
       {imageUrl && (
         <div className="w-full h-36 overflow-hidden">
-          <img src={imageUrl} alt={title} className="w-full h-full object-cover" />
+          <img src={toMediaUrl(imageUrl)} alt={title} className="w-full h-full object-cover" />
         </div>
       )}
       <div className="p-4">

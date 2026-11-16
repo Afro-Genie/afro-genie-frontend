@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { toMediaUrl } from '../../lib/apiBase';
 import UserIcon from '../icons/UserIcon';
 import UserBadges from './UserBadges';
 import { tokenApi, type UserProfile, getBadgeDisplay } from '../../services/tokenService';
@@ -23,7 +24,7 @@ const UserProfileCard: React.FC = () => {
             <div className="text-center">
                 {user.photoURL ? (
                     <img
-                        src={user.photoURL}
+                        src={toMediaUrl(user.photoURL)}
                         alt="Profile"
                         className="h-20 w-20 rounded-full mx-auto mb-4 ring-4 ring-amber-400"
                     />
