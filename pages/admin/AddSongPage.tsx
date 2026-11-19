@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { getAllLanguages, addLanguage } from '../../services/languageService';
 import { useNotification } from '../../hooks/useNotification';
@@ -8,12 +8,20 @@ import Notification from '../../components/Notification';
 import ArtistSearchSelect from '../../components/admin/ArtistSearchSelect';
 import type { Artist, Language } from '../../types';
 
+interface ManualArtistPolicy {
+  name: string;
+  genres: string[];
+}
+
 const AddSongPage: React.FC = () => {
   const navigate = useNavigate();
   const { notification, showNotification, hideNotification } = useNotification();
   const { user, authFetch } = useAuth();
+  const authFetchRef = useRef(authFetch);
+  authFetchRef.current = authFetch;
   
   const [artists, setArtists] = useState<Artist[]>([]);
+  const [policyArtists, setPolicyArtists] = useState<ManualArtistPolicy[]>([]);
   const [languages, setLanguages] = useState<Language[]>([]);
   const [showAddLanguage, setShowAddLanguage] = useState(false);
   const [newLanguageCode, setNewLanguageCode] = useState('');
@@ -38,7 +46,11 @@ const AddSongPage: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [artistsResponse, fetchedLanguages] = await Promise.all([getArtists({ limit: 200 }), getAllLanguages()]);
+        const [artistsResponse, fetchedLanguages, policyOptions] = await Promise.all([
+          getArtists({ limit: 200 }),
+          getAllLanguages(),
+          authFetchRef.current('/api/admin/youtube-catalog/imports/sources') as Promise<{ artists: ManualArtistPolicy[] }>,
+        ]);
         const artistsData = Array.isArray(artistsResponse?.data)
           ? artistsResponse.data
           : Array.isArray(artistsResponse)
@@ -59,6 +71,7 @@ const AddSongPage: React.FC = () => {
           }))
         );
         setLanguages(fetchedLanguages);
+        setPolicyArtists(Array.isArray(policyOptions?.artists) ? policyOptions.artists : []);
       } catch (error: any) {
         showNotification({
           message: `Error loading data: ${error.message}`,
@@ -69,6 +82,11 @@ const AddSongPage: React.FC = () => {
 
     fetchData();
   }, [showNotification]);
+
+  const selectedPolicyArtist = policyArtists.find(
+    (artist) => artist.name.trim().toLocaleLowerCase() === formData.artist.trim().toLocaleLowerCase(),
+  );
+  const allowedArtistNames = useMemo(() => policyArtists.map((artist) => artist.name), [policyArtists]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -105,7 +123,7 @@ const AddSongPage: React.FC = () => {
           releaseYear: formData.year ? parseInt(formData.year, 10) : undefined,
           coverImageUrl,
           primaryLanguage: formData.language || undefined,
-          genres: formData.genre ? [formData.genre] : ['Afrobeats'],
+          genres: formData.genre ? [formData.genre.trim()] : [],
           lyrics: {
             rawText: formData.lyrics?.trim() || '',
             lineBreaks: []
@@ -193,25 +211,39 @@ const AddSongPage: React.FC = () => {
                 <ArtistSearchSelect
                   id="add-song-artist-select"
                   artists={artists}
+                  allowedArtistNames={allowedArtistNames}
                   value={formData.artistId}
                   onChange={(artistId) => setFormData((prev) => ({ ...prev, artistId }))}
-                  onArtistSelected={(artist) =>
-                    setFormData((prev) => ({ ...prev, artistId: artist.id, artist: artist.name }))
-                  }
+                  onArtistSelected={(artist) => setFormData((prev) => ({
+                    ...prev,
+                    artistId: artist.id,
+                    artist: artist.name,
+                    genre: '',
+                  }))}
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Genre
+                  African Music Genre <span className="text-red-400">*</span>
                 </label>
-                <input
-                  type="text"
+                <select
                   value={formData.genre}
                   onChange={(e) => setFormData({ ...formData, genre: e.target.value })}
-                  className="w-full px-4 py-2.5 text-base bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
-                  placeholder="e.g., Afrobeats, Hip-Hop"
-                />
+                  className="w-full select-chevron px-4 pr-10 py-2.5 text-base bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                  required
+                  disabled={!selectedPolicyArtist}
+                >
+                  <option value="">Select an approved genre…</option>
+                  {selectedPolicyArtist?.genres.map((genre) => (
+                    <option key={genre} value={genre}>{genre}</option>
+                  ))}
+                </select>
+                {!selectedPolicyArtist && (
+                  <p className="mt-2 text-xs text-gray-400">
+                    Choose an artist from the approved African artist list to see its supported genres.
+                  </p>
+                )}
               </div>
 
               <div>

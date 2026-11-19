@@ -27,6 +27,7 @@ const AdminLayout: React.FC = () => {
     { name: 'Artist Applications', href: '/admin/artist-applications', icon: ArtistIcon },
     { name: 'Artists', href: '/admin/artists', icon: ArtistIcon },
     { name: 'Songs', href: '/admin/songs', icon: MusicNoteIcon },
+    { name: 'Lyrics Backfill', href: '/admin/lyrics-backfill', icon: MusicNoteIcon },
     { name: 'Genres', href: '/admin/genres', icon: GenreIcon },
     { name: 'Languages', href: '/admin/languages', icon: GlobeIcon },
     { name: 'Community', href: '/admin/community', icon: ChatIcon },

@@ -47,6 +47,8 @@ export const getArtists = (params?: Record<string, string | number | undefined>)
 
 export const getArtistById = (id: string) => apiFetch('/api/artists/' + id);
 
+export const getGenres = () => apiFetch('/api/genres');
+
 // Search
 export const searchCatalog = (
   q: string,

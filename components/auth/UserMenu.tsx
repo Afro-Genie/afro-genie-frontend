@@ -120,7 +120,7 @@ const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
             onClick={() => {
               const opening = !isMenuOpen;
               setIsMenuOpen(opening);
-              if (opening) void refreshPending(false);
+              if (opening) void refreshPending();
             }}
             className="flex items-center justify-center min-h-[44px] min-w-[44px] rounded-md text-gray-300 hover:text-white focus:outline-none focus:ring-2 focus:ring-green-400"
             aria-label="User menu"
