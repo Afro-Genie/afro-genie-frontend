@@ -210,7 +210,6 @@ const AddSongPage: React.FC = () => {
                 <ArtistSearchSelect
                   id="add-song-artist-select"
                   artists={artists}
-                  allowedArtistNames={allowedArtistNames}
                   value={formData.artistId}
                   onChange={(artistId) => setFormData((prev) => ({ ...prev, artistId }))}
                   onArtistSelected={(artist) => setFormData((prev) => ({
