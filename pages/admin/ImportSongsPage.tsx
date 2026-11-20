@@ -77,6 +77,7 @@ interface JobProgress {
   stage?: string;
   pagesRead?: number;
   maxPages?: number;
+  maxResults?: number;
   videosExamined?: number;
   eligibleCandidates?: number;
   current?: number;
@@ -107,6 +108,7 @@ interface JobStatus {
   failedReason?: string | null;
   preview?: ImportPreview;
   result?: ApplyResult;
+  recovery?: 'missing-result' | 'job-unavailable';
 }
 
 interface QueueResponse {
@@ -312,7 +314,25 @@ const ImportSongsPage: React.FC = () => {
         }
       } catch (error) {
         if (disposed) return;
-        setPollError(error instanceof Error ? error.message : 'Could not refresh job status.');
+        const message = error instanceof Error ? error.message : 'Could not refresh job status.';
+        if (/not found|result is unavailable/i.test(message)) {
+          const missingResult = /result is unavailable/i.test(message);
+          setPollError(null);
+          setJobStatus({
+            jobId: job.jobId,
+            operation: job.operation,
+            status: 'failed',
+            failedReason: message,
+            progress: {
+              stage: missingResult
+                ? job.operation === 'apply' ? 'apply-result-missing' : 'preview-result-missing'
+                : undefined,
+            },
+            recovery: missingResult ? 'missing-result' : 'job-unavailable',
+          });
+          return;
+        }
+        setPollError(message);
         timer = window.setTimeout(() => void poll(), POLL_INTERVAL_MS);
       }
     };
@@ -487,13 +507,26 @@ const ImportSongsPage: React.FC = () => {
     : null;
   const isQuotaFailure = jobStatus?.status === 'failed'
     && (progress?.stage === 'quota-paused' || /quota|dailyLimitExceeded/i.test(jobStatus.failedReason || ''));
+  const discoveryTotal = progress?.pagesRead !== undefined
+    ? progress.maxPages
+    : progress?.videosExamined !== undefined ? progress.maxResults : undefined;
+  const discoveryCurrent = progress?.pagesRead !== undefined
+    ? progress.pagesRead
+    : progress?.videosExamined;
+  const discoveryProgressPercent = progress?.stage === 'preview-ready'
+    ? 100
+    : discoveryTotal && discoveryCurrent !== undefined
+      ? Math.min(99, Math.round((discoveryCurrent / discoveryTotal) * 100))
+      : null;
   const applyCounts: ApplyResult | null = job?.operation !== 'apply'
     ? null
     : jobStatus?.result
       || (progress
         ? {
           ...progress,
-          failed: jobStatus?.status === 'failed' ? Math.max(progress.failed || 0, 1) : progress.failed,
+          failed: jobStatus?.status === 'failed' && jobStatus.recovery !== 'missing-result'
+            ? Math.max(progress.failed || 0, 1)
+            : progress.failed,
         }
         : jobStatus?.status === 'failed' ? { failed: 1 } : null);
   const unreviewedVideoCount = preview?.discovery.unreviewedChannels
@@ -753,12 +786,47 @@ const ImportSongsPage: React.FC = () => {
               <p className="mt-4 text-sm text-gray-300" aria-live="polite">
                 {progress.stage === 'quota-paused'
                   ? `YouTube quota reached${progress.pagesRead ? ` after ${progress.pagesRead} playlist page(s)` : ''}.`
+                  : progress.stage === 'preview-result-missing'
+                    ? 'The preview result was not saved. Rebuild the preview from its original source.'
                   : progress.stage === 'preview-ready'
                     ? 'Preview is ready for review.'
-                    : progress.pagesRead !== undefined
+                    : progress.pagesRead !== undefined && progress.maxPages !== undefined
                       ? `Read ${progress.pagesRead} of ${progress.maxPages || 80} playlist pages; ${progress.videosExamined || 0} videos examined.`
+                      : progress.videosExamined !== undefined
+                        ? `Examined ${progress.videosExamined} YouTube result(s); ${progress.eligibleCandidates || 0} African-music candidate(s) passed policy.`
+                      : jobStatus?.status === 'waiting' || jobStatus?.status === 'delayed'
+                        ? 'Waiting for an import worker to start discovery…'
                       : 'Discovering and checking African-music candidates…'}
               </p>
+            )}
+
+            {job?.operation !== 'apply' && jobStatus?.status !== 'failed' && (
+              <div className="mt-4" aria-live="polite">
+                <div className="mb-1 flex justify-between text-sm text-gray-300">
+                  <span>
+                    {progress?.pagesRead !== undefined
+                      ? 'Playlist discovery'
+                      : progress?.videosExamined !== undefined ? 'Search result review' : 'Preparing discovery'}
+                  </span>
+                  {discoveryProgressPercent !== null && <span>{discoveryProgressPercent}%</span>}
+                </div>
+                <div
+                  role="progressbar"
+                  aria-label="Preview discovery progress"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={discoveryProgressPercent ?? undefined}
+                  aria-valuetext={discoveryProgressPercent === null
+                    ? 'Discovery is in progress'
+                    : `${discoveryProgressPercent}% complete`}
+                  className="h-2 overflow-hidden rounded bg-gray-700"
+                >
+                  <div
+                    className={`h-full bg-blue-500 transition-all ${discoveryProgressPercent === null ? 'w-1/3 animate-pulse' : ''}`}
+                    style={discoveryProgressPercent === null ? undefined : { width: `${discoveryProgressPercent}%` }}
+                  />
+                </div>
+              </div>
             )}
 
             {pollError && (
@@ -774,10 +842,22 @@ const ImportSongsPage: React.FC = () => {
 
             {jobStatus?.status === 'failed' && (
               <div role="alert" className="mt-4 rounded-lg border border-red-700 bg-red-950/40 p-4 text-sm text-red-100">
-                <p className="font-semibold">{isQuotaFailure ? 'YouTube quota limit reached' : 'Import job failed'}</p>
+                <p className="font-semibold">
+                  {jobStatus.recovery === 'missing-result'
+                    ? 'Import result could not be restored'
+                    : jobStatus.recovery === 'job-unavailable'
+                      ? 'Import job is no longer available'
+                      : isQuotaFailure ? 'YouTube quota limit reached' : 'Import job failed'}
+                </p>
                 <p className="mt-1">{jobStatus.failedReason || progress?.quotaMessage || 'The job failed without a detailed error.'}</p>
                 <p className="mt-2">
-                  {isQuotaFailure
+                  {jobStatus.recovery === 'missing-result'
+                    ? job?.operation === 'apply'
+                      ? 'The apply result was lost after processing. Retry the confirmed apply; the operation is idempotent.'
+                      : 'Retry to rebuild the preview from the original source. No catalog changes are made by a preview.'
+                    : jobStatus.recovery === 'job-unavailable'
+                      ? 'The job is no longer retained by the server. Start a new import to continue.'
+                    : isQuotaFailure
                     ? `Wait for the YouTube quota to reset, then retry. Preview jobs do not write to the catalog; ${job?.operation === 'resume' ? 'the retry continues from the last completed playlist preview.' : 'a discovery retry starts from the original source.'}`
                     : 'Review the error, then retry when the underlying issue is resolved. Apply retries are safe and will not replace existing YouTube IDs.'}
                 </p>
@@ -791,14 +871,18 @@ const ImportSongsPage: React.FC = () => {
             )}
 
             <div className="mt-5 flex flex-wrap gap-3">
-              {(jobStatus?.status === 'failed' || (job?.operation === 'apply' && (jobStatus?.result?.failed || 0) > 0)) && (
+              {((jobStatus?.status === 'failed' && jobStatus.recovery !== 'job-unavailable') || (job?.operation === 'apply' && (jobStatus?.result?.failed || 0) > 0)) && (
                 <button
                   type="button"
                   disabled={isSubmitting || (job?.operation === 'apply' && !preview)}
                   onClick={() => void retryJob()}
                   className="min-h-[44px] rounded-lg bg-amber-600 px-5 font-semibold text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {isSubmitting ? 'Queuing retry…' : job?.operation === 'apply' && jobStatus?.status === 'completed' ? 'Retry failed candidates' : 'Retry failed job'}
+                  {isSubmitting
+                    ? 'Queuing retry…'
+                    : jobStatus?.recovery === 'missing-result'
+                      ? job?.operation === 'apply' ? 'Retry apply safely' : 'Rebuild preview'
+                      : job?.operation === 'apply' && jobStatus?.status === 'completed' ? 'Retry failed candidates' : 'Retry failed job'}
                 </button>
               )}
               {preview && !preview.complete && jobStatus?.status === 'completed' && preview.source.type === 'playlist' && (

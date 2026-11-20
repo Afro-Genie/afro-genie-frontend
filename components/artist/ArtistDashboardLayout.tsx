@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { toMediaUrl } from '../../lib/apiBase';
+import Avatar from '../Avatar';
 import {
   Home,
   Disc3,
@@ -49,7 +49,6 @@ const ArtistDashboardLayout: React.FC = () => {
   };
 
   const artistName = userProfile?.artistProfile?.stageName || user?.displayName || 'Artist';
-  const initial = artistName[0]?.toUpperCase() || 'A';
 
   const sidebarContent = (
     <>
@@ -91,11 +90,12 @@ const ArtistDashboardLayout: React.FC = () => {
           className="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-white/5 transition-colors"
         >
           <div className="w-9 h-9 rounded-full bg-gradient-to-br from-green-500 to-green-700 flex items-center justify-center flex-shrink-0 ring-2 ring-transparent hover:ring-green-400 transition-all">
-            {user?.photoURL ? (
-              <img src={toMediaUrl(user.photoURL)} alt="" className="w-9 h-9 rounded-full object-cover" />
-            ) : (
-              <span className="text-sm font-bold text-white">{initial}</span>
-            )}
+            <Avatar
+              src={userProfile?.artistProfile?.profileImageUrl}
+              name={artistName}
+              className="w-9 h-9"
+              initialsClassName="text-sm font-bold text-white"
+            />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-white truncate">{artistName}</p>
@@ -148,7 +148,7 @@ const ArtistDashboardLayout: React.FC = () => {
             <Menu className="w-5 h-5" />
           </button>
 
-          <div className="flex-1 max-w-md">
+          <div className="flex-1 min-w-0">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
               <input
@@ -158,7 +158,7 @@ const ArtistDashboardLayout: React.FC = () => {
               />
             </div>
           </div>
-          <div className="flex items-center gap-2 ml-4">
+          <div className="flex items-center gap-2 ml-auto shrink-0">
             <button className="w-9 h-9 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-colors">
               <Bell className="w-5 h-5" />
             </button>
@@ -166,11 +166,12 @@ const ArtistDashboardLayout: React.FC = () => {
               to="/artist/profile"
               className="w-9 h-9 rounded-full bg-gradient-to-br from-green-500 to-green-700 flex items-center justify-center flex-shrink-0 text-sm font-bold text-white hover:ring-2 hover:ring-green-400 transition-all"
             >
-              {user?.photoURL ? (
-                <img src={toMediaUrl(user.photoURL)} alt="" className="w-9 h-9 rounded-full object-cover" />
-              ) : (
-                initial
-              )}
+              <Avatar
+                src={userProfile?.artistProfile?.profileImageUrl}
+                name={artistName}
+                className="w-9 h-9"
+                initialsClassName="text-sm font-bold text-white"
+              />
             </Link>
           </div>
         </header>

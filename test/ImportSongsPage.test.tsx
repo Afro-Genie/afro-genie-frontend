@@ -164,6 +164,77 @@ describe('ImportSongsPage', () => {
     );
   });
 
+  it('shows measured progress while playlist candidates are being discovered', async () => {
+    mockAuthFetch.mockImplementation(async (url: string, options?: RequestInit) => {
+      if (url.endsWith('/preview') && options?.method === 'POST') {
+        return { jobId: 'progress-preview', operation: 'preview', status: 'queued' };
+      }
+      if (url.includes('/progress-preview?')) {
+        return {
+          jobId: 'progress-preview',
+          operation: 'preview',
+          status: 'active',
+          progress: {
+            stage: 'discovering',
+            pagesRead: 2,
+            maxPages: 8,
+            videosExamined: 20,
+            eligibleCandidates: 5,
+          },
+        };
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    });
+
+    renderPage();
+    fireEvent.change(screen.getByLabelText('YouTube playlist URL'), {
+      target: { value: 'https://www.youtube.com/playlist?list=african-list' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Preview songs' }));
+
+    const progressbar = await screen.findByRole('progressbar', { name: 'Preview discovery progress' });
+    expect(progressbar.getAttribute('aria-valuenow')).toBe('25');
+    expect(await screen.findByText(/Read 2 of 8 playlist pages; 20 videos examined/)).toBeTruthy();
+  });
+
+  it('stops polling and offers preview recovery when a completed result is missing', async () => {
+    mockAuthFetch.mockImplementation(async (url: string, options?: RequestInit) => {
+      if (url.endsWith('/sources')) return { artists: [], genres: [] };
+      if (url.endsWith('/history?limit=20')) {
+        return {
+          jobs: [{
+            jobId: 'missing-preview',
+            operation: 'preview',
+            status: 'completed',
+            source: { type: 'playlist', value: 'african-list' },
+            previewJobId: 'missing-preview',
+            createdAt: '2025-01-01T00:00:00.000Z',
+            finishedAt: '2025-01-01T00:01:00.000Z',
+          }],
+        };
+      }
+      if (url.includes('/missing-preview?')) throw new Error('Preview result is unavailable');
+      if (url.endsWith('/missing-preview/retry')) {
+        return { jobId: 'rebuilt-preview', operation: 'preview', status: 'queued' };
+      }
+      if (url.includes('/rebuilt-preview?')) {
+        return { jobId: 'rebuilt-preview', operation: 'preview', status: 'completed', preview };
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    });
+
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: /african-list/ }));
+
+    expect(await screen.findByText('Import result could not be restored')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Rebuild preview' }));
+    expect(await screen.findByText('African Song')).toBeTruthy();
+    expect(mockAuthFetch).toHaveBeenCalledWith(
+      '/api/admin/youtube-catalog/imports/missing-preview/retry',
+      expect.objectContaining({ method: 'POST' }),
+    );
+  });
+
   it('resumes an incomplete playlist preview before apply is available', async () => {
     mockAuthFetch.mockImplementation(async (url: string, options?: RequestInit) => {
       if (url.endsWith('/preview') && options?.method === 'POST') {

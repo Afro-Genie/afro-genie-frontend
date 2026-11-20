@@ -209,7 +209,7 @@ const CreateTopicForm: React.FC<CreateTopicFormProps> = ({ initialCategory, init
               <img
                 src={imagePreview}
                 alt="Preview"
-                className="max-w-full h-48 object-cover rounded-lg"
+                className="max-w-full h-auto max-h-[32rem] object-contain rounded-lg"
               />
               <button
                 type="button"
