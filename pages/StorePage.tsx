@@ -23,6 +23,9 @@ const StorePage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [purchaseLoading, setPurchaseLoading] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [shippingItem, setShippingItem] = useState<StoreItem | null>(null);
+  const [shippingName, setShippingName] = useState('');
+  const [shippingAddress, setShippingAddress] = useState('');
 
   const purchasedIds = new Set(purchases.map((p) => p.item.id));
 
@@ -65,7 +68,7 @@ const StorePage: React.FC = () => {
     };
   }, [user, hasPendingPurchases]);
 
-  const handlePurchase = async (itemId: string) => {
+  const handlePurchase = async (itemId: string, name?: string, address?: string) => {
     if (!user) {
       navigate('/');
       return;
@@ -73,7 +76,7 @@ const StorePage: React.FC = () => {
     setPurchaseLoading(itemId);
     setMessage(null);
     try {
-      const result = await tokenApi.purchaseItem(itemId);
+      const result = await tokenApi.purchaseItem(itemId, name, address);
       setMessage({ type: 'success', text: result.message || 'Purchase successful' });
       fetchData();
     } catch (err: any) {
@@ -81,6 +84,16 @@ const StorePage: React.FC = () => {
     } finally {
       setPurchaseLoading(null);
     }
+  };
+
+  const handleItemPurchase = (item: StoreItem) => {
+    if (item.category === 'merch') {
+      setShippingItem(item);
+      setShippingName('');
+      setShippingAddress('');
+      return;
+    }
+    handlePurchase(item.id);
   };
 
   return (
@@ -96,6 +109,50 @@ const StorePage: React.FC = () => {
             message.type === 'success' ? 'bg-green-900/50 text-green-300 border border-green-700/50' : 'bg-red-900/50 text-red-300 border border-red-700/50'
           }`}>
             {message.text}
+          </div>
+        )}
+
+        {shippingItem && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true">
+            <div className="w-full max-w-md rounded-xl border border-gray-700 bg-[#17251d] p-6 shadow-2xl">
+              <h2 className="text-xl font-bold text-white">Shipping details</h2>
+              <p className="mt-1 text-sm text-gray-400">{shippingItem.name}</p>
+              <label className="mt-5 block text-sm font-medium text-gray-300" htmlFor="shipping-name">Recipient name</label>
+              <input
+                id="shipping-name"
+                value={shippingName}
+                onChange={(event) => setShippingName(event.target.value)}
+                className="mt-2 w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white outline-none focus:border-amber-500"
+              />
+              <label className="mt-4 block text-sm font-medium text-gray-300" htmlFor="shipping-address">Full shipping address</label>
+              <textarea
+                id="shipping-address"
+                value={shippingAddress}
+                onChange={(event) => setShippingAddress(event.target.value)}
+                rows={3}
+                className="mt-2 w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white outline-none focus:border-amber-500"
+              />
+              <div className="mt-5 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShippingItem(null)}
+                  className="rounded-lg border border-gray-600 px-4 py-2 text-sm text-gray-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={!shippingName.trim() || !shippingAddress.trim() || purchaseLoading === shippingItem.id}
+                  onClick={async () => {
+                    await handlePurchase(shippingItem.id, shippingName.trim(), shippingAddress.trim());
+                    setShippingItem(null);
+                  }}
+                  className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                >
+                  {purchaseLoading === shippingItem.id ? 'Buying...' : `Buy for ${shippingItem.discountedPrice ?? shippingItem.tokenCost} GT`}
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -121,7 +178,7 @@ const StorePage: React.FC = () => {
               {featured.map((item) => (
                 <button
                   key={item.id}
-                  onClick={() => handlePurchase(item.id)}
+                  onClick={() => handleItemPurchase(item)}
                   disabled={purchaseLoading === item.id || !user}
                   className="flex-shrink-0 w-56 text-left bg-gradient-to-br from-amber-500/15 to-gray-800/40 border border-amber-500/30 rounded-xl p-4 hover:border-amber-400/60 transition-all disabled:opacity-60"
                 >
@@ -173,7 +230,7 @@ const StorePage: React.FC = () => {
                       </p>
                     </div>
                     <button
-                      onClick={() => handlePurchase(offer.id)}
+                      onClick={() => handleItemPurchase(offer)}
                       disabled={purchaseLoading === offer.id || !user}
                       className="px-4 py-2 text-sm font-medium rounded-lg bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-50"
                     >
@@ -220,7 +277,7 @@ const StorePage: React.FC = () => {
                       )}
                     </div>
                     <button
-                      onClick={() => handlePurchase(item.id)}
+                      onClick={() => handleItemPurchase(item)}
                       disabled={owned || purchaseLoading === item.id || !user}
                       className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                         owned

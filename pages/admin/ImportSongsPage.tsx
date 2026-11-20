@@ -37,6 +37,7 @@ interface ImportCandidate {
   publishedAt: string | null;
   action: CandidateAction;
   reason: string | null;
+  selected: boolean;
 }
 
 interface ImportPreview {
@@ -232,6 +233,7 @@ const ImportSongsPage: React.FC = () => {
   const [quotaEstimate, setQuotaEstimate] = useState<QuotaEstimate | null>(persistedState?.quotaEstimate ?? null);
   const [page, setPage] = useState(1);
   const [confirmApply, setConfirmApply] = useState(false);
+  const [selectedVideoIds, setSelectedVideoIds] = useState<Set<string>>(new Set());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [pollError, setPollError] = useState<string | null>(null);
@@ -240,6 +242,11 @@ const ImportSongsPage: React.FC = () => {
   const [sourceOptionsError, setSourceOptionsError] = useState<string | null>(null);
   const [recentJobs, setRecentJobs] = useState<ImportHistoryJob[]>([]);
   const [historyError, setHistoryError] = useState<string | null>(null);
+  const [approvalDrafts, setApprovalDrafts] = useState<Record<string, {
+    artistName: string;
+    countryCode: string;
+    genre: string;
+  }>>({});
 
   const selectedSource = sourceOptions.find((option) => option.id === source)!;
   const sourceLabel = source === 'playlist' ? 'YouTube playlist URL' : selectedSource.title;
@@ -308,6 +315,11 @@ const ImportSongsPage: React.FC = () => {
         if (job.operation !== 'apply' && status.preview) {
           setPreview(status.preview);
           setPreviewJobId(job.jobId);
+          setSelectedVideoIds((current) => current.size
+            ? current
+            : new Set(status.preview.items.filter((item) =>
+                item.action !== 'skip' && item.selected !== false,
+              ).map((item) => item.videoId)));
         }
         if (!isTerminal(status.status)) {
           timer = window.setTimeout(() => void poll(), POLL_INTERVAL_MS);
@@ -393,6 +405,8 @@ const ImportSongsPage: React.FC = () => {
     setQuotaEstimate(null);
     setPage(1);
     setConfirmApply(false);
+    setSelectedVideoIds(new Set());
+    setSelectedVideoIds(new Set());
 
     const body = source === 'playlist'
       ? { playlistUrl: value, maxPages: 80, requestId }
@@ -415,7 +429,7 @@ const ImportSongsPage: React.FC = () => {
   };
 
   const runApply = async () => {
-    if (!preview || !previewJobId || !confirmApply) return;
+    if (!preview || !previewJobId || !confirmApply || selectedVideoIds.size === 0) return;
     setIsSubmitting(true);
     setActionError(null);
     setPollError(null);
@@ -424,7 +438,11 @@ const ImportSongsPage: React.FC = () => {
         `${API_ROOT}/${encodeURIComponent(previewJobId)}/apply`,
         {
           method: 'POST',
-          body: JSON.stringify({ confirm: true, previewHash: preview.previewHash }),
+          body: JSON.stringify({
+            confirm: true,
+            previewHash: preview.previewHash,
+            selectedVideoIds: [...selectedVideoIds],
+          }),
         },
       ) as QueueResponse;
       setJob({ jobId: response.jobId, operation: 'apply' });
@@ -468,7 +486,11 @@ const ImportSongsPage: React.FC = () => {
     setPollError(null);
     try {
       const body = job.operation === 'apply' && preview
-        ? { confirm: true, previewHash: preview.previewHash }
+        ? {
+            confirm: true,
+            previewHash: preview.previewHash,
+            selectedVideoIds: [...selectedVideoIds],
+          }
         : undefined;
       const response = await authFetch(
         `${API_ROOT}/${encodeURIComponent(job.jobId)}/retry`,
@@ -672,8 +694,10 @@ const ImportSongsPage: React.FC = () => {
           </div>
 
           <div className="rounded-lg border border-green-800 bg-green-950/30 p-4 text-sm text-green-100">
-            Candidates must match configured African artist channel IDs and supported genre mappings. Unknown
-            channels are excluded and shown separately; unsupported genres remain unavailable until channels are configured.
+            Discovery searches African-music content broadly. Known and previously approved artist channels are
+            eligible for preview; unknown channels are shown for administrator approval and are never imported
+            automatically. Use a supported African genre, review every candidate, and select only the songs or
+            artists you want to apply.
           </div>
 
           {actionError && (
@@ -959,6 +983,80 @@ const ImportSongsPage: React.FC = () => {
                           {channel.sampleTitles.length > 0 && (
                             <span className="block text-amber-100/70">Examples: {channel.sampleTitles.join('; ')}</span>
                           )}
+                          <div className="mt-2 grid gap-2 sm:grid-cols-4">
+                            <input
+                              aria-label={`Approved artist name for ${channel.channelTitle}`}
+                              value={approvalDrafts[channel.channelId]?.artistName ?? channel.channelTitle}
+                              onChange={(event) => setApprovalDrafts((current) => ({
+                                ...current,
+                                [channel.channelId]: {
+                                  artistName: event.target.value,
+                                  countryCode: current[channel.channelId]?.countryCode ?? 'NG',
+                                  genre: current[channel.channelId]?.genre ?? 'Afrobeats',
+                                },
+                              }))}
+                              className="rounded border border-amber-700/60 bg-gray-950 px-2 py-1.5 text-white"
+                            />
+                            <input
+                              aria-label={`Country code for ${channel.channelTitle}`}
+                              maxLength={2}
+                              value={approvalDrafts[channel.channelId]?.countryCode ?? 'NG'}
+                              onChange={(event) => setApprovalDrafts((current) => ({
+                                ...current,
+                                [channel.channelId]: {
+                                  artistName: current[channel.channelId]?.artistName ?? channel.channelTitle,
+                                  countryCode: event.target.value.toUpperCase(),
+                                  genre: current[channel.channelId]?.genre ?? 'Afrobeats',
+                                },
+                              }))}
+                              className="rounded border border-amber-700/60 bg-gray-950 px-2 py-1.5 text-white"
+                            />
+                            <input
+                              aria-label={`African genre for ${channel.channelTitle}`}
+                              value={approvalDrafts[channel.channelId]?.genre ?? 'Afrobeats'}
+                              onChange={(event) => setApprovalDrafts((current) => ({
+                                ...current,
+                                [channel.channelId]: {
+                                  artistName: current[channel.channelId]?.artistName ?? channel.channelTitle,
+                                  countryCode: current[channel.channelId]?.countryCode ?? 'NG',
+                                  genre: event.target.value,
+                                },
+                              }))}
+                              className="rounded border border-amber-700/60 bg-gray-950 px-2 py-1.5 text-white"
+                            />
+                            <button
+                              type="button"
+                              disabled={isSubmitting}
+                              onClick={async () => {
+                                const draft = approvalDrafts[channel.channelId];
+                                const artistName = draft?.artistName.trim() || channel.channelTitle;
+                                const countryCode = (draft?.countryCode.trim() || 'NG').toUpperCase();
+                                const genre = draft?.genre.trim() || 'Afrobeats';
+                                setIsSubmitting(true);
+                                setActionError(null);
+                                try {
+                                  await authFetch('/api/admin/youtube-catalog/imports/channels/approve', {
+                                    method: 'POST',
+                                    body: JSON.stringify({
+                                      channelId: channel.channelId,
+                                      artistName,
+                                      countryCode,
+                                      genres: [genre],
+                                    }),
+                                  });
+                                  setActionError(null);
+                                  setSearchValue(searchValue);
+                                } catch (error) {
+                                  setActionError(error instanceof Error ? error.message : 'Could not approve channel.');
+                                } finally {
+                                  setIsSubmitting(false);
+                                }
+                              }}
+                              className="rounded bg-amber-600 px-3 py-1.5 font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
+                            >
+                              Approve channel
+                            </button>
+                          </div>
                         </li>
                       ))}
                     </ul>
@@ -970,10 +1068,58 @@ const ImportSongsPage: React.FC = () => {
 
                 <div className="mt-5 border-t border-gray-700 pt-5">
                   <h3 className="font-semibold text-white">Review candidates</h3>
+                  {preview.items.some((candidate) => candidate.action !== 'skip') && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setConfirmApply(false);
+                          setSelectedVideoIds(new Set(
+                            preview.items
+                              .filter((candidate) => candidate.action !== 'skip')
+                              .map((candidate) => candidate.videoId),
+                          ));
+                        }}
+                        className="min-h-[36px] rounded border border-green-700 px-3 text-sm text-green-200 hover:bg-green-950/40"
+                      >
+                        Select all
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setConfirmApply(false);
+                          setSelectedVideoIds(new Set());
+                        }}
+                        className="min-h-[36px] rounded border border-gray-600 px-3 text-sm text-gray-200 hover:bg-gray-700"
+                      >
+                        Deselect all
+                      </button>
+                      <span className="self-center text-sm text-gray-400">
+                        {selectedVideoIds.size} selected
+                      </span>
+                    </div>
+                  )}
                   <div className="mt-3 space-y-3">
                     {preview.items.map((candidate) => (
                       <article key={candidate.videoId} className="rounded-lg border border-gray-700 bg-gray-900/60 p-4">
                         <div className="flex gap-3">
+                          {candidate.action !== 'skip' && (
+                            <input
+                              type="checkbox"
+                              checked={selectedVideoIds.has(candidate.videoId)}
+                              onChange={(event) => {
+                                setConfirmApply(false);
+                                setSelectedVideoIds((current) => {
+                                  const next = new Set(current);
+                                  if (event.target.checked) next.add(candidate.videoId);
+                                  else next.delete(candidate.videoId);
+                                  return next;
+                                });
+                              }}
+                              className="mt-1 h-4 w-4 shrink-0 accent-green-500"
+                              aria-label={`Select ${candidate.title} by ${candidate.artistName}`}
+                            />
+                          )}
                           {candidate.imageUrl && (
                             <img
                               src={candidate.imageUrl}
@@ -1059,14 +1205,13 @@ const ImportSongsPage: React.FC = () => {
                       className="mt-1 h-4 w-4 accent-green-500"
                     />
                     <span>
-                      I reviewed the candidate actions and confirm applying up to {preview.summary.toCreate} song
-                      creation(s) and {preview.summary.toLink} YouTube link(s). Existing song data and YouTube IDs
-                      will be preserved.
+                      I reviewed the candidate selections and confirm applying {selectedVideoIds.size} selected
+                      candidate(s). Existing song data and YouTube IDs will be preserved.
                     </span>
                   </label>
                   <button
                     type="button"
-                    disabled={!confirmApply || isSubmitting || jobStatus?.status !== 'completed'}
+                    disabled={!confirmApply || selectedVideoIds.size === 0 || isSubmitting || jobStatus?.status !== 'completed'}
                     onClick={() => void runApply()}
                     className="min-h-[44px] rounded-lg bg-green-600 px-5 font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >

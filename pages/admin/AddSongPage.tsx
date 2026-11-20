@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { getAllLanguages, addLanguage } from '../../services/languageService';
 import { useNotification } from '../../hooks/useNotification';
@@ -86,7 +86,6 @@ const AddSongPage: React.FC = () => {
   const selectedPolicyArtist = policyArtists.find(
     (artist) => artist.name.trim().toLocaleLowerCase() === formData.artist.trim().toLocaleLowerCase(),
   );
-  const allowedArtistNames = useMemo(() => policyArtists.map((artist) => artist.name), [policyArtists]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -232,18 +231,21 @@ const AddSongPage: React.FC = () => {
                   onChange={(e) => setFormData({ ...formData, genre: e.target.value })}
                   className="w-full select-chevron px-4 pr-10 py-2.5 text-base bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
                   required
-                  disabled={!selectedPolicyArtist}
                 >
-                  <option value="">Select an approved genre…</option>
-                  {selectedPolicyArtist?.genres.map((genre) => (
+                  <option value="">Select an African music genre…</option>
+                  {(selectedPolicyArtist?.genres.length
+                    ? selectedPolicyArtist.genres
+                    : [
+                        'Afrobeat', 'Afrobeats', 'Afropop', 'Afro-fusion', 'Afro-R&B', 'Afro-house',
+                        'Amapiano', 'Azonto', 'Banku', 'Bongo Flava', 'Coupé-Décalé', 'Dancehall',
+                        'Fuji', 'Gengetone', 'Gqom', 'Highlife', 'Juju', 'Kizomba', 'Kuduro',
+                        'Kwaito', 'Makossa', 'Mbalax', 'Ndombolo', 'Soukous', 'Taarab',
+                        'African Hip-Hop',
+                      ]
+                  ).map((genre) => (
                     <option key={genre} value={genre}>{genre}</option>
                   ))}
                 </select>
-                {!selectedPolicyArtist && (
-                  <p className="mt-2 text-xs text-gray-400">
-                    Choose an artist from the approved African artist list to see its supported genres.
-                  </p>
-                )}
               </div>
 
               <div>
