@@ -247,6 +247,7 @@ const ImportSongsPage: React.FC = () => {
     countryCode: string;
     genre: string;
   }>>({});
+  const [recentJobsExpanded, setRecentJobsExpanded] = useState(false);
 
   const selectedSource = sourceOptions.find((option) => option.id === source)!;
   const sourceLabel = source === 'playlist' ? 'YouTube playlist URL' : selectedSource.title;
@@ -589,10 +590,22 @@ const ImportSongsPage: React.FC = () => {
         </p>
       </div>
 
-      {step === 'source' ? (
-        <>
-        <section aria-labelledby="recent-imports-heading" className="rounded-lg border border-gray-700 bg-gray-800 p-4 sm:p-6">
-          <h2 id="recent-imports-heading" className="text-lg font-semibold text-white">Recent import jobs</h2>
+{step === 'source' ? (
+    <>
+    <section aria-labelledby="recent-imports-heading" className="rounded-lg border border-gray-700 bg-gray-800 p-4 sm:p-6">
+      <div className="flex items-center justify-between mb-3">
+        <h2 id="recent-imports-heading" className="text-lg font-semibold text-white">Recent import jobs</h2>
+        <button
+          type="button"
+          onClick={() => setRecentJobsExpanded(prev => !prev)}
+          className="text-sm text-gray-400 hover:text-white transition-colors"
+          aria-label={recentJobsExpanded ? 'Collapse recent import jobs' : 'Expand recent import jobs'}
+        >
+          {recentJobsExpanded ? '▼' : '▲'}
+        </button>
+      </div>
+      {recentJobsExpanded && (
+        <div>
           {historyError && (
             <p role="alert" className="mt-3 text-sm text-amber-200">
               Could not load recent jobs: {historyError}
@@ -625,7 +638,9 @@ const ImportSongsPage: React.FC = () => {
           ) : !historyError ? (
             <p className="mt-2 text-sm text-gray-400">No recent import jobs.</p>
           ) : null}
-        </section>
+        </div>
+      )}
+    </section>
         <form onSubmit={startPreview} className="space-y-5 rounded-lg border border-gray-700 bg-gray-800 p-4 sm:p-6">
           <fieldset>
             <legend className="mb-3 text-lg font-semibold text-white">Where should songs come from?</legend>
@@ -1024,10 +1039,10 @@ const ImportSongsPage: React.FC = () => {
                               }))}
                               className="rounded border border-amber-700/60 bg-gray-950 px-2 py-1.5 text-white"
                             />
-                            <button
+<button
                               type="button"
                               disabled={isSubmitting}
-                              onClick={async () => {
+onClick={async () => {
                                 const draft = approvalDrafts[channel.channelId];
                                 const artistName = draft?.artistName.trim() || channel.channelTitle;
                                 const countryCode = (draft?.countryCode.trim() || 'NG').toUpperCase();
@@ -1044,17 +1059,26 @@ const ImportSongsPage: React.FC = () => {
                                       genres: [genre],
                                     }),
                                   });
-                                  setActionError(null);
-                                  setSearchValue(searchValue);
+setActionError(null);
+                                // Refresh the preview by re-polling the job status
+                                // and resetting preview state to force a fresh fetch
+                                try {
+                                  void poll();
+                                  setPreview(null);
+                                  setPreviewJobId(null);
+                                } catch (pollError) {
+                                  // Poll failure is non-critical; approval still persisted to DB
+                                  console.error('Poll failed after approval:', pollError);
+                                }
                                 } catch (error) {
-                                  setActionError(error instanceof Error ? error.message : 'Could not approve channel.');
+                                  setActionError(error instanceof Error ? error.message : 'Could not approve song.');
                                 } finally {
                                   setIsSubmitting(false);
                                 }
                               }}
                               className="rounded bg-amber-600 px-3 py-1.5 font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
                             >
-                              Approve channel
+                              Approve song
                             </button>
                           </div>
                         </li>
