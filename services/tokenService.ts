@@ -394,14 +394,14 @@ export const tokenApi = {
   getLimitedTimeOffers: () =>
     apiRequest<LimitedTimeOffer[]>('/store/offers'),
 
-  purchaseItem: (itemId: string) => {
+  purchaseItem: (itemId: string, shippingName?: string, shippingAddress?: string) => {
     const purchaseToken =
       typeof crypto !== 'undefined' && crypto.randomUUID
         ? crypto.randomUUID()
         : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     return apiRequest<{ success: boolean; message: string }>('/store/purchase', {
       method: 'POST',
-      body: JSON.stringify({ itemId, purchaseToken }),
+      body: JSON.stringify({ itemId, purchaseToken, shippingName, shippingAddress }),
     });
   },
 

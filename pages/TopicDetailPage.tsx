@@ -327,7 +327,7 @@ const TopicDetailPage: React.FC = () => {
                 <img
                   src={toMediaUrl(topic.imageUrl)}
                   alt={topic.title}
-                  className="mb-4 max-h-[32rem] w-full rounded-lg object-contain"
+                  className="mb-4 h-auto w-full rounded-lg"
                 />
               )}
               <div className="text-gray-300 whitespace-pre-wrap leading-relaxed mb-4">

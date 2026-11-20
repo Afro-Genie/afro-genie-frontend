@@ -9,14 +9,14 @@ import { useNotification } from '../../hooks/useNotification';
 import Notification from '../Notification';
 import { moderationApi } from '../../services/moderationService';
 import { featureFlags } from '../../config/featureFlags';
-import { toMediaUrl } from '../../lib/apiBase';
+import Avatar from '../Avatar';
 
 interface UserMenuProps {
   onLoginClick: () => void;
 }
 
 const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
-  const { user, loading: authLoading, isAdmin, isArtist, isModerator, logout } = useAuth();
+  const { user, userProfile, loading: authLoading, isAdmin, isArtist, isModerator, logout } = useAuth();
   const { artistApplication, roleRequests, loading: pendingLoading, roleRequestsError, refresh: refreshPending } = usePendingRequests();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -51,6 +51,7 @@ const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
 
   const hasPendingArtistApplication = !isArtist && !!artistApplication;
   const hasPendingModeratorRequest = !isAdmin && roleRequests.some((r) => r.role === 'MODERATOR');
+  const avatarUrl = isArtist ? userProfile?.artistProfile?.profileImageUrl : user?.photoURL;
 
   const handleLogout = async () => {
     try {
@@ -120,24 +121,18 @@ const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
             onClick={() => {
               const opening = !isMenuOpen;
               setIsMenuOpen(opening);
-              if (opening) void refreshPending(false);
+              if (opening) void refreshPending();
             }}
             className="flex items-center justify-center min-h-[44px] min-w-[44px] rounded-md text-gray-300 hover:text-white focus:outline-none focus:ring-2 focus:ring-green-400"
             aria-label="User menu"
           >
-            {user.photoURL ? (
-              <img
-                src={toMediaUrl(user.photoURL)}
-                alt="Profile"
-                className="h-8 w-8 sm:h-9 sm:w-9 rounded-full ring-2 ring-transparent hover:ring-green-400 transition-all"
-              />
-            ) : (
-              <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-gradient-to-br from-green-600 to-green-800 flex items-center justify-center ring-2 ring-transparent hover:ring-green-400 transition-all">
-                <span className="text-sm font-medium text-white">
-                  {user.displayName?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || 'U'}
-                </span>
-              </div>
-            )}
+            <Avatar
+              src={avatarUrl}
+              name={user.displayName || user.email}
+              alt="Profile"
+              className="h-8 w-8 sm:h-9 sm:w-9 ring-2 ring-transparent transition-all hover:ring-green-400"
+              initialsClassName="text-sm font-medium text-white"
+            />
             <svg
               className={`w-4 h-4 ml-1 hidden sm:block transition-transform ${isMenuOpen ? 'rotate-180' : ''}`}
               fill="none"

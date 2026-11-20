@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { ExplorePlaylists } from '../../types';
+import FeaturedImage from './FeaturedImage';
 
 interface PlaylistCardProps {
   playlist: ExplorePlaylists;
@@ -16,17 +17,17 @@ const PlaylistCard: React.FC<PlaylistCardProps> = React.memo(({ playlist, onLike
 
   return (
     <div className="bg-gray-800/50 hover:bg-gray-700/50 transition-colors duration-200 rounded-lg overflow-hidden border border-gray-700 group">
-      <div className="relative w-full h-36 overflow-hidden">
-        {playlist.imageUrl ? (
-          <img src={playlist.imageUrl} alt={playlist.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-        ) : (
-          <div className="w-full h-full bg-gradient-to-br from-green-900 to-gray-800 flex items-center justify-center">
+      {playlist.imageUrl ? (
+        <FeaturedImage src={playlist.imageUrl} alt={playlist.name} />
+      ) : (
+        <div className="relative h-36 w-full overflow-hidden">
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-green-900 to-gray-800">
             <svg className="w-12 h-12 text-green-500" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
             </svg>
           </div>
-        )}
-      </div>
+        </div>
+      )}
       <div className="p-3">
         <h3 className="text-white font-semibold text-sm truncate">{playlist.name}</h3>
         <p className="text-gray-400 text-xs mt-0.5 truncate">{playlist.creatorName || 'Unknown'}</p>

@@ -1,7 +1,9 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import CommunityContentCard from './CommunityContentCard';
+import { Eye, MessageCircle } from 'lucide-react';
 import { CommunityTopicExtended } from '../../types';
+import { toMediaUrl } from '../../lib/apiBase';
+import Avatar from '../Avatar';
 import TopicActions from './TopicActions';
 
 interface TopicCardProps {
@@ -13,9 +15,6 @@ interface TopicCardProps {
 
 const getAuthorName = (topic: CommunityTopicExtended) =>
   topic.author?.displayName || topic.authorName || 'Unknown';
-
-const getAuthorAvatar = (topic: CommunityTopicExtended) =>
-  topic.author?.photoUrl || topic.authorAvatar || '';
 
 const getCategoryName = (topic: CommunityTopicExtended) =>
   topic.forumCategory?.name || (typeof topic.category === 'object' ? topic.category.name : topic.category) || '';
@@ -33,62 +32,100 @@ const formatTimeAgo = (timestamp: string) => {
   return date.toLocaleDateString();
 };
 
-const truncateContent = (content: string, maxLength: number = 150) => {
-  if (content.length <= maxLength) return content;
-  return content.substring(0, maxLength) + '...';
-};
-
 const TopicCard: React.FC<TopicCardProps> = React.memo(({ topic, onLike, onShare, isLiked }) => {
   const navigate = useNavigate();
   const authorName = getAuthorName(topic);
-  const authorAvatar = getAuthorAvatar(topic);
   const categoryName = getCategoryName(topic);
 
-  const stats = [
-    ...(topic.viewCount !== undefined ? [{ label: 'views' as const, value: topic.viewCount }] : []),
-    ...(topic.commentCount !== undefined ? [{ label: 'comments' as const, value: topic.commentCount }] : []),
-    ...(topic.likes !== undefined ? [{ label: 'likes' as const, value: topic.likes }] : []),
-  ];
+  const openTopic = () => navigate(`/community/topic/${topic.id}`);
 
   return (
-    <div className={`relative ${topic.isModeratorOnly ? 'border-l-4 border-l-blue-500' : ''}`}>
-      {topic.isModeratorOnly && (
-        <div className="absolute -top-2 -left-2 z-10 flex items-center gap-1 px-2 py-0.5 bg-blue-600 text-white text-xs font-semibold rounded-full shadow">
-          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-          </svg>
-          Moderator&apos;s Pick
+    <article
+      role="link"
+      tabIndex={0}
+      onClick={openTopic}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          openTopic();
+        }
+      }}
+      className={`flex min-h-[320px] cursor-pointer flex-col overflow-hidden rounded-2xl border bg-[#151d1b] shadow-sm transition-colors hover:border-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 md:flex-row ${
+        topic.isModeratorOnly ? 'border-blue-500/60' : 'border-gray-700/80'
+      }`}
+    >
+      <div className="relative h-64 shrink-0 bg-[#101715] p-3 md:h-auto md:w-[36%] md:min-w-[260px] md:max-w-[340px]">
+        <div className="relative h-full min-h-[220px] overflow-hidden rounded-lg bg-gray-900/50">
+          {topic.imageUrl ? (
+            <img
+              src={toMediaUrl(topic.imageUrl)}
+              alt={topic.title}
+              loading="lazy"
+              className="h-full w-full object-contain p-2"
+            />
+          ) : (
+            <div className="h-full w-full bg-gradient-to-br from-green-950/60 via-gray-900 to-gray-950" />
+          )}
+          {categoryName && (
+            <span className="absolute left-3 top-3 max-w-[calc(100%-1.5rem)] truncate rounded-full border border-white/10 bg-[#151d1b]/90 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-200 backdrop-blur-sm">
+              <span className="mr-1.5 text-amber-400">•</span>
+              {categoryName}
+            </span>
+          )}
+          {topic.isModeratorOnly && (
+            <span className="absolute bottom-3 left-3 rounded-full border border-blue-300/20 bg-blue-950/90 px-2.5 py-1 text-[10px] font-semibold text-blue-100">
+              Moderator&apos;s Pick
+            </span>
+          )}
         </div>
-      )}
-      <CommunityContentCard
-        imageUrl={topic.imageUrl}
-        title={topic.title}
-        subtitle={`${authorName} • ${formatTimeAgo(topic.createdAt)}`}
-        stats={stats.length > 0 ? stats : undefined}
-        onClick={() => navigate(`/community/topic/${topic.id}`)}
-      >
-        <p className="text-gray-400 text-xs mt-2 line-clamp-2">{truncateContent(topic.content)}</p>
-        <div className="flex items-center justify-between mt-3">
-          <div className="flex items-center gap-2">
-            <div className="flex-shrink-0">
-              {authorAvatar ? (
-                <img src={authorAvatar} alt={authorName} className="h-5 w-5 rounded-full" />
-              ) : (
-                <div className="h-5 w-5 rounded-full bg-gradient-to-br from-green-600 to-green-800 flex items-center justify-center">
-                  <span className="text-white font-bold text-[10px]">{authorName[0]?.toUpperCase() || 'U'}</span>
-                </div>
-              )}
-            </div>
-            {categoryName && (
-              <span className="px-2 py-0.5 bg-gray-700 rounded text-gray-300 text-[10px]">{categoryName}</span>
-            )}
+      </div>
+
+      <div className="flex min-w-0 flex-1 flex-col p-5 md:p-6">
+        <div className="flex min-w-0 items-center gap-3">
+          <Avatar
+            src={topic.author?.photoUrl || topic.authorAvatar}
+            name={authorName}
+            alt=""
+            className="h-10 w-10 shrink-0 border border-gray-600"
+            initialsClassName="text-sm font-semibold text-white"
+          />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-gray-100">{authorName}</p>
+            <p className="mt-0.5 truncate text-xs text-gray-400">
+              Shared {formatTimeAgo(topic.createdAt)}
+              {categoryName && <><span className="mx-1.5 text-gray-600">·</span>{categoryName}</>}
+            </p>
           </div>
-          <div onClick={(e) => e.stopPropagation()}>
+        </div>
+
+        <div className="mt-5">
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-400">Community story</p>
+          <h3 className="mt-2 line-clamp-2 font-serif text-2xl font-medium leading-tight tracking-tight text-gray-50 md:text-3xl">
+            {topic.title}
+          </h3>
+          <p className="mt-3 line-clamp-3 text-sm leading-6 text-gray-300">{topic.content}</p>
+        </div>
+
+        <div className="mt-auto flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-t border-gray-700/80 pt-4">
+          <div className="flex items-center gap-4 text-xs text-gray-400">
+            <span className="inline-flex items-center gap-1.5">
+              <Eye className="h-4 w-4 text-gray-500" />
+              <strong className="font-medium text-gray-200">{topic.viewCount ?? 0}</strong>
+              <span>views</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <MessageCircle className="h-4 w-4 text-gray-500" />
+              <strong className="font-medium text-gray-200">{topic.commentCount}</strong>
+              <span>replies</span>
+            </span>
+          </div>
+          <div onClick={(event) => event.stopPropagation()}>
             <TopicActions topic={topic} onLike={onLike} onShare={onShare} isLiked={isLiked} compact />
           </div>
         </div>
-      </CommunityContentCard>
-    </div>
+      </div>
+    </article>
   );
 });
 

@@ -1,5 +1,5 @@
-// Lyric API Service - Multi-API integration with fallback mechanism
-// Supports LyricFind (primary), Genius (fallback), and others
+// Lyric API Service - LRCLIB only
+// Uses lrclib.net API for all lyrics fetching
 
 import type {
   APISearchResult,
@@ -8,68 +8,23 @@ import type {
   SongMetadata,
 } from "../types";
 
-interface LyricFindSearchResponse {
-  response: {
-    track: Array<{
-      track_id: string;
-      track_title: string;
-      artist_name: string;
-      album_title?: string;
-      release_date?: string;
-      track_artwork?: string;
-    }>;
-  };
-}
+const LRCLIB_BASE = 'https://lrclib.net/api';
 
-interface LyricFindLyricsResponse {
-  response: {
-    track: {
-      track_id: string;
-      track_title: string;
-      artist_name: string;
-      lyrics: string;
-      language?: string;
-    };
-  };
-}
-
-interface GeniusSearchResponse {
-  response: {
-    hits: Array<{
-      result: {
-        id: number;
-        title: string;
-        primary_artist: {
-          name: string;
-          image_url: string;
-        };
-        song_art_image_url: string;
-        url: string;
-        release_date_for_display?: string;
-      };
-    }>;
-  };
+export interface LrcLibTrack {
+  id: number;
+  trackName: string;
+  artistName: string;
+  albumName: string | null;
+  duration: number;
+  instrumental: boolean;
+  plainLyrics: string | null;
+  syncedLyrics: string | null;
 }
 
 class LyricAPIService {
-  private lyricFindApiKey: string;
-  private lyricFindUsername: string;
-  private geniusAccessToken: string;
-  private readonly LYRICFIND_BASE_URL = "https://api.lyricfind.com";
-  private readonly GENIUS_BASE_URL = "https://api.genius.com";
+  private readonly LRCLIB_BASE_URL = LRCLIB_BASE;
 
-  constructor() {
-    // Get from environment variables (loaded via vite.config.ts define)
-    // These are available at build time from .env.local
-    this.lyricFindApiKey = "";
-    this.lyricFindUsername = "";
-    this.geniusAccessToken = "";
-
-    // Try to get from window if injected, or use empty (will be set via API calls with proxy)
-    // API keys are handled server-side via proxy in vite.config.ts
-  }
-
-  // African artist detection keywords
+  // Calculate African relevance score
   private readonly AFRICAN_KEYWORDS = [
     "nigerian",
     "ghanaian",
@@ -107,7 +62,6 @@ class LyricAPIService {
     "afro-trap",
   ];
 
-  // Calculate African relevance score
   private calculateAfricanScore(
     artist: string,
     genre?: string,
@@ -118,21 +72,18 @@ class LyricAPIService {
     const lowerGenre = genre?.toLowerCase() || "";
     const lowerMetadata = JSON.stringify(metadata || {}).toLowerCase();
 
-    // Check artist name
     for (const keyword of this.AFRICAN_KEYWORDS) {
       if (lowerArtist.includes(keyword)) {
         score += 10;
       }
     }
 
-    // Check genre
     for (const afroGenre of this.AFRICAN_GENRES) {
       if (lowerGenre.includes(afroGenre)) {
         score += 15;
       }
     }
 
-    // Check metadata
     for (const keyword of this.AFRICAN_KEYWORDS) {
       if (lowerMetadata.includes(keyword)) {
         score += 5;
@@ -142,223 +93,83 @@ class LyricAPIService {
     return score;
   }
 
-  // LyricFind API - Search
-  private async searchLyricFind(query: string): Promise<APISearchResult[]> {
-    try {
-      // API key and username are injected by the proxy from environment variables
-      const url = new URL("/search", this.LYRICFIND_BASE_URL);
-      url.searchParams.append("query", query);
-      url.searchParams.append("output", "json");
-      // Note: apikey and username are added by the proxy automatically
+  private async lrclibSearch(artist: string, title: string): Promise<LrcLibTrack[]> {
+    const url = new URL('/search', this.LRCLIB_BASE_URL);
+    url.searchParams.append('artist_name', artist);
+    url.searchParams.append('track_name', title);
 
-      const response = await fetch(
-        `/proxy/lyricfind${url.pathname}${url.search}`,
-        {
-          headers: {
-            "User-Agent": "AfroGenie/1.0",
-          },
-        },
-      );
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'AfroGenie/1.0',
+      },
+    });
 
-      if (!response.ok) {
-        throw new Error(`LyricFind API error: ${response.status}`);
-      }
-
-      const data: LyricFindSearchResponse = await response.json();
-      const results: APISearchResult[] = [];
-
-      if (data.response?.track) {
-        for (const track of data.response.track) {
-          const genre = track.album_title || "";
-          const africanScore = this.calculateAfricanScore(
-            track.artist_name,
-            genre,
-          );
-
-          results.push({
-            id: `lyricfind_${track.track_id}`,
-            title: track.track_title,
-            artist: track.artist_name,
-            album: track.album_title,
-            year: track.release_date
-              ? parseInt(track.release_date.split("-")[0])
-              : undefined,
-            image: track.track_artwork,
-            source: "lyricfind",
-            confidence: 0.9,
-            metadata: {
-              track_id: track.track_id,
-              release_date: track.release_date,
-              african_score: africanScore,
-            },
-          });
-        }
-      }
-
-      return results;
-    } catch (error) {
-      console.error("LyricFind search error:", error);
-      throw error;
+    if (!response.ok) {
+      throw new Error(`LRCLIB API error: ${response.status}`);
     }
+
+    const data = await response.json() as LrcLibTrack[];
+    return data.filter((track) => !track.instrumental && (track.plainLyrics || track.syncedLyrics));
   }
 
-  // LyricFind API - Get Lyrics
-  private async getLyricFindLyrics(trackId: string): Promise<string> {
-    try {
-      // API key and username are injected by the proxy from environment variables
-      const url = new URL("/lyric", this.LYRICFIND_BASE_URL);
-      url.searchParams.append("track_id", trackId);
-      url.searchParams.append("output", "json");
-      // Note: apikey and username are added by the proxy automatically
+  private async lrclibFetchLyrics(trackId: string): Promise<{ plain: string | null; synced: string | null }> {
+    const url = new URL('/get', this.LRCLIB_BASE_URL);
+    url.searchParams.append('id', trackId);
 
-      const response = await fetch(
-        `/proxy/lyricfind${url.pathname}${url.search}`,
-        {
-          headers: {
-            "User-Agent": "AfroGenie/1.0",
-          },
-        },
-      );
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'AfroGenie/1.0',
+      },
+    });
 
-      if (!response.ok) {
-        throw new Error(`LyricFind API error: ${response.status}`);
-      }
-
-      const data: LyricFindLyricsResponse = await response.json();
-      return data.response?.track?.lyrics || "";
-    } catch (error) {
-      console.error("LyricFind lyrics error:", error);
-      throw error;
+    if (!response.ok) {
+      throw new Error(`LRCLIB API error: ${response.status}`);
     }
+
+    const data = await response.json() as LrcLibTrack;
+    return {
+      plain: data.plainLyrics?.trim() || null,
+      synced: data.syncedLyrics?.trim() || null,
+    };
   }
 
-  // Genius API - Search (enhanced from existing)
-  private async searchGenius(query: string): Promise<APISearchResult[]> {
-    try {
-      // Authorization header is injected by the proxy from environment variables
-      const response = await fetch(
-        `/proxy/genius/search?q=${encodeURIComponent(query)}&per_page=20`,
-        {
-          headers: {
-            "User-Agent": "AfroGenie/1.0",
-          },
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error(`Genius API error: ${response.status}`);
-      }
-
-      const data: GeniusSearchResponse = await response.json();
-      const results: APISearchResult[] = [];
-
-      if (data.response?.hits) {
-        for (const hit of data.response.hits) {
-          const result = hit.result;
-          const africanScore = this.calculateAfricanScore(
-            result.primary_artist.name,
-          );
-
-          results.push({
-            id: `genius_${result.id}`,
-            title: result.title,
-            artist: result.primary_artist.name,
-            image: result.song_art_image_url,
-            source: "genius",
-            confidence: 0.85,
-            metadata: {
-              url: result.url,
-              release_date: result.release_date_for_display,
-              artist_image: result.primary_artist.image_url,
-              african_score: africanScore,
-            },
-          });
-        }
-      }
-
-      return results;
-    } catch (error) {
-      console.error("Genius search error:", error);
-      throw error;
-    }
-  }
-
-  // Genius API - Get Lyrics via song page extraction
-  private async getGeniusLyrics(songId: string): Promise<string> {
-    try {
-      // Fetch the Genius song page to extract lyrics
-      const response = await fetch(`/proxy/genius/songs/${songId}`, {
-        headers: { "User-Agent": "AfroGenie/1.0" },
-      });
-
-      if (!response.ok) {
-        return "";
-      }
-
-      const data = await response.json();
-      const songUrl = data?.response?.song?.url;
-      if (!songUrl) {
-        return "";
-      }
-
-      // Fetch the song page HTML and extract lyrics
-      const pageResponse = await fetch(songUrl, {
-        headers: { "User-Agent": "Mozilla/5.0 (compatible; AfroGenie/1.0)" },
-      });
-
-      if (!pageResponse.ok) {
-        return "";
-      }
-
-      const html = await pageResponse.text();
-      const lyricsMatch = html.match(
-        /data-lyrics-container="true"[^>]*>([\s\S]*?)<\/div>/,
-      );
-      if (lyricsMatch) {
-        return lyricsMatch[1]
-          .replace(/<br\s*\/?>/g, "\n")
-          .replace(/<[^>]+>/g, "")
-          .replace(/&amp;/g, "&")
-          .replace(/&lt;/g, "<")
-          .replace(/&gt;/g, ">")
-          .replace(/&quot;/g, '"')
-          .replace(/&#x27;/g, "'")
-          .replace(/&#39;/g, "'")
-          .replace(/&nbsp;/g, " ")
-          .trim();
-      }
-
-      return "";
-    } catch (error) {
-      console.warn("Genius lyrics fetch failed:", error);
-      return "";
-    }
-  }
-
-  // Unified search with fallback
+  // Unified search using LRCLIB
   async searchSongs(
     query: string,
     focusAfrican: boolean = false,
   ): Promise<APISearchResult[]> {
+    // Parse artist and title from query
+    const parts = query.split(' - ').reverse();
+    const title = parts[0] || query;
+    const artist = parts.slice(1).join(' - ') || '';
+
+    const tracks = await this.lrclibSearch(artist, title);
     const allResults: APISearchResult[] = [];
 
-    // Try LyricFind first (primary)
-    try {
-      const lyricFindResults = await this.searchLyricFind(query);
-      allResults.push(...lyricFindResults);
-    } catch (error) {
-      console.warn("LyricFind search failed, trying fallback:", error);
+    for (const track of tracks) {
+      const genre = track.albumName || "";
+      const africanScore = this.calculateAfricanScore(
+        track.artistName,
+        genre,
+        { trackName: track.trackName },
+      );
+
+      allResults.push({
+        id: `lrclib_${track.id}`,
+        title: track.trackName,
+        artist: track.artistName,
+        album: track.albumName,
+        year: undefined,
+        image: "",
+        source: "lrclib",
+        confidence: 0.9,
+        metadata: {
+          track_id: String(track.id),
+          african_score: africanScore,
+        },
+      });
     }
 
-    // Try Genius (fallback)
-    try {
-      const geniusResults = await this.searchGenius(query);
-      allResults.push(...geniusResults);
-    } catch (error) {
-      console.warn("Genius search failed:", error);
-    }
-
-    // Filter and prioritize African artists if requested
     if (focusAfrican) {
       allResults.sort((a, b) => {
         const scoreA = (a.metadata.african_score as number) || 0;
@@ -366,7 +177,6 @@ class LyricAPIService {
         return scoreB - scoreA;
       });
 
-      // Prioritize results with African score > 0
       const africanResults = allResults.filter(
         (r) => (r.metadata.african_score as number) > 0,
       );
@@ -376,11 +186,9 @@ class LyricAPIService {
       return [...africanResults, ...otherResults];
     }
 
-    // Deduplicate and sort by confidence
-    return this.deduplicateResults(allResults);
+    return allResults;
   }
 
-  // Deduplicate results
   private deduplicateResults(results: APISearchResult[]): APISearchResult[] {
     const seen = new Map<string, APISearchResult>();
 
@@ -398,31 +206,27 @@ class LyricAPIService {
     );
   }
 
-  // Fetch full song data with lyrics
+  // Fetch full song data with lyrics using LRCLIB
   async fetchFullSongData(result: APISearchResult): Promise<FullSongData> {
-    let lyrics = result.lyrics || "";
+    let lyrics = "";
 
-    // Fetch lyrics if not already present
-    if (!lyrics) {
-      try {
-        if (result.source === "lyricfind") {
-          const trackId = result.metadata.track_id as string;
-          lyrics = await this.getLyricFindLyrics(trackId);
-        } else if (result.source === "genius") {
-          const songId = result.id.replace("genius_", "");
-          lyrics = await this.getGeniusLyrics(songId);
+    if (result.source === "lrclib") {
+      const trackId = result.metadata?.track_id as string;
+      if (trackId) {
+        try {
+          const { synced } = await this.lrclibFetchLyrics(trackId);
+          lyrics = synced || "";
+        } catch (error) {
+          console.error(`Failed to fetch lyrics from LRCLIB:`, error);
         }
-      } catch (error) {
-        console.error(`Failed to fetch lyrics from ${result.source}:`, error);
       }
     }
 
-    // Build full song data
     const fullData: FullSongData = {
       song: {
         title: result.title,
         artist: result.artist,
-        artistId: "", // Will be set after artist is created
+        artistId: "",
         image: result.image || "",
       },
       artist: {
@@ -450,7 +254,6 @@ class LyricAPIService {
 
   // Fetch artist info (placeholder - can be enhanced)
   async fetchArtistInfo(artistName: string): Promise<ArtistInfo> {
-    // This would integrate with MusicBrainz or other APIs
     return {
       name: artistName,
       genre: "",
@@ -463,7 +266,6 @@ class LyricAPIService {
     songId: string,
     source: string,
   ): Promise<SongMetadata> {
-    // Extract metadata from search result or fetch additional data
     return {
       genre: "",
       language: "",

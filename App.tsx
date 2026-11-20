@@ -28,6 +28,8 @@ import TranslationRequestsPage from './pages/admin/TranslationRequestsPage';
 import RoleRequestsManager from './pages/admin/RoleRequestsManager';
 import EditSongPage from './pages/admin/EditSongPage';
 import AddSongPage from './pages/admin/AddSongPage';
+import ImportSongsPage from './pages/admin/ImportSongsPage';
+import LyricsBackfillPage from './pages/admin/LyricsBackfillPage';
 import ArtistApplicationPage from './pages/ArtistApplicationPage';
 import ModeratorRequestPage from './pages/ModeratorRequestPage';
 import ArtistDetailPage from './pages/ArtistDetailPage';
@@ -156,6 +158,8 @@ function AppRoutes() {
                 <Route index element={<AdminDashboard />} />
                 <Route path="artists" element={<ArtistsManager />} />
                 <Route path="songs" element={<SongsManager />} />
+                <Route path="songs/import" element={<ImportSongsPage />} />
+                <Route path="lyrics-backfill" element={<LyricsBackfillPage />} />
                 <Route path="songs/add" element={<AddSongPage />} />
                 <Route path="songs/edit/:id" element={<EditSongPage />} />
                 <Route path="genres" element={<GenresManager />} />

@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { BadgeCheck, Music } from 'lucide-react';
+import Avatar from '../../Avatar';
+import { toMediaUrl } from '../../../lib/apiBase';
 
 interface ProfileHeaderProps {
   stageName: string;
@@ -26,14 +28,20 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   totalFollowers,
   loading,
 }) => {
+  const [bannerFailedUrl, setBannerFailedUrl] = useState<string | null>(null);
+  useEffect(() => setBannerFailedUrl(null), [bannerImageUrl]);
+
   return (
     <div className="relative overflow-hidden rounded-xl border border-gray-700/50">
       {/* Banner */}
-      <div className="relative h-48 sm:h-56">
-        {bannerImageUrl ? (
-          <img src={bannerImageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
-        ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-green-900/60 via-gray-900 to-gray-900" />
+      <div className="relative h-48 bg-gradient-to-br from-green-900/60 via-gray-900 to-gray-900 sm:h-56">
+        {bannerImageUrl && bannerFailedUrl !== bannerImageUrl && (
+          <img
+            src={toMediaUrl(bannerImageUrl)}
+            alt=""
+            onError={() => setBannerFailedUrl(bannerImageUrl)}
+            className="absolute inset-0 h-full w-full object-cover"
+          />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/40 to-transparent" />
       </div>
@@ -43,19 +51,14 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4">
           {/* Avatar */}
           <div className="shrink-0">
-            {profileImageUrl ? (
-              <img
-                src={profileImageUrl}
-                alt={stageName}
-                className="w-28 h-28 rounded-full border-4 border-gray-900 object-cover"
-              />
-            ) : (
-              <div className="w-28 h-28 rounded-full border-4 border-gray-900 bg-gray-800 flex items-center justify-center">
-                <span className="text-3xl font-bold text-gray-500">
-                  {stageName?.charAt(0)?.toUpperCase() || '?'}
-                </span>
-              </div>
-            )}
+            <Avatar
+              src={profileImageUrl}
+              name={stageName}
+              alt={stageName}
+              className="w-28 h-28 border-4 border-gray-900 bg-gray-800"
+              fallbackClassName="bg-gray-800"
+              initialsClassName="text-3xl font-bold text-gray-500"
+            />
           </div>
 
           {/* Name + meta */}

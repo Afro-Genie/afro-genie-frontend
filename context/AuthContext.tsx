@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import {
   authApi,
+  apiRequest,
   setTokens,
   clearTokens,
   getAccessToken,
@@ -39,6 +40,7 @@ interface UserProfile {
     stageName: string;
     genre: string;
     bio: string;
+    profileImageUrl?: string | null;
     location?: string;
     website?: string;
     socialLinks?: {
@@ -102,6 +104,7 @@ interface AuthContextType {
   signInAnonymously: () => Promise<void>;
   logout: () => Promise<void>;
   updateUserProfile: (profile: { displayName: string | null; photoUrl: string | null }) => void;
+  updateArtistProfileImage: (profileImageUrl: string | null) => void;
   authFetch: (url: string, options?: RequestInit) => Promise<any>;
   isAdmin: boolean;
   isArtist: boolean;
@@ -251,6 +254,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     init();
   }, [initFromAuthResult]);
+
+  useEffect(() => {
+    if (user?.role !== 'ARTIST') return;
+
+    let cancelled = false;
+    apiRequest<{
+      stageName?: string;
+      bio?: string | null;
+      genres?: string[];
+      verified?: boolean;
+      imageUrl?: string | null;
+      profileImageUrl?: string | null;
+    }>('/artists/me/profile')
+      .then((profile) => {
+        if (cancelled) return;
+        setUserProfile((current) => current ? {
+          ...current,
+          artistProfile: {
+            stageName: profile.stageName ?? current.artistProfile?.stageName ?? current.displayName ?? 'Artist',
+            genre: profile.genres?.[0] ?? current.artistProfile?.genre ?? '',
+            bio: profile.bio ?? current.artistProfile?.bio ?? '',
+            verified: profile.verified ?? current.artistProfile?.verified ?? false,
+            profileImageUrl: current.artistProfile?.profileImageUrl ?? profile.profileImageUrl ?? profile.imageUrl,
+          },
+        } : current);
+      })
+      .catch((error) => {
+        if (!cancelled) console.error('Error loading artist profile image:', error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, user?.role]);
 
   const signIn = async (email: string, password: string) => {
     const result = await authApi.login(email, password);
@@ -403,6 +440,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setUser((current) => current ? { ...current, displayName: profile.displayName, photoURL: profile.photoUrl } : current);
     setUserProfile((current) => current ? { ...current, displayName: profile.displayName, photoURL: profile.photoUrl } : current);
   };
+  const updateArtistProfileImage = (profileImageUrl: string | null) => {
+    setUserProfile((current) => current ? {
+      ...current,
+      artistProfile: {
+        stageName: current.artistProfile?.stageName ?? current.displayName ?? 'Artist',
+        genre: current.artistProfile?.genre ?? '',
+        bio: current.artistProfile?.bio ?? '',
+        verified: current.artistProfile?.verified ?? false,
+        ...current.artistProfile,
+        profileImageUrl,
+      },
+    } : current);
+  };
 
   const value = {
     user,
@@ -420,6 +470,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     signInAnonymously,
     logout,
     updateUserProfile,
+    updateArtistProfileImage,
     authFetch,
     isAdmin,
     isArtist,
