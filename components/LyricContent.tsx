@@ -22,7 +22,7 @@ interface LyricContentProps {
 }
 
 const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) => {
-    const { user: currentUser, authFetch } = useAuth();
+    const { user: currentUser, authFetch, refreshBalance } = useAuth();
     const { fontSize, resetTranslationSignal } = usePlaybackSettings();
     const { setCurrentSongId } = useAudioPlayer();
     const [showLoginPrompt, setShowLoginPrompt] = useState(false);
@@ -123,8 +123,11 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
                 const fetchedLanguages = await authFetch('/api/languages').catch(() => []);
 
                 const rawLangs = Array.isArray(fetchedLanguages) ? fetchedLanguages : fetchedLanguages?.languages ?? [];
+                const approvedCodes = new Set(SUPPORTED_LANGUAGES.filter(l => l.isActive).map(l => l.code));
                 const nameMap = new Map();
                 rawLangs.forEach((lang: any) => {
+                    const normalizedCode = (lang.code || '').trim().toLowerCase();
+                    if (!approvedCodes.has(normalizedCode)) return;
                     const normalizedName = (lang.name || '').trim().toLowerCase();
                     if (!nameMap.has(normalizedName)) {
                         nameMap.set(normalizedName, lang);
@@ -452,9 +455,10 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
                     }),
                 });
             } catch (requestError: any) {
-                // If the translation service is unavailable, offer the request path instead
+                // Keep the server's explanation for limits, budget, credits and
+                // insufficient balance — those are actions the user can take.
                 const errorMsg = String(requestError?.message || '').toLowerCase();
-                if (errorMsg.includes('500') || errorMsg.includes('internal server') || errorMsg.includes('budget') || errorMsg.includes('capacity')) {
+                if (errorMsg.includes('500') || errorMsg.includes('internal server')) {
                     setNotification({
                         message: 'AI translation is temporarily unavailable. You can request a translation and our team will process it.',
                         type: 'error'
@@ -540,6 +544,10 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
 
             setExistingTranslationId(resolvedTranslationId || existingTranslationId);
 
+            // The GT debit and completion reward are committed by the API; make
+            // sure the header balance reflects them even if SSE is unavailable.
+            await refreshBalance().catch(() => {});
+
             // Update local state
             setTranslatedLyrics(resolvedTranslationText);
             if (resolvedCulturalContext) {
@@ -556,16 +564,23 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
         } catch (err: any) {
             console.error('Translation generation error:', err);
             stopElapsedTimer();
+            await refreshBalance().catch(() => {});
             if (String(err?.message || '').toLowerCase().includes('session expired')) {
                 setShowLoginPrompt(true);
             }
             // Provide specific error messages based on failure reason
             const msg = String(err?.message || '').toLowerCase();
             let userMessage = 'Failed to generate translation';
-            if (msg.includes('rate') || msg.includes('429') || msg.includes('quota')) {
+            if (
+                msg.includes('daily translation limit') ||
+                msg.includes('insufficient token balance') ||
+                msg.includes('translation credit') ||
+                msg.includes('at capacity') ||
+                msg.includes('budget')
+            ) {
+                userMessage = err.message;
+            } else if (msg.includes('rate') || msg.includes('429') || msg.includes('quota')) {
                 userMessage = 'Translation service is experiencing high demand. Please try again in a few minutes.';
-            } else if (msg.includes('budget') || msg.includes('token') || msg.includes('capacity')) {
-                userMessage = 'Translation service has reached its usage limit. Please try again later or request a human translation.';
             } else if (msg.includes('no lyrics') || msg.includes('lyrics required')) {
                 userMessage = 'No lyrics found for this song. Please ensure lyrics are available before translating.';
             } else if (msg.includes('failed after') || msg.includes('timeout')) {
