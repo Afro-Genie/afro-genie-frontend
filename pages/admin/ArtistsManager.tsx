@@ -316,7 +316,7 @@ const ArtistsManager: React.FC = () => {
     if (!hasConfirmed) return;
 
     try {
-      await authFetch('/api/artists/' + artist.id, { method: 'DELETE' });
+      await authFetch('/api/admin/artists/' + artist.id, { method: 'DELETE' });
       showNotification({ message: 'Artist deleted successfully!', type: 'success' });
       void fetchData(true);
     } catch (error: any) {
@@ -569,7 +569,7 @@ const ArtistsManager: React.FC = () => {
                 className="px-3 py-2.5 min-w-[44px] bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg text-white transition-colors"
                 title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
               >
-                {sortOrder === 'asc' ? '↑' : '↓'}
+                {sortOrder === 'asc' ? 'Asc' : 'Desc'}
               </button>
             </div>
           </div>
@@ -655,7 +655,7 @@ const ArtistsManager: React.FC = () => {
                               {genre}
                             </span>
                           )) : (
-                            <span className="text-xs text-gray-500">—</span>
+                            <span className="text-xs text-gray-500">None</span>
                           )}
                         </div>
                       </td>
@@ -723,7 +723,7 @@ const ArtistsManager: React.FC = () => {
           <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-gray-700 bg-gray-800 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={editingArtist ? 'Edit artist' : 'Add artist'}>
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-xl font-bold text-white">{editingArtist ? 'Edit Artist' : 'Add New Artist'}</h2>
-              <button onClick={closeForm} className="text-gray-400 hover:text-white" aria-label="Close">✕</button>
+              <button onClick={closeForm} className="text-gray-400 hover:text-white" aria-label="Close">âœ•</button>
             </div>
             <div className="space-y-4">
               <div>
@@ -832,7 +832,7 @@ const ArtistsManager: React.FC = () => {
             <div className="mt-6 flex justify-end gap-3">
               <button onClick={closeForm} disabled={submitting} className="min-h-[44px] rounded-lg border border-gray-600 px-4 text-gray-200 hover:bg-gray-700 disabled:opacity-50">Cancel</button>
               <button onClick={() => void handleSave()} disabled={submitting} className="min-h-[44px] rounded-lg bg-green-600 px-5 font-semibold text-white hover:bg-green-700 disabled:opacity-50">
-                {submitting ? 'Saving…' : editingArtist ? 'Save changes' : 'Add Artist'}
+                {submitting ? 'Savingâ€¦' : editingArtist ? 'Save changes' : 'Add Artist'}
               </button>
             </div>
           </div>
@@ -860,3 +860,4 @@ const ArtistsManager: React.FC = () => {
 };
 
 export default ArtistsManager;
+

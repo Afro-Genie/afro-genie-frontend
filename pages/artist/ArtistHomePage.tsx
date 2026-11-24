@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { apiRequest, artistListenerRegionsApi } from '../../services/api';
 import StatCards from '../../components/artist/dashboard/StatCards';
-import StreamChart from '../../components/artist/dashboard/StreamChart';
+import ArtistTranslationReachChart from '../../components/artist/analytics/ArtistTranslationReachChart';
 import TopTracks from '../../components/artist/dashboard/TopTracks';
 import TopRegions from '../../components/artist/dashboard/TopRegions';
 
@@ -11,25 +11,10 @@ interface ArtistProfile {
   followers?: number;
 }
 
-interface AnalyticsSeries {
-  date: string;
-  plays: number;
-  translationViews: number;
-  uniqueListeners: number;
-}
-
 interface AnalyticsData {
-  totalPlays: number;
-  totalTranslationViews: number;
-  totalUniqueListeners: number;
-  series: AnalyticsSeries[];
-  topSongs: {
-    id: string;
-    title: string;
-    views: number;
-    requestCount: number;
-    imageUrl?: string;
-  }[];
+  summary?: { translationViews: number; translationReaders: number };
+  reachSeries?: { date: string; translationViews: number; translationReaders: number; returningReaders: number }[];
+  topSongs?: { id: string; title: string; translationViews: number; requests: number; imageUrl?: string }[];
 }
 
 const ArtistHomePage: React.FC = () => {
@@ -72,8 +57,8 @@ const ArtistHomePage: React.FC = () => {
 
       {/* Stat Cards */}
       <StatCards
-        totalPlays={analytics?.totalPlays ?? 0}
-        totalListeners={analytics?.totalUniqueListeners ?? 0}
+        totalPlays={analytics?.summary?.translationViews ?? 0}
+        totalListeners={analytics?.summary?.translationReaders ?? 0}
         totalFollowers={profile?.followers ?? 0}
         loading={loading}
       />
@@ -81,7 +66,7 @@ const ArtistHomePage: React.FC = () => {
       {/* Charts row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <StreamChart series={analytics?.series ?? []} loading={loading} />
+          <ArtistTranslationReachChart series={analytics?.reachSeries ?? []} loading={loading} />
         </div>
         <div>
           <TopRegions regions={regions} loading={loading} />
@@ -89,7 +74,7 @@ const ArtistHomePage: React.FC = () => {
       </div>
 
       {/* Top Tracks */}
-      <TopTracks tracks={analytics?.topSongs ?? []} loading={loading} />
+      <TopTracks tracks={(analytics?.topSongs ?? []).map((s:any)=>({id:s.id,title:s.title,views:s.translationViews,requestCount:s.requests,imageUrl:s.imageUrl}))} loading={loading} />
     </div>
   );
 };

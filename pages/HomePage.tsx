@@ -77,7 +77,7 @@ const HomePage: React.FC = () => {
     const { loadTrackBySongId, currentTrack, isPlaying, togglePlayPause } = useAudioPlayer();
     const navigate = useNavigate();
 
-    // Languages supported — built from canonical source
+    // Languages supported - built from canonical source
     const languages = SUPPORTED_LANGUAGES
         .filter(l => l.isActive)
         .map(l => ({ code: l.code, name: l.name, flag: LANGUAGE_FLAGS[l.code] || '' }));
@@ -238,7 +238,7 @@ const HomePage: React.FC = () => {
                         </p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                         {/* Feature Card 1 */}
                         <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-gray-700 hover:border-green-400/50 transition-all duration-300 hover:shadow-lg hover:shadow-green-500/20">
                             <div className="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center mb-4">
@@ -251,7 +251,7 @@ const HomePage: React.FC = () => {
                                 Get accurate translations that preserve cultural context and meaning
                             </p>
                             <button onClick={() => setShowTranslationInfo(true)} className="inline-flex items-center min-h-[44px] text-green-400 hover:text-green-300 font-semibold text-sm gap-1">
-                                Try Now <span>→</span>
+                                Try Now <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
                             </button>
                         </div>
 
@@ -267,7 +267,7 @@ const HomePage: React.FC = () => {
                                 Join discussions, share experiences, and connect with music lovers
                             </p>
                             <Link to="/community" className="inline-flex items-center min-h-[44px] text-amber-400 hover:text-amber-300 font-semibold text-sm gap-1">
-                                Explore <span>→</span>
+                                Explore <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
                             </Link>
                         </div>
 
@@ -283,23 +283,7 @@ const HomePage: React.FC = () => {
                                 Access thousands of African songs across multiple languages and genres
                             </p>
                             <Link to="/songs" className="inline-flex items-center min-h-[44px] text-green-400 hover:text-green-300 font-semibold text-sm gap-1">
-                                Browse <span>→</span>
-                            </Link>
-                        </div>
-
-                        {/* Feature Card 4 */}
-                        <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-gray-700 hover:border-green-400/50 transition-all duration-300 hover:shadow-lg hover:shadow-green-500/20">
-                            <div className="w-12 h-12 bg-amber-500/20 rounded-lg flex items-center justify-center mb-4">
-                                <svg className="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                                </svg>
-                            </div>
-                            <h3 className="text-xl font-bold text-white mb-2">Cultural Context</h3>
-                            <p className="text-gray-400 mb-4">
-                                Understand the deeper meaning behind lyrics with cultural annotations
-                            </p>
-                            <Link to="/search" className="inline-flex items-center min-h-[44px] text-amber-400 hover:text-amber-300 font-semibold text-sm gap-1">
-                                Learn More <span>→</span>
+                                Browse <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
                             </Link>
                         </div>
                     </div>
@@ -458,7 +442,7 @@ const HomePage: React.FC = () => {
                             onClick={() => setSelectedLanguage('all')}
                             className="group min-w-[150px] md:min-w-0 bg-gray-800/50 hover:bg-gray-700/50 rounded-xl p-4 sm:p-6 border border-gray-700 hover:border-green-400/50 transition-all duration-300 text-center min-h-[44px] flex flex-col items-center justify-center"
                         >
-                            <div className="text-4xl mb-3">🌍</div>
+                            <div className="w-12 h-12 mb-3 rounded-full bg-green-500/15 text-green-400 flex items-center justify-center"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
                             <h3 className="font-semibold text-white group-hover:text-green-400 transition-colors text-sm sm:text-base">
                                 All Languages
                             </h3>

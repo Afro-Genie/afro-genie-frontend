@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import Avatar from '../Avatar';
+import Header from '../Header';
 import {
   Home,
   Disc3,
@@ -9,8 +10,6 @@ import {
   Users,
   Settings,
   LogOut,
-  Search,
-  Bell,
   Music,
   Menu,
 } from 'lucide-react';
@@ -139,42 +138,17 @@ const ArtistDashboardLayout: React.FC = () => {
       {/* ── Main area ───────────────────────────────────────── */}
       <div className="flex-1 md:ml-64 flex flex-col min-h-screen overflow-hidden">
         {/* Header */}
-        <header className="sticky top-0 z-20 h-16 bg-[#122118]/80 backdrop-blur-md border-b border-[#282828] flex items-center px-4 md:px-8">
-          {/* Mobile hamburger */}
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="md:hidden w-10 h-10 flex items-center justify-center rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors mr-3"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
-
-          <div className="flex-1 min-w-0">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-              <input
-                type="text"
-                placeholder="Search songs, releases..."
-                className="w-full pl-10 pr-4 py-2 bg-[#1a1a1a] border border-[#282828] rounded-full text-sm text-gray-300 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 transition-all"
-              />
-            </div>
-          </div>
-          <div className="flex items-center gap-2 ml-auto shrink-0">
-            <button className="w-9 h-9 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-colors">
-              <Bell className="w-5 h-5" />
-            </button>
-            <Link
-              to="/artist/profile"
-              className="w-9 h-9 rounded-full bg-gradient-to-br from-green-500 to-green-700 flex items-center justify-center flex-shrink-0 text-sm font-bold text-white hover:ring-2 hover:ring-green-400 transition-all"
+        <Header
+          leading={
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="md:hidden w-10 h-10 flex items-center justify-center rounded-lg text-gray-300 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0"
+              aria-label="Open menu"
             >
-              <Avatar
-                src={userProfile?.artistProfile?.profileImageUrl}
-                name={artistName}
-                className="w-9 h-9"
-                initialsClassName="text-sm font-bold text-white"
-              />
-            </Link>
-          </div>
-        </header>
+              <Menu className="w-5 h-5" />
+            </button>
+          }
+        />
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto">

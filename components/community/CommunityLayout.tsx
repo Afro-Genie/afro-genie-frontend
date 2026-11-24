@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { Menu } from 'lucide-react';
+import Header from '../Header';
 import CommunitySidebar, { type CommunityTab } from './CommunitySidebar';
 
 interface CommunityLayoutProps {
@@ -21,22 +23,18 @@ const CommunityLayout: React.FC<CommunityLayoutProps> = ({ activeTab, onTabChang
       />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Mobile sidebar toggle — matches TranslationPage */}
-        <div className="md:hidden sticky top-0 z-10 flex items-center p-3 bg-[#122118]/95 backdrop-blur-sm border-b border-white/5">
-          <button
-            onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors min-h-[44px] ${
-              mobileSidebarOpen
-                ? 'bg-green-600 text-white'
-                : 'bg-gray-700 hover:bg-gray-600 text-white'
-            }`}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-            <span>Menu</span>
-          </button>
-        </div>
+        {/* Header */}
+        <Header
+          leading={
+            <button
+              onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+              className="md:hidden w-10 h-10 flex items-center justify-center rounded-lg text-gray-300 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0"
+              aria-label="Open menu"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+          }
+        />
 
         <div className="flex-1 overflow-y-auto">
           <div className="p-6">

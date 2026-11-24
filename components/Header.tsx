@@ -86,7 +86,11 @@ const subscribeToUnreadNotifications = (
   };
 };
 
-const Header: React.FC = () => {
+interface HeaderProps {
+  leading?: React.ReactNode;
+}
+
+const Header: React.FC<HeaderProps> = ({ leading }) => {
   const navigate = useNavigate();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -188,10 +192,13 @@ const Header: React.FC = () => {
           <div className="flex items-center justify-between h-14 sm:h-16 gap-2 sm:gap-4">
             {/* Logo - hidden when search is open */}
             {!isSearchOpen && (
-              <Link to="/" className="flex items-center space-x-1.5 sm:space-x-2 flex-shrink-0">
-                <LogoIcon className="h-4 w-4 sm:h-5 sm:w-5 text-green-400" />
-                <span className="text-lg sm:text-xl font-bold text-white">AfroGenie</span>
-              </Link>
+              <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
+                {leading}
+                <Link to="/" className="flex items-center space-x-1.5 sm:space-x-2 flex-shrink-0">
+                  <LogoIcon className="h-4 w-4 sm:h-5 sm:w-5 text-green-400" />
+                  <span className="text-lg sm:text-xl font-bold text-white">AfroGenie</span>
+                </Link>
+              </div>
             )}
 
             {!isSearchOpen && (
@@ -204,7 +211,7 @@ const Header: React.FC = () => {
             )}
 
             {/* Right side: Search + Notifications + User */}
-            <div className={`flex items-center justify-end space-x-2 sm:space-x-4 flex-1 min-w-0 ${isSearchOpen ? '' : ''}`}>
+            <div className="flex items-center justify-end space-x-2 sm:space-x-4 flex-1 min-w-0">
               <SearchBar
                 variant="header"
                 isOpen={isSearchOpen}

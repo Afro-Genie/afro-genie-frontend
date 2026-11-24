@@ -371,11 +371,12 @@ const SearchResultsPage: React.FC = () => {
                 </section>
               ) : null;
 
+              const topArtistName = artistResults[0]?.title;
               const songSection = songResults.length > 0 ? (
                 <section key="songs">
                     <div className="flex items-center justify-between mb-6">
                       <h2 className="text-2xl md:text-3xl font-bold text-white">
-                        Songs <span className="text-green-400">({songFound})</span>
+                        {searchIntent === 'artist' && topArtistName ? `Songs by ${topArtistName}` : 'Songs'} <span className="text-green-400">({songFound})</span>
                         {searchIntent === 'song' && <span className="ml-3 text-xs font-normal text-green-500 bg-green-500/10 px-2 py-1 rounded-full">Top Result</span>}
                       </h2>
                     </div>
