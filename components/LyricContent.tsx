@@ -60,7 +60,7 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
         return culturalContext
             // Normalize markdown-like symbols that sometimes leak from AI output
             .replace(/^\s*#{1,6}\s*/gm, '')
-            .replace(/^\s*[-*]\s+/gm, '• ')
+            .replace(/^\s*[-*]\s+/gm, 'â€¢ ')
             .replace(/\*\*(.*?)\*\*/g, '$1')
             .replace(/\*(.*?)\*/g, '$1')
             .replace(/\n{3,}/g, '\n\n')
@@ -157,7 +157,7 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
             setLoading(true);
             setError('');
             try {
-                const songResponse = await getSongById(songId);
+                const songResponse = await getSongById(songId, authFetch);
                 const normalizedSong: Song | null = songResponse
                     ? {
                         id: songResponse.id,
@@ -199,7 +199,7 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
                     setSourceProvider(lyricsSource);
                 }
 
-                const translationResponse = await getSongTranslations(songId).catch(() => null);
+                const translationResponse = await getSongTranslations(songId, authFetch).catch(() => null);
                 const availableTranslations = normalizeAndRankTranslations(extractTranslations(translationResponse));
                 // Pick the best translation: one with non-empty translated text preferred
                 const bestTranslation = availableTranslations.find((t: any) => pickTranslationText(t)) || availableTranslations[0] || null;
@@ -209,6 +209,8 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
                     setTranslatedLyrics(pickTranslationText(bestTranslation) || 'No translation available yet. Use "Translate Lyrics" to generate one.');
                     setCulturalContext(bestTranslation.culturalContext || '');
                     setExistingTranslationId(bestTranslation.id || bestTranslation.translationId || null);
+                    const viewId = bestTranslation.id || bestTranslation.translationId;
+                    if (viewId) { authFetch('/api/translations/' + viewId + '/view', { method: 'POST', body: JSON.stringify({ sessionId: sessionStorage.getItem('ag_session_id') || undefined }) }).catch(() => {}); }
 
                     // Resolve source language: translation metadata > song metadata > 'en'
                     setSourceLang(resolveSourceLang(bestTranslation, normalizedSong));
@@ -479,7 +481,7 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
                 '';
 
             if (!resolvedTranslationText && jobId) {
-                // Poll up to 90 attempts × 2s = 3 minutes for background AI translation
+                // Poll up to 90 attempts Ã— 2s = 3 minutes for background AI translation
                 const MAX_POLL_ATTEMPTS = 90;
                 const POLL_INTERVAL_MS = 2000;
 
@@ -488,7 +490,7 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
                     try {
                         pollResult = await authFetch('/api/translations/status/' + jobId);
                     } catch (pollError) {
-                        // Polling failure is not fatal — retry on next attempt
+                        // Polling failure is not fatal â€” retry on next attempt
                         await sleep(POLL_INTERVAL_MS);
                         continue;
                     }
@@ -500,7 +502,7 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
 
                     // When job is completed, fetch the translation directly
                     if (jobState === 'completed' || jobState === 'finished') {
-                        const songTranslations = await getSongTranslations(songId).catch(() => null);
+                        const songTranslations = await getSongTranslations(songId, authFetch).catch(() => null);
                         const allTranslations = normalizeAndRankTranslations(extractTranslations(songTranslations));
                         const matching = allTranslations.find((t: any) => {
                             const text = pickTranslationText(t);
@@ -514,10 +516,10 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
                         if (resolvedTranslationText) break;
                     }
 
-                    // Still processing — show status update at progress milestones
+                    // Still processing â€” show status update at progress milestones
                     if (attempt === 15) {
                         setNotification({
-                            message: 'Translation is still processing… this may take a minute for longer songs.',
+                            message: 'Translation is still processingâ€¦ this may take a minute for longer songs.',
                             type: 'info'
                         });
                     }
@@ -527,7 +529,7 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
             }
 
             if (!resolvedTranslationText) {
-                // Don't throw — show a non-error status so the user can retry later
+                // Don't throw â€” show a non-error status so the user can retry later
                 setNotification({
                     message: 'Translation is still being generated. Please check back in a few minutes.',
                     type: 'info'

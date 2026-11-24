@@ -91,6 +91,10 @@ export interface MyRank {
 export type LeaderboardPeriod = 'all' | 'week' | 'month';
 
 export interface StoreItem {
+  howToEarn?: string | null;
+  progressLabel?: string | null;
+  eligible?: boolean;
+  unlocked?: boolean;
   id: string;
   name: string;
   description: string | null;
@@ -248,26 +252,26 @@ export interface AdminStorePurchasePage {
 }
 
 const BADGE_META: Record<string, { name: string; description: string; icon: string }> = {
-  EARLY_ADOPTER: { name: 'Early Adopter', description: 'Earned first approved translation', icon: '🌟' },
-  TOP_TRANSLATOR: { name: 'Top Translator', description: 'Completed 10+ approved translations', icon: '🏆' },
-  CULTURE_CURATOR: { name: 'Culture Curator', description: 'Contributed cultural context to 5+ translations', icon: '🎭' },
-  COMMUNITY_HELPER: { name: 'Community Helper', description: 'Created 10+ community topics or comments', icon: '🤝' },
-  ARTIST_SPOTLIGHT: { name: 'Artist Spotlight', description: 'Verified artist on the platform', icon: '🎵' },
-  DAILY_STREAK_7: { name: 'Dedicated', description: 'Logged in for 7 consecutive days', icon: '🔥' },
-  FIRST_PROFILE: { name: 'Profile Pro', description: 'Completed profile setup', icon: '👤' },
-  GENEROUS_SUPPORTER: { name: 'Generous Supporter', description: 'Purchased 3+ store items', icon: '🛍️' },
-  SEASON_CHAMPION: { name: 'Season Champion', description: 'Top 3 on a seasonal leaderboard', icon: '👑' },
-  REFERRAL_STAR: { name: 'Referral Star', description: 'Referred 3+ new users', icon: '⭐' },
-  GUARDIAN: { name: 'Guardian', description: 'Resolved 10+ flagged content reports', icon: '🛡️' },
-  HELPFUL_VOTER: { name: 'Helpful Voter', description: 'Cast 50+ upvotes across translations, topics, and comments', icon: '🗳️' },
-  GENIUS_ARTIST: { name: 'Genius Artist', description: 'Completed 100+ approved translations or 10+ of your songs have been translated', icon: '🎓' },
-  MODERATION_QUEUE: { name: 'Moderation Queue', description: 'Resolved 20+ flagged content reports', icon: '⚖️' },
-  PLATINUM_ARTIST: { name: 'Platinum Artist', description: 'Published 10+ songs as a verified artist', icon: '💿' },
-  FAN_FAVORITE: { name: 'Fan Favorite', description: 'Received 50+ upvotes on your translations', icon: '❤️' },
+  EARLY_ADOPTER: { name: 'Early Adopter', description: 'Earned first approved translation', icon: 'ðŸŒŸ' },
+  TOP_TRANSLATOR: { name: 'Top Translator', description: 'Completed 10+ approved translations', icon: 'ðŸ†' },
+  CULTURE_CURATOR: { name: 'Culture Curator', description: 'Contributed cultural context to 5+ translations', icon: 'ðŸŽ­' },
+  COMMUNITY_HELPER: { name: 'Community Helper', description: 'Created 10+ community topics or comments', icon: 'ðŸ¤' },
+  ARTIST_SPOTLIGHT: { name: 'Artist Spotlight', description: 'Verified artist on the platform', icon: 'ðŸŽµ' },
+  DAILY_STREAK_7: { name: 'Dedicated', description: 'Logged in for 7 consecutive days', icon: 'ðŸ”¥' },
+  FIRST_PROFILE: { name: 'Profile Pro', description: 'Completed profile setup', icon: 'ðŸ‘¤' },
+  GENEROUS_SUPPORTER: { name: 'Generous Supporter', description: 'Purchased 3+ store items', icon: 'ðŸ›ï¸' },
+  SEASON_CHAMPION: { name: 'Season Champion', description: 'Top 3 on a seasonal leaderboard', icon: 'ðŸ‘‘' },
+  REFERRAL_STAR: { name: 'Referral Star', description: 'Referred 3+ new users', icon: 'â­' },
+  GUARDIAN: { name: 'Guardian', description: 'Resolved 10+ flagged content reports', icon: 'ðŸ›¡ï¸' },
+  HELPFUL_VOTER: { name: 'Helpful Voter', description: 'Cast 50+ upvotes across translations, topics, and comments', icon: 'ðŸ—³ï¸' },
+  GENIUS_ARTIST: { name: 'Genius Artist', description: 'Completed 100+ approved translations or 10+ of your songs have been translated', icon: 'ðŸŽ“' },
+  MODERATION_QUEUE: { name: 'Moderation Queue', description: 'Resolved 20+ flagged content reports', icon: 'âš–ï¸' },
+  PLATINUM_ARTIST: { name: 'Platinum Artist', description: 'Published 10+ songs as a verified artist', icon: 'ðŸ’¿' },
+  FAN_FAVORITE: { name: 'Fan Favorite', description: 'Received 50+ upvotes on your translations', icon: 'â¤ï¸' },
 };
 
 export function getBadgeDisplay(badgeType: string) {
-  return BADGE_META[badgeType] || { name: badgeType, description: '', icon: '🏅' };
+  return BADGE_META[badgeType] || { name: badgeType, description: '', icon: 'ðŸ…' };
 }
 
 export const tokenApi = {

@@ -164,7 +164,7 @@ const StorePage: React.FC = () => {
 
         {!loading && items.length === 0 && (
           <div className="text-center py-16">
-            <p className="text-4xl mb-4">🏪</p>
+            <p className="text-4xl mb-4">Store</p>
             <p className="text-gray-400">Store is empty. Check back later!</p>
           </div>
         )}
@@ -172,14 +172,14 @@ const StorePage: React.FC = () => {
         {!loading && featured.length > 0 && (
           <div className="mb-10">
             <h2 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
-              <span>⭐</span> Featured
+              <span>Ã¢Ëœâ€¦</span> Featured
             </h2>
             <div className="flex gap-4 overflow-x-auto pb-2">
               {featured.map((item) => (
                 <button
                   key={item.id}
                   onClick={() => handleItemPurchase(item)}
-                  disabled={purchaseLoading === item.id || !user}
+                  disabled={purchaseLoading === item.id || !user || item.eligible === false}
                   className="flex-shrink-0 w-56 text-left bg-gradient-to-br from-amber-500/15 to-gray-800/40 border border-amber-500/30 rounded-xl p-4 hover:border-amber-400/60 transition-all disabled:opacity-60"
                 >
                   <p className="text-lg font-bold text-white">{item.name}</p>
@@ -196,7 +196,7 @@ const StorePage: React.FC = () => {
         {!loading && offers.length > 0 && (
           <div className="mb-10">
             <h2 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
-              <span>⏳</span> Limited-Time Offers
+              <span>Ã¢ÂÂ³</span> Limited-Time Offers
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {offers.map((offer) => (
@@ -245,7 +245,7 @@ const StorePage: React.FC = () => {
 
         {!loading && items.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {items.map((item) => {
+            {[...items].sort((a,b)=> (a.category==="artist_badge"?0:1)-(b.category==="artist_badge"?0:1) || Number(b.eligible)-Number(a.eligible) || Number(a.owned)-Number(b.owned)).map((item) => {
               const owned = item.owned || purchasedIds.has(item.id);
               return (
                 <div
@@ -259,11 +259,19 @@ const StorePage: React.FC = () => {
                       Owned
                     </div>
                   )}
-                  <div className="text-3xl mb-3">
-                    {item.category === 'avatar' ? '🎨' : item.category === 'title' ? '🏷️' : item.category === 'merch' ? '📦' : '🎁'}
+                  <div className="inline-flex items-center mb-3 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-[11px] font-semibold uppercase tracking-wider text-amber-400">
+                    {item.category === 'avatar' ? 'Avatar' : item.category === 'title' ? 'Title' : item.category === 'merch' ? 'Merch' : item.category === 'artist_badge' ? 'Badge' : 'Item'}
                   </div>
                   <h3 className="text-lg font-bold text-white mb-1">{item.name}</h3>
-                  <p className="text-sm text-gray-400 mb-4">{item.description}</p>
+                  <p className="text-sm text-gray-400 mb-2">{item.description}</p>
+                  {item.category === 'artist_badge' && (
+                    <div className="mb-4 rounded-lg border border-gray-700/60 bg-gray-900/60 p-3 text-xs">
+                      <p className="text-emerald-300 font-semibold mb-1">How to earn</p>
+                      <p className="text-gray-200 leading-relaxed">{item.howToEarn}</p>
+                      <p className="text-amber-300 mt-2">{item.progressLabel}</p>
+                      <p className={`mt-2 font-medium ${item.owned ? 'text-green-300' : item.eligible ? 'text-amber-300' : 'text-gray-400'}`}>{item.owned ? 'Owned on profile' : item.eligible ? 'Eligible - claim in store' : 'Locked until milestone reached'}</p>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1 text-amber-400 font-bold">
                       <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
@@ -278,14 +286,14 @@ const StorePage: React.FC = () => {
                     </div>
                     <button
                       onClick={() => handleItemPurchase(item)}
-                      disabled={owned || purchaseLoading === item.id || !user}
+                      disabled={owned || purchaseLoading === item.id || !user || (item.category === 'artist_badge' && item.eligible === false)}
                       className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                         owned
                           ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
                           : 'bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-50'
                       }`}
                     >
-                      {purchaseLoading === item.id ? 'Buying...' : owned ? 'Owned' : 'Buy'}
+                      {purchaseLoading === item.id ? 'Claiming...' : owned ? 'Owned' : item.category === 'artist_badge' ? (item.eligible ? 'Claim Badge' : 'Locked') : 'Buy'}
                     </button>
                   </div>
                 </div>

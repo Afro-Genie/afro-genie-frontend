@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { artistsApi, songsApi } from '../../services/api';
+import { artistsApi, songsApi, adminGenres, adminUsers, adminTopics, adminCategories } from '../../services/api';
 import { normalizeArtist, normalizeSong } from '../../utils/apiHelpers';
 import { tokenApi, type AdminRewardStats } from '../../services/tokenService';
 import { 
@@ -37,22 +37,32 @@ const AdminDashboard: React.FC = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const [artistsResult, songsResult] = await Promise.all([
+        const [artistsResult, songsResult, genresResult, usersResult, topicsResult, categoriesResult] = await Promise.all([
           artistsApi.getAll({ limit: 200 }),
           songsApi.getAll({ limit: 500 }),
+          adminGenres(),
+          adminUsers(),
+          adminTopics(),
+          adminCategories(),
         ]);
 
+        const artistsTotal = artistsResult.total || (artistsResult.data || []).length;
+        const songsTotal = songsResult.total || (songsResult.songs || songsResult.data || []).length;
         const artists = (artistsResult.data || []).map((a: any) => normalizeArtist(a)).filter(Boolean);
         const songs = (songsResult.songs || songsResult.data || []).map((s: any) => normalizeSong(s)).filter(Boolean);
+        const genres = Number(genresResult?.total) || (genresResult?.data || []).length;
+        const users = (usersResult.total || 0);
+        const topics = (topicsResult.total || 0);
+        const categories = (categoriesResult || []).length;
 
         setStats({
-          artists: artists.length,
-          songs: songs.length,
-          genres: 0,
-          users: 0,
+          artists: artistsTotal,
+          songs: songsTotal,
+          genres: genres,
+          users: users,
           translations: 0,
-          topics: 0,
-          categories: 0,
+          topics: topics,
+          categories: categories,
           pendingTranslationRequests: 0,
           pendingSongRequests: 0
         });
@@ -73,22 +83,32 @@ const AdminDashboard: React.FC = () => {
   const handleImportComplete = () => {
     const fetchStats = async () => {
       try {
-        const [artistsResult, songsResult] = await Promise.all([
+        const [artistsResult, songsResult, genresResult, usersResult, topicsResult, categoriesResult] = await Promise.all([
           artistsApi.getAll({ limit: 200 }),
           songsApi.getAll({ limit: 500 }),
+          adminGenres(),
+          adminUsers(),
+          adminTopics(),
+          adminCategories(),
         ]);
 
+        const artistsTotal = artistsResult.total || (artistsResult.data || []).length;
+        const songsTotal = songsResult.total || (songsResult.songs || songsResult.data || []).length;
         const artists = (artistsResult.data || []).map((a: any) => normalizeArtist(a)).filter(Boolean);
         const songs = (songsResult.songs || songsResult.data || []).map((s: any) => normalizeSong(s)).filter(Boolean);
-        
+        const genres = Number(genresResult?.total) || (genresResult?.data || []).length;
+        const users = (usersResult.total || 0);
+        const topics = (topicsResult.total || 0);
+        const categories = (categoriesResult || []).length;
+
         setStats({
-          artists: artists.length,
-          songs: songs.length,
-          genres: 0,
-          users: 0,
+          artists: artistsTotal,
+          songs: songsTotal,
+          genres: genres,
+          users: users,
           translations: 0,
-          topics: 0,
-          categories: 0,
+          topics: topics,
+          categories: categories,
           pendingTranslationRequests: 0,
           pendingSongRequests: 0
         });
@@ -256,9 +276,9 @@ const AdminDashboard: React.FC = () => {
           <div className="bg-gradient-to-r from-amber-600/20 to-amber-700/20 rounded-xl p-6 border border-amber-500/30">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-amber-300">Reward System Overview</h3>
-              <Link to="/admin/rewards" className="text-sm text-amber-400 hover:text-amber-300 transition-colors">
+              <a href="/admin/rewards" className="text-sm text-amber-400 hover:text-amber-300 transition-colors">
                 Manage →
-              </Link>
+              </a>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
@@ -539,6 +559,11 @@ const AdminDashboard: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* API Management Modal */}
+        {showAPIManagement && (
+          <APIManagement onDataImported={handleImportComplete} />
+        )}
       </div>
     </div>
   );

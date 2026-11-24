@@ -1,22 +1,64 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useNotification } from '../../hooks/useNotification';
 import { useConfirm } from '../../hooks/useConfirm';
 import { useAuth } from '../../context/AuthContext';
-import { getSongs, getArtists, getGenres } from '../../lib/apiClient';
+import { getArtists, getGenres } from '../../lib/apiClient';
+import { toMediaUrl } from '../../lib/apiBase';
+import { normalizeSong } from '../../utils/apiHelpers';
 import Notification from '../../components/Notification';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import { AdminListPageSkeleton } from '../../components/PageSkeletons';
-import type { Song } from '../../types';
+import type { Artist, Song } from '../../types';
+
+const SONGS_REFRESH_KEY = 'afro-genie:admin:songs:refresh';
+
+const toQuery = (params: Record<string, string | number | undefined>) => {
+  const search = new URLSearchParams(
+    Object.entries(params)
+      .filter(([, value]) => value !== undefined)
+      .map(([key, value]) => [key, String(value)]),
+  );
+  const query = search.toString();
+  return query ? `?${query}` : '';
+};
+
+const SongCover: React.FC<{ src: string; title: string; size: 'sm' | 'lg' }> = ({ src, title, size }) => {
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => setFailed(false), [src]);
+
+  const imageUrl = src && !failed ? toMediaUrl(src) : '';
+  const iconSize = size === 'sm' ? 'w-6 h-6' : 'w-8 h-8';
+
+  return (
+    <div className={`flex-shrink-0 rounded-lg overflow-hidden bg-gray-700 ${size === 'sm' ? 'w-12 h-12' : 'w-16 h-16'}`}>
+      {imageUrl ? (
+        <img
+          src={imageUrl}
+          alt={title}
+          className="w-full h-full object-cover"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center">
+          <svg className={`${iconSize} text-gray-500`} fill="currentColor" viewBox="0 0 20 20">
+            <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
+          </svg>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const SongsManager: React.FC = () => {
-  const navigate = useNavigate();
   const { authFetch } = useAuth();
   const { notification, showNotification, hideNotification } = useNotification();
-  const { confirmState, confirm, closeConfirm } = useConfirm();
-  
+  const { confirmState, confirm } = useConfirm();
+
   const [songs, setSongs] = useState<Song[]>([]);
   const [availableGenres, setAvailableGenres] = useState<string[]>([]);
+  const [artistOptions, setArtistOptions] = useState<Artist[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [artistQuery, setArtistQuery] = useState('');
@@ -28,16 +70,21 @@ const SongsManager: React.FC = () => {
   const [filteredTotal, setFilteredTotal] = useState(0);
   const [totalArtists, setTotalArtists] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [editingSong, setEditingSong] = useState<Song | null>(null);
+  const [editForm, setEditForm] = useState({ title: '', artistName: '', genre: '', year: '' });
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [refreshNonce, setRefreshNonce] = useState(0);
   const itemsPerPage = 20;
   const requestSequence = useRef(0);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (forceFresh = false) => {
     const sequence = ++requestSequence.current;
     setLoading(true);
     try {
       const sortField = sortBy === 'year' ? 'releaseYear' : sortBy;
+      const fresh = forceFresh ? { _ts: Date.now() } : {};
       const [songsResponse, allSongsResponse, artistsResponse, genresResponse] = await Promise.all([
-        getSongs({
+        authFetch('/api/admin/songs' + toQuery({
           page: currentPage,
           limit: itemsPerPage,
           search: searchQuery.trim() || undefined,
@@ -45,9 +92,10 @@ const SongsManager: React.FC = () => {
           genre: selectedGenre === 'all' ? undefined : selectedGenre,
           sortBy: sortField,
           sortOrder,
-        }),
-        getSongs({ page: 1, limit: 1 }),
-        getArtists({ limit: 1 }),
+          ...fresh,
+        })),
+        authFetch('/api/admin/songs' + toQuery({ page: 1, limit: 1, ...fresh })),
+        getArtists({ limit: 100, ...fresh }),
         getGenres(),
       ]);
       if (sequence !== requestSequence.current) return;
@@ -59,20 +107,14 @@ const SongsManager: React.FC = () => {
         : [];
 
       setSongs(
-        songsData.map((song: any) => ({
-          id: song.id,
-          title: song.title,
-          artist: song.artist?.name || song.artist || '',
-          artistId: song.artistId || song.artist?.id || '',
-          image: song.coverImageUrl || song.imageUrl || song.image || '',
-          genre: Array.isArray(song.genres)
-            ? song.genres[0]?.genre?.name || song.genres[0]?.name || song.genres[0] || ''
-            : song.genre || '',
-          year: song.releaseYear || song.year,
-          language: song.primaryLanguage || song.language,
-          views: song.views || 0,
-          createdAt: song.createdAt ? new Date(song.createdAt) : undefined,
-        }))
+        songsData
+          .map((song: any) => normalizeSong(song))
+          .filter((song): song is Song => song !== null)
+          .map((song) => ({
+            ...song,
+            views: song.views || 0,
+            createdAt: song.createdAt ? new Date(song.createdAt) : undefined,
+          }))
       );
 
       setTotalSongs(Number(allSongsResponse?.total) || 0);
@@ -80,6 +122,14 @@ const SongsManager: React.FC = () => {
       const responseTotalPages = Math.max(1, Number(songsResponse?.totalPages) || 1);
       setTotalPages(responseTotalPages);
       setTotalArtists(Number(artistsResponse?.total) || 0);
+      const artistsData = Array.isArray(artistsResponse?.data) ? artistsResponse.data : Array.isArray(artistsResponse) ? artistsResponse : [];
+      setArtistOptions(artistsData.map((artist: any) => ({
+        id: artist.id,
+        name: artist.name,
+        genre: Array.isArray(artist.genres) ? artist.genres[0] || '' : artist.genre || '',
+        genres: Array.isArray(artist.genres) ? artist.genres : [],
+        image: artist.imageUrl || artist.image || '',
+      })));
       const genreData = Array.isArray(genresResponse) ? genresResponse : [];
       setAvailableGenres(genreData.map((genre: any) => genre.name).filter((name: unknown): name is string => typeof name === 'string'));
       if (currentPage > responseTotalPages) {
@@ -97,6 +147,7 @@ const SongsManager: React.FC = () => {
     }
   }, [
     artistQuery,
+    authFetch,
     currentPage,
     itemsPerPage,
     searchQuery,
@@ -108,9 +159,27 @@ const SongsManager: React.FC = () => {
 
   useEffect(() => {
     const delay = searchQuery.trim() || artistQuery.trim() ? 250 : 0;
-    const timer = window.setTimeout(() => void fetchData(), delay);
+    const timer = window.setTimeout(() => void fetchData(refreshNonce > 0), delay);
     return () => window.clearTimeout(timer);
-  }, [artistQuery, fetchData, searchQuery]);
+  }, [artistQuery, fetchData, searchQuery, refreshNonce]);
+
+  useEffect(() => {
+    const maybeRefresh = () => {
+      if (sessionStorage.getItem(SONGS_REFRESH_KEY)) {
+        sessionStorage.removeItem(SONGS_REFRESH_KEY);
+        setSearchQuery('');
+        setArtistQuery('');
+        setSelectedGenre('all');
+        setSortBy('createdAt');
+        setSortOrder('desc');
+        setCurrentPage(1);
+        setRefreshNonce((value) => value + 1);
+      }
+    };
+    maybeRefresh();
+    window.addEventListener('focus', maybeRefresh);
+    return () => window.removeEventListener('focus', maybeRefresh);
+  }, []);
 
   const handleDelete = async (songId: string, songTitle: string) => {
     const hasConfirmed = await confirm({
@@ -123,23 +192,65 @@ const SongsManager: React.FC = () => {
 
     if (!hasConfirmed) return;
 
-      try {
-        await authFetch('/api/songs/' + songId, { method: 'DELETE' });
-      showNotification({
-        message: 'Song deleted successfully!',
-        type: 'success'
-      });
-      void fetchData();
+    try {
+      await authFetch('/api/songs/' + songId, { method: 'DELETE' });
+      showNotification({ message: 'Song deleted successfully!', type: 'success' });
+      void fetchData(true);
     } catch (error: any) {
-      showNotification({
-        message: `Error deleting song: ${error.message}`,
-        type: 'error'
-      });
+      showNotification({ message: `Error deleting song: ${error.message}`, type: 'error' });
     }
   };
 
-  const handleEdit = (songId: string) => {
-    navigate(`/admin/songs/edit/${songId}`);
+  const openEdit = (song: Song) => {
+    setEditingSong(song);
+    setEditForm({
+      title: song.title || '',
+      artistName: song.artist || '',
+      genre: song.genre || '',
+      year: song.year ? String(song.year) : '',
+    });
+  };
+
+  const closeEdit = () => {
+    if (savingEdit) return;
+    setEditingSong(null);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingSong) return;
+    const trimmedTitle = editForm.title.trim();
+    if (!trimmedTitle) {
+      showNotification({ message: 'Song title is required', type: 'error' });
+      return;
+    }
+    const yearValue = editForm.year.trim() ? Number(editForm.year) : undefined;
+    if (editForm.year.trim() && (!Number.isInteger(yearValue) || (yearValue as number) < 1800 || (yearValue as number) > 2200)) {
+      showNotification({ message: 'Year must be a valid number between 1800 and 2200', type: 'error' });
+      return;
+    }
+
+    setSavingEdit(true);
+    try {
+      const payload: Record<string, unknown> = { title: trimmedTitle };
+      const artistName = editForm.artistName.trim();
+      if (artistName && artistName !== 'N/A') payload.artistName = artistName;
+      payload.releaseYear = editForm.year.trim() ? yearValue : null;
+      const genreValue = editForm.genre.trim();
+      payload.genres = genreValue ? [genreValue] : [];
+
+      await authFetch('/api/songs/' + editingSong.id, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      showNotification({ message: 'Song updated successfully!', type: 'success' });
+      setEditingSong(null);
+      void fetchData(true);
+    } catch (error: any) {
+      showNotification({ message: `Error updating song: ${error.message}`, type: 'error' });
+    } finally {
+      setSavingEdit(false);
+    }
   };
 
   const resetFilters = () => {
@@ -355,20 +466,18 @@ const SongsManager: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-gray-700">
                   {songs.map((song) => (
-                    <tr key={song.id} className="hover:bg-gray-700/50 transition-colors">
+                    <tr
+                      key={song.id}
+                      className="hover:bg-gray-700/50 transition-colors cursor-pointer"
+                      onClick={() => openEdit(song)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openEdit(song); } }}
+                      tabIndex={0}
+                      role="button"
+                      aria-label={`Edit ${song.title}`}
+                    >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-3">
-                          <div className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-gray-700">
-                            {song.image ? (
-                              <img src={song.image} alt={song.title} className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <svg className="w-6 h-6 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
-                                  <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
-                                </svg>
-                              </div>
-                            )}
-                          </div>
+                          <SongCover src={song.image} title={song.title} size="sm" />
                           <div>
                             <div className="font-medium text-white">{song.title}</div>
                             {song.language && (
@@ -394,9 +503,9 @@ const SongsManager: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                           <button
-                            onClick={() => handleEdit(song.id)}
+                            onClick={() => openEdit(song)}
                             className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded transition-colors"
                           >
                             Edit
@@ -424,19 +533,9 @@ const SongsManager: React.FC = () => {
             {/* Mobile Card View */}
             <div className="md:hidden divide-y divide-gray-700">
               {songs.map((song) => (
-                <div key={song.id} className="p-4 hover:bg-gray-700/50 transition-colors">
+                <div key={song.id} className="p-4 hover:bg-gray-700/50 transition-colors cursor-pointer" onClick={() => openEdit(song)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') openEdit(song); }}>
                   <div className="flex items-start gap-3 mb-3">
-                    <div className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-gray-700">
-                  {song.image ? (
-                        <img src={song.image} alt={song.title} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <svg className="w-8 h-8 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
-                          </svg>
-                    </div>
-                  )}
-                </div>
+                    <SongCover src={song.image} title={song.title} size="lg" />
                 <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-white mb-1 line-clamp-1">{song.title}</h3>
                       <p className="text-sm text-gray-300 mb-2">{song.artist}</p>
@@ -457,9 +556,9 @@ const SongsManager: React.FC = () => {
                 </div>
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
                   <button
-                      onClick={() => handleEdit(song.id)}
+                      onClick={() => openEdit(song)}
                       className="flex-1 min-h-[44px] px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded transition-colors"
                   >
                     Edit
@@ -511,6 +610,59 @@ const SongsManager: React.FC = () => {
           </div>
         )}
       </div>
+
+      {editingSong && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={closeEdit}>
+          <div className="w-full max-w-lg rounded-xl border border-gray-700 bg-gray-800 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Edit song">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-white">Edit Song</h2>
+              <button onClick={closeEdit} className="text-gray-400 hover:text-white" aria-label="Close">✕</button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="edit-song-title" className="mb-1 block text-sm font-medium text-gray-300">Title</label>
+                <input id="edit-song-title" value={editForm.title} onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))} className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </div>
+              <div>
+                <label htmlFor="edit-song-artist" className="mb-1 block text-sm font-medium text-gray-300">Artist</label>
+                <input
+                  id="edit-song-artist"
+                  value={editForm.artistName}
+                  onChange={(e) => setEditForm((f) => ({ ...f, artistName: e.target.value }))}
+                  list="admin-song-artists"
+                  className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                  placeholder="e.g. Rema"
+                />
+                <datalist id="admin-song-artists">
+                  {artistOptions.map((artist) => <option key={artist.id} value={artist.name} />)}
+                </datalist>
+                <p className="mt-1 text-xs text-gray-400">
+                  Existing artist names are reused. A new artist is created when the name is not in the catalog.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="edit-song-genre" className="mb-1 block text-sm font-medium text-gray-300">Genre</label>
+                  <input id="edit-song-genre" value={editForm.genre} onChange={(e) => setEditForm((f) => ({ ...f, genre: e.target.value }))} list="admin-song-genres" className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="e.g. Afrobeat" />
+                  <datalist id="admin-song-genres">
+                    {availableGenres.map((g) => <option key={g} value={g} />)}
+                  </datalist>
+                </div>
+                <div>
+                  <label htmlFor="edit-song-year" className="mb-1 block text-sm font-medium text-gray-300">Year</label>
+                  <input id="edit-song-year" value={editForm.year} onChange={(e) => setEditForm((f) => ({ ...f, year: e.target.value }))} inputMode="numeric" className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="e.g. 2024" />
+                </div>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button onClick={closeEdit} disabled={savingEdit} className="min-h-[44px] rounded-lg border border-gray-600 px-4 text-gray-200 hover:bg-gray-700 disabled:opacity-50">Cancel</button>
+              <button onClick={() => void handleSaveEdit()} disabled={savingEdit} className="min-h-[44px] rounded-lg bg-green-600 px-5 font-semibold text-white hover:bg-green-700 disabled:opacity-50">
+                {savingEdit ? 'Saving…' : 'Save changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Notification */}
       <Notification notification={notification} onClose={hideNotification} />

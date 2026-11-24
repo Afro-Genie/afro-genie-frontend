@@ -50,9 +50,9 @@ const EditSongPage: React.FC = () => {
       setLoading(true);
       try {
         const [songResponse, artistsResponse, translationResponse, fetchedLanguages] = await Promise.all([
-          getSongById(id),
+          getSongById(id, authFetch),
           getArtists({ limit: 200 }),
-          getSongTranslations(id).catch(() => null),
+          getSongTranslations(id, authFetch).catch(() => null),
           getAllLanguages()
         ]);
 

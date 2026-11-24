@@ -13,6 +13,7 @@ import {
   Bell,
   Music,
   Menu,
+  X,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -28,6 +29,7 @@ const ArtistDashboardLayout: React.FC = () => {
   const location = useLocation();
   const [signingOut, setSigningOut] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   useEffect(() => {
     setSidebarOpen(false);
@@ -148,28 +150,50 @@ const ArtistDashboardLayout: React.FC = () => {
             <Menu className="w-5 h-5" />
           </button>
 
-          <div className="flex-1 min-w-0">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-              <input
-                type="text"
-                placeholder="Search songs, releases..."
-                className="w-full pl-10 pr-4 py-2 bg-[#1a1a1a] border border-[#282828] rounded-full text-sm text-gray-300 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 transition-all"
-              />
+          {isSearchOpen ? (
+            <div className="flex-1 min-w-0 animate-slide-in-from-left">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  autoFocus
+                  type="text"
+                  placeholder="Search songs, releases..."
+                  className="w-full pl-10 pr-12 py-2.5 min-h-[44px] bg-[#1a1a1a] border border-white/10 rounded-full text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-green-500/30 hover:border-white/20 transition-colors"
+                />
+                <button
+                  onClick={() => setIsSearchOpen(false)}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                  aria-label="Close search"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2 ml-auto shrink-0">
-            <button className="w-9 h-9 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-colors">
+          ) : (
+            <div className="flex-1 min-w-0" />
+          )}
+
+          <div className="flex items-center gap-2 sm:gap-4 ml-auto shrink-0">
+            {!isSearchOpen && (
+              <button
+                onClick={() => setIsSearchOpen(true)}
+                className="p-2 rounded-md text-gray-300 hover:bg-white/10 hover:text-white transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+                aria-label="Open search"
+              >
+                <Search className="w-5 h-5" />
+              </button>
+            )}
+            <button className="p-2 rounded-md min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10 transition-colors">
               <Bell className="w-5 h-5" />
             </button>
             <Link
               to="/artist/profile"
-              className="w-9 h-9 rounded-full bg-gradient-to-br from-green-500 to-green-700 flex items-center justify-center flex-shrink-0 text-sm font-bold text-white hover:ring-2 hover:ring-green-400 transition-all"
+              className="p-2 rounded-md min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
             >
               <Avatar
                 src={userProfile?.artistProfile?.profileImageUrl}
                 name={artistName}
-                className="w-9 h-9"
+                className="h-8 w-8 sm:h-9 sm:w-9"
                 initialsClassName="text-sm font-bold text-white"
               />
             </Link>
