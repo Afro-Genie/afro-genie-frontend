@@ -5,25 +5,10 @@ import { useAudioPlayer } from '../context/AudioContext';
 import { useAuth } from '../context/AuthContext';
 import { SearchResultsSkeleton, SongListSkeleton, SquareGridSkeleton } from '../components/PageSkeletons';
 import MediaCard from '../components/MediaCard';
-import { SUPPORTED_LANGUAGES, LANGUAGE_FLAGS } from '../constants';
 import { featureFlags } from '../config/featureFlags';
+import { SUPPORTED_LANGUAGES } from '../constants';
 import ConfirmDialog from '../components/ConfirmDialog';
 import type { Artist, Genre, Song, GenieSettings, Topic } from '../types';
-
-const LANGUAGE_IMAGES: Record<string, string> = {
-  en: 'https://flagcdn.com/w320/gb.png',
-  yo: 'https://flagcdn.com/w320/ng.png',
-  ig: 'https://flagcdn.com/w320/ng.png',
-  ha: 'https://flagcdn.com/w320/ng.png',
-  pcm: 'https://flagcdn.com/w320/ng.png',
-  sw: 'https://flagcdn.com/w320/ke.png',
-  fr: 'https://flagcdn.com/w320/fr.png',
-  es: 'https://flagcdn.com/w320/es.png',
-  pt: 'https://flagcdn.com/w320/pt.png',
-  ar: 'https://flagcdn.com/w320/sa.png',
-  zu: 'https://flagcdn.com/w320/za.png',
-  am: 'https://flagcdn.com/w320/et.png',
-};
 
 const GENRE_IMAGES: Record<string, string> = {
   Afrobeats: 'https://mosaic.scdn.co/300/ab67616d00001e026ce38b8456d050add58b6596ab67616d00001830cb1fee0d294cd21a4099c99cdab3',
@@ -62,7 +47,6 @@ const HomePage: React.FC = () => {
     const [genresError, setGenresError] = useState<string | null>(null);
     const [songsError, setSongsError] = useState<string | null>(null);
     const [topicsError, setTopicsError] = useState<string | null>(null);
-    const [selectedLanguage, setSelectedLanguage] = useState<string>('all');
     const [genieSettings, setGenieSettings] = useState<GenieSettings>({
         imageUrl: '/Images/gene.png',
         animationType: 'float',
@@ -76,11 +60,6 @@ const HomePage: React.FC = () => {
     const { user } = useAuth();
     const { loadTrackBySongId, currentTrack, isPlaying, togglePlayPause } = useAudioPlayer();
     const navigate = useNavigate();
-
-    // Languages supported - built from canonical source
-    const languages = SUPPORTED_LANGUAGES
-        .filter(l => l.isActive)
-        .map(l => ({ code: l.code, name: l.name, flag: LANGUAGE_FLAGS[l.code] || '' }));
 
     useEffect(() => {
         let cancelled = false;
@@ -161,7 +140,7 @@ const HomePage: React.FC = () => {
         return () => {
             cancelled = true;
         };
-    }, [selectedLanguage]);
+    }, []);
 
     return (
         <div className="min-h-screen bg-[#122118]">
@@ -401,52 +380,25 @@ const HomePage: React.FC = () => {
             )}
 
             {/* Browse Languages Section */}
-            <section className="py-16 bg-gradient-to-b from-[#122118] to-[#1a2b22]">
+            <section className="py-16 bg-[#122118]">
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="mb-6 sm:mb-8">
                         <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">
-                            Browse <span className="text-green-400">Languages</span>
+                            Explore by <span className="text-green-400">Language</span>
                         </h2>
                     </div>
-                    <div className="flex md:grid md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 overflow-x-auto pb-2 scroll-smooth-x">
-                        {languages.map((lang) => (
-                            <button
+                    <div className="flex flex-wrap gap-3 sm:gap-4">
+                        {SUPPORTED_LANGUAGES.filter((lang) => lang.isActive).map((lang) => (
+                            <Link
                                 key={lang.code}
-                                type="button"
-                                onClick={() => {
-                                    if (featureFlags.languagePages) {
-                                        navigate(`/language/${lang.code}`);
-                                    } else {
-                                        setSelectedLanguage(lang.code);
-                                    }
-                                }}
-                                className="group min-w-[150px] md:min-w-0 bg-gray-800/50 hover:bg-gray-700/50 rounded-xl p-4 sm:p-6 border border-gray-700 hover:border-green-400/50 transition-all duration-300 text-center min-h-[44px] flex flex-col items-center justify-center"
+                                to={featureFlags.languagePages
+                                    ? `/language/${encodeURIComponent(lang.code)}`
+                                    : `/search/${encodeURIComponent(lang.name)}`}
+                                className="inline-flex min-h-[44px] items-center rounded-full border border-[#2a3c30] bg-[#1a2922] px-6 py-3 text-base font-semibold text-gray-300 transition-colors hover:border-green-500 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 sm:text-lg"
                             >
-                                {LANGUAGE_IMAGES[lang.code] ? (
-                                    <img
-                                        src={LANGUAGE_IMAGES[lang.code]}
-                                        alt={`${lang.name} flag`}
-                                        className="w-12 h-8 sm:w-14 sm:h-9 rounded-sm object-cover mb-3 shadow-md border border-gray-600"
-                                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                    />
-                                ) : (
-                                    <div className="text-4xl mb-3">{lang.flag}</div>
-                                )}
-                                <h3 className="font-semibold text-white group-hover:text-green-400 transition-colors text-sm sm:text-base">
-                                    {lang.name}
-                                </h3>
-                            </button>
+                                {lang.name}
+                            </Link>
                         ))}
-                        <button
-                            type="button"
-                            onClick={() => setSelectedLanguage('all')}
-                            className="group min-w-[150px] md:min-w-0 bg-gray-800/50 hover:bg-gray-700/50 rounded-xl p-4 sm:p-6 border border-gray-700 hover:border-green-400/50 transition-all duration-300 text-center min-h-[44px] flex flex-col items-center justify-center"
-                        >
-                            <div className="w-12 h-12 mb-3 rounded-full bg-green-500/15 text-green-400 flex items-center justify-center"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
-                            <h3 className="font-semibold text-white group-hover:text-green-400 transition-colors text-sm sm:text-base">
-                                All Languages
-                            </h3>
-                        </button>
                     </div>
                 </div>
             </section>

@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { toMediaUrl } from '../../lib/apiBase';
-import Header from '../Header';
 import LogoIcon from '../icons/LogoIcon';
 import { Menu, X } from 'lucide-react';
 import { 
@@ -154,18 +153,20 @@ const AdminLayout: React.FC = () => {
 
       {/* Main content */}
       <div className="md:ml-64 flex flex-col min-h-screen">
-        {/* Header */}
-        <Header
-          leading={
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="md:hidden w-10 h-10 flex items-center justify-center rounded-lg text-gray-300 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0"
-              aria-label="Open menu"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
-          }
-        />
+        {/* Mobile Header */}
+        <header className="md:hidden sticky top-0 z-20 h-14 bg-gray-800 border-b border-gray-700 flex items-center px-4 flex-shrink-0">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="w-10 h-10 flex items-center justify-center rounded-lg text-gray-300 hover:text-white hover:bg-gray-700 transition-colors mr-3"
+            aria-label="Open menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          <div className="flex items-center min-w-0">
+            <LogoIcon className="h-6 w-6 text-green-400 flex-shrink-0" />
+            <span className="ml-2 text-base font-bold text-white truncate">AfroGenie Admin</span>
+          </div>
+        </header>
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8">
           <Outlet />
