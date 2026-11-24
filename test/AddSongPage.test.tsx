@@ -52,7 +52,7 @@ describe('AddSongPage', () => {
     });
   });
 
-  it('limits manual song genres to the selected configured African artist', async () => {
+  it('offers approved African genres and narrows them to the selected configured artist', async () => {
     const user = userEvent.setup();
     render(
       <MemoryRouter>
@@ -65,7 +65,7 @@ describe('AddSongPage', () => {
     });
     const genreField = screen.getByText('African Music Genre').parentElement?.querySelector('select');
     expect(genreField).toBeTruthy();
-    expect(genreField).toHaveProperty('disabled', true);
+    expect(genreField).toHaveProperty('disabled', false);
 
     await user.click(screen.getByRole('combobox', { name: /Artist ID/i }));
     await user.click(await screen.findByRole('button', { name: /Asake/ }));

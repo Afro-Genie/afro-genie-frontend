@@ -1,5 +1,9 @@
 import { toApiUrl } from './apiBase';
 
+type FetchJson = (url: string, options?: RequestInit) => Promise<any>;
+
+const NO_STORE: RequestInit = { cache: 'no-store' };
+
 export async function apiFetch(url: string, options?: RequestInit) {
   const res = await fetch(toApiUrl(url), options);
   if (!res.ok) {
@@ -33,10 +37,11 @@ const buildParams = (params?: Record<string, string | number | undefined>) => {
 export const getSongs = (params: Record<string, string | number | undefined>) =>
   apiFetch('/api/songs' + buildParams(params));
 
-export const getSongById = (id: string) => apiFetch('/api/songs/' + id);
+export const getSongById = (id: string, fetcher: FetchJson = apiFetch) =>
+  fetcher('/api/songs/' + encodeURIComponent(id), NO_STORE);
 
-export const getSongTranslations = (songId: string) =>
-  apiFetch('/api/songs/' + songId + '/translations');
+export const getSongTranslations = (songId: string, fetcher: FetchJson = apiFetch) =>
+  fetcher('/api/songs/' + encodeURIComponent(songId) + '/translations', NO_STORE);
 
 export const getSongsByLanguage = (code: string, limit?: number) =>
   apiFetch('/api/songs/by-language/' + code + (limit ? '?limit=' + limit : ''));

@@ -157,7 +157,7 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
             setLoading(true);
             setError('');
             try {
-                const songResponse = await getSongById(songId);
+                const songResponse = await getSongById(songId, authFetch);
                 const normalizedSong: Song | null = songResponse
                     ? {
                         id: songResponse.id,
@@ -199,7 +199,7 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
                     setSourceProvider(lyricsSource);
                 }
 
-                const translationResponse = await getSongTranslations(songId).catch(() => null);
+                const translationResponse = await getSongTranslations(songId, authFetch).catch(() => null);
                 const availableTranslations = normalizeAndRankTranslations(extractTranslations(translationResponse));
                 // Pick the best translation: one with non-empty translated text preferred
                 const bestTranslation = availableTranslations.find((t: any) => pickTranslationText(t)) || availableTranslations[0] || null;
@@ -500,7 +500,7 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
 
                     // When job is completed, fetch the translation directly
                     if (jobState === 'completed' || jobState === 'finished') {
-                        const songTranslations = await getSongTranslations(songId).catch(() => null);
+                        const songTranslations = await getSongTranslations(songId, authFetch).catch(() => null);
                         const allTranslations = normalizeAndRankTranslations(extractTranslations(songTranslations));
                         const matching = allTranslations.find((t: any) => {
                             const text = pickTranslationText(t);
