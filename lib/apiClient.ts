@@ -43,8 +43,10 @@ export const getSongById = (id: string, fetcher: FetchJson = apiFetch) =>
 export const getSongTranslations = (songId: string, fetcher: FetchJson = apiFetch) =>
   fetcher('/api/songs/' + encodeURIComponent(songId) + '/translations', NO_STORE);
 
-export const getSongsByLanguage = (code: string, limit?: number) =>
-  apiFetch('/api/songs/by-language/' + code + (limit ? '?limit=' + limit : ''));
+export const getSongsByLanguage = (
+  code: string,
+  params?: Record<string, string | number | undefined>,
+) => apiFetch('/api/songs/by-language/' + encodeURIComponent(code) + buildParams(params));
 
 // Artists
 export const getArtists = (params?: Record<string, string | number | undefined>) =>

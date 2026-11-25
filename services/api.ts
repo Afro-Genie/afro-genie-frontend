@@ -203,9 +203,17 @@ export const songsApi = {
 
   get: (id: string) => apiRequest<any>(`/songs/${id}`),
 
-  getByLanguage: (languageCode: string, limit?: number) => {
-    const q = limit ? `?limit=${limit}` : "";
-    return apiRequest<any>(`/songs/by-language/${languageCode}${q}`);
+  getByLanguage: (
+    languageCode: string,
+    params?: { limit?: number; page?: number },
+  ) => {
+    const q = new URLSearchParams();
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.page) q.set("page", String(params.page));
+    const qs = q.toString();
+    return apiRequest<any>(
+      `/songs/by-language/${encodeURIComponent(languageCode)}${qs ? `?${qs}` : ""}`,
+    );
   },
 
   getTranslations: (id: string) => apiRequest<any>(`/songs/${id}/translations`),
