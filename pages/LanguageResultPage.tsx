@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { apiFetch } from '../lib/apiClient';
 import { useAudioPlayer } from '../context/AudioContext';
 import { SongListSkeleton } from '../components/PageSkeletons';
 import { LANGUAGE_FLAGS } from '../constants';
 import type { Song } from '../types';
+
+const PAGE_SIZE = 20;
 
 interface LanguageInfo {
   id?: string;
@@ -15,9 +17,15 @@ interface LanguageInfo {
 const LanguageResultPage: React.FC = () => {
   const { code } = useParams<{ code: string }>();
   const decodedCode = code ? decodeURIComponent(code) : '';
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const requestedPage = Number(searchParams.get('page') || '1');
+  const page = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
 
   const [language, setLanguage] = useState<LanguageInfo | null>(null);
   const [songs, setSongs] = useState<Song[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,7 +43,9 @@ const LanguageResultPage: React.FC = () => {
       try {
         const [langData, songsResult]: any[] = await Promise.all([
           apiFetch(`/api/languages/${encodeURIComponent(decodedCode)}`).catch(() => null),
-          apiFetch(`/api/songs/by-language/${encodeURIComponent(decodedCode)}?limit=200`),
+          apiFetch(
+            `/api/songs/by-language/${encodeURIComponent(decodedCode)}?page=${page}&limit=${PAGE_SIZE}`,
+          ),
         ]);
 
         if (cancelled) return;
@@ -44,6 +54,17 @@ const LanguageResultPage: React.FC = () => {
           setLanguage(langData);
         } else {
           setLanguage({ code: decodedCode, name: decodedCode.toUpperCase() });
+        }
+
+        const resultTotal = typeof songsResult?.total === 'number' ? songsResult.total : 0;
+        const resultTotalPages =
+          typeof songsResult?.totalPages === 'number'
+            ? songsResult.totalPages
+            : Math.max(1, Math.ceil(resultTotal / PAGE_SIZE));
+
+        if (page > resultTotalPages) {
+          setSearchParams({ page: String(resultTotalPages) }, { replace: true });
+          return;
         }
 
         const fetchedSongs = (songsResult?.songs || []).map((s: any) => ({
@@ -58,6 +79,8 @@ const LanguageResultPage: React.FC = () => {
           year: s.year || null,
         }));
         setSongs(fetchedSongs);
+        setTotal(resultTotal);
+        setTotalPages(resultTotalPages);
       } catch (err: any) {
         if (!cancelled) {
           setError(err.message || 'Failed to load language results');
@@ -71,10 +94,18 @@ const LanguageResultPage: React.FC = () => {
 
     fetchData();
     return () => { cancelled = true; };
-  }, [decodedCode]);
+  }, [decodedCode, page, setSearchParams]);
 
   const displayName = language?.name || decodedCode.toUpperCase();
   const flag = LANGUAGE_FLAGS[decodedCode] || '';
+
+  const goToPage = (nextPage: number) => {
+    const clampedPage = Math.max(1, Math.min(nextPage, totalPages));
+    if (clampedPage === page) return;
+
+    setSearchParams(clampedPage === 1 ? {} : { page: String(clampedPage) });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   if (loading) {
     return (
@@ -121,7 +152,7 @@ const LanguageResultPage: React.FC = () => {
                 {displayName}
               </h1>
               <p className="text-gray-400 text-sm sm:text-base">
-                {songs.length} {songs.length === 1 ? 'song' : 'songs'} available
+                {total} {total === 1 ? 'song' : 'songs'} available
               </p>
             </div>
           </div>
@@ -215,6 +246,38 @@ const LanguageResultPage: React.FC = () => {
                 );
               })}
             </div>
+
+            {totalPages > 1 && (
+              <nav
+                className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4"
+                aria-label="Language songs pagination"
+              >
+                <p className="text-sm text-gray-400">
+                  Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total} songs
+                </p>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => goToPage(page - 1)}
+                    disabled={page <= 1}
+                    className="px-4 py-2 bg-gray-800 text-white rounded-lg border border-gray-700 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Previous
+                  </button>
+                  <span className="text-sm text-gray-400">
+                    Page {page} of {totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => goToPage(page + 1)}
+                    disabled={page >= totalPages}
+                    className="px-4 py-2 bg-gray-800 text-white rounded-lg border border-gray-700 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </button>
+                </div>
+              </nav>
+            )}
           </section>
         )}
       </div>
