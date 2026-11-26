@@ -24,6 +24,16 @@ const asGuessFeedback = (value: unknown): GuessFeedback[] =>
       )
     : [];
 
+const normalizeArtistName = (name: string) =>
+  name
+    .normalize('NFKD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/^(\d+)\s+(?=\p{L})/u, '$1');
+
 const labels: Record<string, string> = {
   country: 'Country',
   region: 'Region',
@@ -56,13 +66,18 @@ export default function StarSeeker({ puzzle, play, feedback, busy, onAction }: S
     event.preventDefault();
     const guess = artistName.trim();
     if (!guess || !active || busy) return;
-    const candidate = candidates.find(({ name }) => name.toLowerCase() === guess.toLowerCase());
-    if (!candidate) {
+    const normalizedGuess = normalizeArtistName(guess);
+    const matchingCandidates = candidates.filter(({ name }) => {
+      const normalizedName = normalizeArtistName(name);
+      return normalizedName === normalizedGuess ||
+        normalizedName.replace(/^\d+\s*/u, '') === normalizedGuess;
+    });
+    if (matchingCandidates.length !== 1) {
       setGuessError('Enter an artist from today’s game.');
       return;
     }
     setGuessError('');
-    await onAction({ type: 'guess', artistId: candidate.artistId });
+    await onAction({ type: 'guess', artistId: matchingCandidates[0].artistId });
   };
 
   return (

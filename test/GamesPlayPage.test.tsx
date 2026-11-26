@@ -175,6 +175,59 @@ describe('GamesPlayPage', () => {
     expect(gamesService.submitAction).toHaveBeenCalledTimes(2);
   });
 
+  it('updates Star Seeker guess count and comparisons from the saved play state', async () => {
+    const starSeekerGame = {
+      ...dailyGame,
+      puzzle: {
+        game: 'STAR_SEEKER' as const,
+        level: dailyGame.level,
+        puzzleDate: dailyGame.puzzleDate,
+        candidates: [{ artistId: 'artist-1', name: 'Artist One' }],
+      },
+    };
+    vi.mocked(gamesService.getDailyGame).mockResolvedValue(starSeekerGame);
+    vi.mocked(gamesService.createGuestSession).mockResolvedValue({
+      ...guestSession,
+      play: {
+        ...guestSession.play,
+        state: { guesses: [], hintsUsed: 0, hints: [], guessFeedback: [] },
+      },
+    });
+    vi.mocked(gamesService.submitAction).mockResolvedValue({
+      puzzleDate: dailyGame.puzzleDate,
+      play: {
+        ...guestSession.play,
+        state: {
+          guesses: ['artist-1'],
+          hintsUsed: 0,
+          hints: [],
+          guessFeedback: [{
+            artistId: 'artist-1',
+            correct: false,
+            comparison: { country: 'NO_MATCH' },
+          }],
+        },
+      },
+      feedback: { correct: false },
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/games/star-seeker']}>
+        <Routes>
+          <Route path="/games/:gameId" element={<GamesPlayPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const input = await screen.findByRole('textbox', { name: 'Artist name guess' });
+    fireEvent.change(input, { target: { value: 'Artist One' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guess' }));
+
+    expect(await screen.findByText('Guesses used: 1 / 10')).toBeInTheDocument();
+    expect(screen.getByText('Artist One')).toBeInTheDocument();
+    expect(screen.getByText('NO_MATCH')).toBeInTheDocument();
+  });
+
   it('ignores a guest-state response that arrives after switching to an account', async () => {
     vi.mocked(gamesService.getGuestToken).mockReturnValue('guest-token');
     const accountPlay = {
