@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { apiRequest } from '../../services/api';
@@ -22,10 +22,14 @@ const CreateTopicForm: React.FC<CreateTopicFormProps> = ({ initialCategory, init
   const [artistId, setArtistId] = useState(initialArtistId || searchParams.get('artistId') || '');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const [categories, setCategories] = useState<CommunityCategory[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [isModeratorOnly, setIsModeratorOnly] = useState(false);
+
+  const isModerator = userProfile?.role === 'moderator' || userProfile?.role === 'admin';
 
   useEffect(() => {
     const loadData = async () => {
@@ -45,18 +49,27 @@ const CreateTopicForm: React.FC<CreateTopicFormProps> = ({ initialCategory, init
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        setError('Image size must be less than 5MB');
-        return;
-      }
-      setImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      e.currentTarget.value = '';
+      setError('Image size must be less than 5MB');
+      return;
     }
+
+    setError('');
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImagePreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const clearImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    if (imageInputRef.current) imageInputRef.current.value = '';
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -90,9 +103,11 @@ const CreateTopicForm: React.FC<CreateTopicFormProps> = ({ initialCategory, init
           songId: songId || undefined,
           artistId: artistId || undefined,
           imageUrl: imageUrl || undefined,
+          isModeratorOnly: isModerator ? isModeratorOnly : undefined,
         }),
       });
 
+      clearImage();
       navigate(`/community/topic/${result.id}`);
     } catch (err: any) {
       console.error('Error creating topic:', err);
@@ -182,6 +197,7 @@ const CreateTopicForm: React.FC<CreateTopicFormProps> = ({ initialCategory, init
           </label>
           <input
             id="image"
+            ref={imageInputRef}
             type="file"
             accept="image/*"
             onChange={handleImageChange}
@@ -193,14 +209,11 @@ const CreateTopicForm: React.FC<CreateTopicFormProps> = ({ initialCategory, init
               <img
                 src={imagePreview}
                 alt="Preview"
-                className="max-w-full h-48 object-cover rounded-lg"
+                className="max-w-full h-auto max-h-[32rem] object-contain rounded-lg"
               />
               <button
                 type="button"
-                onClick={() => {
-                  setImageFile(null);
-                  setImagePreview(null);
-                }}
+                onClick={clearImage}
                 className="mt-2 text-sm text-red-400 hover:text-red-300"
               >
                 Remove image
@@ -208,6 +221,21 @@ const CreateTopicForm: React.FC<CreateTopicFormProps> = ({ initialCategory, init
             </div>
           )}
         </div>
+
+        {isModerator && (
+          <div className="flex items-center gap-3 p-3 bg-blue-900/20 border border-blue-800/40 rounded-lg">
+            <input
+              id="isModeratorOnly"
+              type="checkbox"
+              checked={isModeratorOnly}
+              onChange={(e) => setIsModeratorOnly(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-blue-500 focus:ring-blue-500"
+            />
+            <label htmlFor="isModeratorOnly" className="text-sm text-gray-300 cursor-pointer">
+              Mark as <span className="text-blue-400 font-semibold">Moderator's Pick</span> — only moderators can post in this topic
+            </label>
+          </div>
+        )}
 
         <div className="flex gap-3 pt-4">
           <button

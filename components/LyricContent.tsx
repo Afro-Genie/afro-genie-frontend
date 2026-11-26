@@ -1,19 +1,34 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { usePlaybackSettings } from '../context/PlaybackSettingsContext';
+import { useAudioPlayer } from '../context/AudioContext';
 import { getSongById, getSongTranslations } from '../lib/apiClient';
+import { SUPPORTED_LANGUAGES } from '../constants';
 import HeartIcon from './icons/HeartIcon';
 import ShareIcon from './icons/ShareIcon';
-import FontSizeIcon from './icons/FontSizeIcon';
-import SpotifyPlayer from './SpotifyPlayer';
-import type { Song, TranslationViewMode } from '../types';
+import MediaImage from './MediaImage';
+import SongPlayer from './SongPlayer';
+import CulturalContextCarousel from './CulturalContextCarousel';
+import ReportModal from './moderation/ReportModal';
+import type { Song } from '../types';
 
-const LyricContent: React.FC = () => {
-    const { user: currentUser, authFetch } = useAuth();
+// Strip LRC timestamp prefixes like [01:23.45] or [01:23.456] from lyrics text
+const stripTimestamps = (text: string): string => {
+  return text.replace(/^\[\d{1,3}:\d{2}\.\d{2,3}\]\s*/gm, '');
+};
+
+interface LyricContentProps {
+  onCulturalContextLoaded?: (context: string) => void;
+}
+
+const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) => {
+    const { user: currentUser, authFetch, refreshBalance } = useAuth();
+    const { fontSize, resetTranslationSignal } = usePlaybackSettings();
+    const { setCurrentSongId } = useAudioPlayer();
     const [showLoginPrompt, setShowLoginPrompt] = useState(false);
     const { id: songIdParam } = useParams<{ id: string }>();
     const songId = useMemo(() => songIdParam ?? '', [songIdParam]);
-    const [viewMode, setViewMode] = useState<TranslationViewMode>('side-by-side');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string>('');
     const [title, setTitle] = useState<string>('');
@@ -25,12 +40,8 @@ const LyricContent: React.FC = () => {
     const [favoriteId, setFavoriteId] = useState<string | null>(null);
     const [favoriteLoading, setFavoriteLoading] = useState(false);
     const [song, setSong] = useState<Song | null>(null);
-    const [fontSize, setFontSize] = useState<number>(16);
-    const [splitPosition, setSplitPosition] = useState<number>(50); // For split-screen mode
-    const [hoveredLine, setHoveredLine] = useState<number | null>(null);
-    const [showTranslation, setShowTranslation] = useState<boolean>(false); // For toggle mode
     const [requestLoading, setRequestLoading] = useState(false);
-    const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+    const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
     const [translationLoading, setTranslationLoading] = useState(false);
     const [showLanguageSelector, setShowLanguageSelector] = useState(false);
     const [sourceLang, setSourceLang] = useState<string>('en');
@@ -38,33 +49,19 @@ const LyricContent: React.FC = () => {
     const [existingTranslationId, setExistingTranslationId] = useState<string | null>(null);
     const [languages, setLanguages] = useState<Array<{ code: string; name: string }>>([]);
     const [detectingLanguage, setDetectingLanguage] = useState(false);
-    const [userVote, setUserVote] = useState<'upvote' | 'downvote' | null>(null);
-    const [upvotes, setUpvotes] = useState<number>(0);
-    const [downvotes, setDownvotes] = useState<number>(0);
-    const [votingLoading, setVotingLoading] = useState(false);
-    const [showCorrectionForm, setShowCorrectionForm] = useState(false);
-    const [correctionText, setCorrectionText] = useState('');
-    const [correctionReason, setCorrectionReason] = useState('');
+    const [showReportModal, setShowReportModal] = useState(false);
 
-    const isBrokenHostImage = (url?: string) => {
-        if (!url) {
-            return false;
-        }
-
-        try {
-            const parsed = new URL(url);
-            return parsed.hostname.toLowerCase() === 'images.afrogenie.dev';
-        } catch {
-            return false;
-        }
-    };
+    const [elapsedSeconds, setElapsedSeconds] = useState(0);
+    const elapsedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const [sourceProvider, setSourceProvider] = useState<string | null>(null);
+    const [songSource, setSongSource] = useState<string | null>(null);
 
     const formattedCulturalContext = useMemo(() => {
         if (!culturalContext) return '';
         return culturalContext
             // Normalize markdown-like symbols that sometimes leak from AI output
             .replace(/^\s*#{1,6}\s*/gm, '')
-            .replace(/^\s*[-*]\s+/gm, '• ')
+            .replace(/^\s*[-*]\s+/gm, 'â€¢ ')
             .replace(/\*\*(.*?)\*\*/g, '$1')
             .replace(/\*(.*?)\*/g, '$1')
             .replace(/\n{3,}/g, '\n\n')
@@ -89,6 +86,37 @@ const LyricContent: React.FC = () => {
         translation?.result?.translatedLyrics ||
         '';
 
+    // Normalize and rank translations by quality (PUBLISHED > APPROVED > PENDING)
+    const normalizeAndRankTranslations = (translations: any[]): any[] => {
+        const statusRank: Record<string, number> = {
+            PUBLISHED: 3,
+            APPROVED: 2,
+            PENDING: 1,
+            REJECTED: 0,
+        };
+        return [...translations].sort((a, b) => {
+            const rankA = statusRank[String(a.status || '').toUpperCase()] ?? 0;
+            const rankB = statusRank[String(b.status || '').toUpperCase()] ?? 0;
+            if (rankB !== rankA) return rankB - rankA;
+            // Prefer translations with non-empty translatedLyrics
+            const aHasText = pickTranslationText(a) ? 1 : 0;
+            const bHasText = pickTranslationText(b) ? 1 : 0;
+            if (bHasText !== aHasText) return bHasText - aHasText;
+            // Fall back to most recent
+            return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+        });
+    };
+
+    // Resolve source language: stored metadata first, then song language, then 'en'
+    const resolveSourceLang = (translation: any, songMeta: Song | null): string => {
+        if (translation?.sourceLang) return translation.sourceLang;
+        if (songMeta?.language) {
+            const code = songMeta.language.toLowerCase().split(',')[0].trim();
+            if (code) return code;
+        }
+        return 'en';
+    };
+
     // Load languages from database
     useEffect(() => {
         const loadLanguages = async () => {
@@ -96,8 +124,11 @@ const LyricContent: React.FC = () => {
                 const fetchedLanguages = await authFetch('/api/languages').catch(() => []);
 
                 const rawLangs = Array.isArray(fetchedLanguages) ? fetchedLanguages : fetchedLanguages?.languages ?? [];
+                const approvedCodes = new Set(SUPPORTED_LANGUAGES.filter(l => l.isActive).map(l => l.code));
                 const nameMap = new Map();
                 rawLangs.forEach((lang: any) => {
+                    const normalizedCode = (lang.code || '').trim().toLowerCase();
+                    if (!approvedCodes.has(normalizedCode)) return;
                     const normalizedName = (lang.name || '').trim().toLowerCase();
                     if (!nameMap.has(normalizedName)) {
                         nameMap.set(normalizedName, lang);
@@ -116,39 +147,12 @@ const LyricContent: React.FC = () => {
                 setLanguages(uniqueLanguages.map((lang: any) => ({ code: lang.code.toLowerCase(), name: lang.name })));
             } catch (error) {
                 console.error('Error loading languages:', error);
-                // Fallback to default languages
-                setLanguages([
-                    { code: 'en', name: 'English' },
-                    { code: 'fr', name: 'French' },
-                    { code: 'es', name: 'Spanish' },
-                    { code: 'pt', name: 'Portuguese' },
-                    { code: 'ar', name: 'Arabic' },
-                    { code: 'sw', name: 'Swahili' },
-                    { code: 'yo', name: 'Yoruba' },
-                    { code: 'ig', name: 'Igbo' },
-                    { code: 'ha', name: 'Hausa' },
-                    { code: 'pidgin', name: 'Pidgin' }
-                ]);
+                // Fallback to canonical language list
+                setLanguages(SUPPORTED_LANGUAGES.filter(l => l.isActive).map(l => ({ code: l.code, name: l.name })));
             }
         };
         loadLanguages();
     }, []);
-
-    // Load view mode preference from localStorage
-    useEffect(() => {
-        const savedMode = localStorage.getItem('translationViewMode') as TranslationViewMode;
-        if (savedMode && ['tabs', 'side-by-side', 'top-bottom', 'hover', 'split-screen', 'inline', 'toggle'].includes(savedMode)) {
-            setViewMode(savedMode);
-        } else {
-            // Set default to side-by-side if no saved preference
-            setViewMode('side-by-side');
-        }
-    }, []);
-
-    // Save view mode preference
-    useEffect(() => {
-        localStorage.setItem('translationViewMode', viewMode);
-    }, [viewMode]);
 
     useEffect(() => {
         let cancelled = false;
@@ -157,7 +161,7 @@ const LyricContent: React.FC = () => {
             setLoading(true);
             setError('');
             try {
-                const songResponse = await getSongById(songId);
+                const songResponse = await getSongById(songId, authFetch);
                 const normalizedSong: Song | null = songResponse
                     ? {
                         id: songResponse.id,
@@ -176,54 +180,53 @@ const LyricContent: React.FC = () => {
                         setArtist('');
                     }
                 } else if (!cancelled) {
+                    setCurrentSongId(songId);
                     setTitle(normalizedSong.title);
                     setArtist(normalizedSong.artist);
 
-                    if (!normalizedSong.image || isBrokenHostImage(normalizedSong.image)) {
-                        try {
-                            const searchData = await authFetch('/api/search/spotify-image?artist=' + encodeURIComponent(normalizedSong.artist) + '&track=' + encodeURIComponent(normalizedSong.title)).catch(() => null);
-                            if (searchData?.imageUrl && !cancelled) {
-                                setSong({ ...normalizedSong, image: searchData.imageUrl });
-                            } else {
-                                setSong(normalizedSong);
-                            }
-                        } catch {
-                            setSong(normalizedSong);
-                        }
+                    // The Spotify-image CDN fallback (Phase 4) is gone; a song
+                    // without a usable image simply renders the placeholder.
+                    if (!normalizedSong.image) {
+                        setSong({ ...normalizedSong, image: '' });
                     } else {
                         setSong(normalizedSong);
                     }
                 }
 
-                const songLyrics = songResponse?.lyrics?.rawText || '';
-                const translationResponse = await getSongTranslations(songId).catch(() => null);
-                const availableTranslations = extractTranslations(translationResponse);
-                const latest = availableTranslations[0] || null;
+                const songSource = songResponse?.source || null;
+                if (songSource && !cancelled) {
+                    setSongSource(songSource);
+                }
+                const songLyrics = songResponse?.lyrics?.[0]?.content || '';
+                const lyricsSource = songResponse?.lyrics?.[0]?.sourceProvider || null;
+                if (lyricsSource && !cancelled) {
+                    setSourceProvider(lyricsSource);
+                }
 
-                if (latest && !cancelled) {
-                    setOriginalLyrics(latest.originalLyrics || songLyrics || 'No lyrics available yet for this song.');
-                    setTranslatedLyrics(pickTranslationText(latest) || 'No translation available yet. Use "Reveal the Meaning" to generate one.');
-                    setCulturalContext(latest.culturalContext || '');
-                    setExistingTranslationId(latest.id || latest.translationId || null);
-                    setUpvotes(latest.upvotes || latest.voteStats?.upvotes || 0);
-                    setDownvotes(latest.downvotes || latest.voteStats?.downvotes || 0);
-                    // Set source language from translation or song metadata
-                    if (latest.sourceLang) {
-                        setSourceLang(latest.sourceLang);
-                    } else if (normalizedSong?.language) {
-                        setSourceLang(normalizedSong.language.toLowerCase().split(',')[0].trim() || 'en');
-                    }
-                    if (latest.targetLang) {
-                        setTargetLang(latest.targetLang);
+                const translationResponse = await getSongTranslations(songId, authFetch).catch(() => null);
+                const availableTranslations = normalizeAndRankTranslations(extractTranslations(translationResponse));
+                // Pick the best translation: one with non-empty translated text preferred
+                const bestTranslation = availableTranslations.find((t: any) => pickTranslationText(t)) || availableTranslations[0] || null;
+
+                if (bestTranslation && !cancelled) {
+                    setOriginalLyrics(bestTranslation.originalLyrics || songLyrics || 'No lyrics available yet for this song.');
+                    setTranslatedLyrics(pickTranslationText(bestTranslation) || 'No translation available yet. Use "Translate Lyrics" to generate one.');
+                    setCulturalContext(bestTranslation.culturalContext || '');
+                    setExistingTranslationId(bestTranslation.id || bestTranslation.translationId || null);
+                    const viewId = bestTranslation.id || bestTranslation.translationId;
+                    if (viewId) { authFetch('/api/translations/' + viewId + '/view', { method: 'POST', body: JSON.stringify({ sessionId: sessionStorage.getItem('ag_session_id') || undefined }) }).catch(() => {}); }
+
+                    // Resolve source language: translation metadata > song metadata > 'en'
+                    setSourceLang(resolveSourceLang(bestTranslation, normalizedSong));
+                    if (bestTranslation.targetLang) {
+                        setTargetLang(bestTranslation.targetLang);
                     }
                 } else if (!cancelled) {
                     setOriginalLyrics(songLyrics || 'No lyrics available yet for this song.');
-                    setTranslatedLyrics('No translation available yet. Use "Reveal the Meaning" to generate one.');
+                    setTranslatedLyrics('No translation available yet. Use "Translate Lyrics" to generate one.');
                     setExistingTranslationId(null);
-                    // Set source language from song metadata if available
-                    if (normalizedSong?.language) {
-                        setSourceLang(normalizedSong.language.toLowerCase().split(',')[0].trim() || 'en');
-                    }
+                    // Resolve source language from song metadata
+                    setSourceLang(resolveSourceLang(null, normalizedSong));
                 }
 
                 // Add to history if user is logged in
@@ -255,6 +258,15 @@ const LyricContent: React.FC = () => {
         return () => { cancelled = true; };
     }, [songId, currentUser]);
 
+    // Notify parent when cultural context is loaded
+    useEffect(() => {
+        if (culturalContext && onCulturalContextLoaded) {
+            onCulturalContextLoaded(culturalContext);
+        }
+    }, [culturalContext, onCulturalContextLoaded]);
+
+    const FAVORITES_LIMIT = 5;
+
     const handleFavoriteToggle = async () => {
         if (!currentUser) {
             setNotification({ message: 'Please sign in to add favorites', type: 'error' });
@@ -272,6 +284,14 @@ const LyricContent: React.FC = () => {
                 setNotification({ message: 'Removed from favorites', type: 'success' });
                 setTimeout(() => setNotification(null), 3000);
             } else {
+                const favoritesData = await authFetch('/api/users/favorites').catch(() => []);
+                const favs = Array.isArray(favoritesData) ? favoritesData : favoritesData?.favorites ?? [];
+                if (favs.length >= FAVORITES_LIMIT) {
+                    setNotification({ message: `Favorites limit reached (${FAVORITES_LIMIT}). Remove one first.`, type: 'error' });
+                    setTimeout(() => setNotification(null), 4000);
+                    setFavoriteLoading(false);
+                    return;
+                }
                 const result = await authFetch('/api/users/favorites', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -311,13 +331,21 @@ const LyricContent: React.FC = () => {
 
         setRequestLoading(true);
         try {
-            await authFetch('/api/translations/request', {
+            // Resolve source language: song metadata first, then default
+            const resolvedSource = resolveSourceLang(null, song) || sourceLang || 'en';
+            const resolvedTarget = targetLang || 'en';
+
+            await authFetch('/api/translations/requests', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ songId, songTitle: title, artist }),
+                body: JSON.stringify({
+                    songId,
+                    sourceLang: resolvedSource,
+                    targetLang: resolvedTarget,
+                }),
             });
             setNotification({
-                message: 'Request received. Estimated turnaround: 5-10 minutes.\nThanks for contributing to AfroGenie.',
+                message: 'Request received! Our moderation team will review it and provide the translation.\nThanks for contributing to AfroGenie.',
                 type: 'success'
             });
             // Auto-hide after 4 seconds
@@ -341,7 +369,7 @@ const LyricContent: React.FC = () => {
         // Check if translation already exists and is not empty
         const hasValidTranslation = translatedLyrics &&
             translatedLyrics.trim() &&
-            translatedLyrics !== 'No translation available yet. Use "Reveal the Meaning" to generate one.';
+            translatedLyrics !== 'No translation available yet. Use "Translate Lyrics" to generate one.';
 
         if (hasValidTranslation) {
             setNotification({ message: 'Translation already exists. Please reset it first to generate a new translation.', type: 'error' });
@@ -358,41 +386,52 @@ const LyricContent: React.FC = () => {
                 throw new Error('Please sign in to generate translations');
             }
 
-            // ALWAYS auto-detect source language - user doesn't need to select it
+            // Start elapsed timer for UI feedback
+            startElapsedTimer();
+
+            // Language detection: stored metadata first, then lyric-based detection
             setDetectingLanguage(true);
             try {
-                const detectResult = await authFetch('/api/translations/detect-language', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text: originalLyrics }),
-                });
-                detectedSourceLang = detectResult?.language || detectResult?.langCode || 'en';
-                setSourceLang(detectedSourceLang);
+                // Priority 1: Use stored song metadata language if available
+                const storedLang = resolveSourceLang(null, song);
+                if (storedLang && storedLang !== 'en') {
+                    detectedSourceLang = storedLang;
+                    setSourceLang(detectedSourceLang);
 
-                // Get language name for notification
-                const langData = await authFetch('/api/languages/' + detectedSourceLang).catch(() => null);
-                const langName = langData?.name || detectedSourceLang;
+                    const langData = await authFetch('/api/languages/' + detectedSourceLang).catch(() => null);
+                    const langName = langData?.name || detectedSourceLang;
+                    setNotification({
+                        message: `Source language from song metadata: ${langName}`,
+                        type: 'success'
+                    });
+                    setTimeout(() => setNotification(null), 3000);
+                } else {
+                    // Priority 2: AI lyric-based detection
+                    const detectResult = await authFetch('/api/translations/detect-language', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ lyrics: originalLyrics }),
+                    });
+                    detectedSourceLang = detectResult?.languageCode || detectResult?.language || detectResult?.langCode || 'en';
+                    setSourceLang(detectedSourceLang);
 
-                setNotification({
-                    message: `Detected source language: ${langName}`,
-                    type: 'success'
-                });
-                setTimeout(() => setNotification(null), 3000);
+                    const langData = await authFetch('/api/languages/' + detectedSourceLang).catch(() => null);
+                    const langName = langData?.name || detectedSourceLang;
+
+                    setNotification({
+                        message: `Detected source language: ${langName}`,
+                        type: 'success'
+                    });
+                    setTimeout(() => setNotification(null), 3000);
+                }
             } catch (detectError) {
                 console.error('Language detection failed:', detectError);
-                // Fallback to song's language or 'en'
-                if (song?.language) {
-                    const songLangCode = song.language.toLowerCase().split(',')[0].trim();
-                    detectedSourceLang = songLangCode || 'en';
-                    setSourceLang(detectedSourceLang);
-                } else {
-                    detectedSourceLang = 'en';
-                    setSourceLang('en');
-                }
+                // Priority 3: Use song metadata or default to 'en'
+                detectedSourceLang = resolveSourceLang(null, song) || sourceLang || 'en';
+                setSourceLang(detectedSourceLang);
 
-                // Show warning if detection failed
                 setNotification({
-                    message: 'Could not auto-detect language. Using default. Translation may not be accurate.',
+                    message: 'Language detection unavailable. Using song metadata or default.',
                     type: 'error'
                 });
                 setTimeout(() => setNotification(null), 4000);
@@ -400,31 +439,36 @@ const LyricContent: React.FC = () => {
                 setDetectingLanguage(false);
             }
 
-            // Validate again after detection
-            // Validate again after detection
-            /* Removed blocking check for source === target to allow AI to handle dialects/context
             if (detectedSourceLang === targetLang) {
-                setNotification({
-                    message: `Detected source language (${detectedSourceLang}) is same as target. Proceeding with AI context analysis.`,
-                    type: 'success'
-                });
-                // Continue execution instead of returning
-            }
-            */
-            if (detectedSourceLang === targetLang) {
-                // Optional: notifying user but allowing to proceed
                 console.log('Source matches target, proceeding anyway for context-aware translation');
             }
 
-            const requestResult = await authFetch('/api/translations/request', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    songId,
-                    sourceLang: detectedSourceLang || 'auto',
-                    targetLang,
-                }),
-            });
+            // Attempt AI translation
+            let requestResult;
+            try {
+                requestResult = await authFetch('/api/translations/request', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        songId,
+                        sourceLang: detectedSourceLang || 'auto',
+                        targetLang,
+                    }),
+                });
+            } catch (requestError: any) {
+                // Keep the server's explanation for limits, budget, credits and
+                // insufficient balance — those are actions the user can take.
+                const errorMsg = String(requestError?.message || '').toLowerCase();
+                if (errorMsg.includes('500') || errorMsg.includes('internal server')) {
+                    setNotification({
+                        message: 'AI translation is temporarily unavailable. You can request a translation and our team will process it.',
+                        type: 'error'
+                    });
+                    setTimeout(() => setNotification(null), 6000);
+                    return;
+                }
+                throw requestError;
+            }
 
             const jobId = requestResult?.jobId || requestResult?.id;
 
@@ -435,42 +479,81 @@ const LyricContent: React.FC = () => {
                 requestResult?.translatedLyrics ||
                 '';
             let resolvedTranslationId = requestResult?.translation?.id || null;
+            let resolvedCulturalContext =
+                requestResult?.translation?.culturalContext ||
+                requestResult?.result?.culturalContext ||
+                requestResult?.culturalContext ||
+                '';
 
             if (!resolvedTranslationText && jobId) {
-                for (let attempt = 0; attempt < 15; attempt += 1) {
-                    const pollResult = await authFetch('/api/translations/status/' + jobId);
-                    const status = String(pollResult?.status || '').toLowerCase();
+                // Poll up to 90 attempts Ã— 2s = 3 minutes for background AI translation
+                const MAX_POLL_ATTEMPTS = 90;
+                const POLL_INTERVAL_MS = 2000;
 
-                    if (status === 'failed' || status === 'error') {
-                        throw new Error(pollResult?.error || 'Translation job failed');
+                for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt += 1) {
+                    let pollResult;
+                    try {
+                        pollResult = await authFetch('/api/translations/status/' + jobId);
+                    } catch (pollError) {
+                        // Polling failure is not fatal â€” retry on next attempt
+                        await sleep(POLL_INTERVAL_MS);
+                        continue;
+                    }
+                    const jobState = String(pollResult?.state || pollResult?.status || '').toLowerCase();
+
+                    if (jobState === 'failed' || jobState === 'error') {
+                        throw new Error(pollResult?.failedReason || pollResult?.error || 'Translation job failed after multiple attempts.');
                     }
 
-                    resolvedTranslationText =
-                        pickTranslationText(pollResult?.translation) ||
-                        pickTranslationText(pollResult?.result) ||
-                        pollResult?.translatedLyrics ||
-                        '';
-                    resolvedTranslationId =
-                        pollResult?.translation?.id ||
-                        pollResult?.result?.id ||
-                        resolvedTranslationId;
-
-                    if (resolvedTranslationText) {
-                        break;
+                    // When job is completed, fetch the translation directly
+                    if (jobState === 'completed' || jobState === 'finished') {
+                        const songTranslations = await getSongTranslations(songId, authFetch).catch(() => null);
+                        const allTranslations = normalizeAndRankTranslations(extractTranslations(songTranslations));
+                        const matching = allTranslations.find((t: any) => {
+                            const text = pickTranslationText(t);
+                            return text && t.sourceLang === detectedSourceLang && t.targetLang === targetLang;
+                        }) || allTranslations.find((t: any) => pickTranslationText(t)) || allTranslations[0];
+                        if (matching) {
+                            resolvedTranslationText = pickTranslationText(matching);
+                            resolvedTranslationId = matching.id || matching.translationId || resolvedTranslationId;
+                            resolvedCulturalContext = matching.culturalContext || resolvedCulturalContext;
+                        }
+                        if (resolvedTranslationText) break;
                     }
 
-                    await sleep(2000);
+                    // Still processing â€” show status update at progress milestones
+                    if (attempt === 15) {
+                        setNotification({
+                            message: 'Translation is still processingâ€¦ this may take a minute for longer songs.',
+                            type: 'info'
+                        });
+                    }
+
+                    await sleep(POLL_INTERVAL_MS);
                 }
             }
 
             if (!resolvedTranslationText) {
-                throw new Error('Translation is still processing. Please try again shortly.');
+                // Don't throw â€” show a non-error status so the user can retry later
+                setNotification({
+                    message: 'Translation is still being generated. Please check back in a few minutes.',
+                    type: 'info'
+                });
+                setTimeout(() => setNotification(null), 8000);
+                return;
             }
 
             setExistingTranslationId(resolvedTranslationId || existingTranslationId);
 
+            // The GT debit and completion reward are committed by the API; make
+            // sure the header balance reflects them even if SSE is unavailable.
+            await refreshBalance().catch(() => {});
+
             // Update local state
             setTranslatedLyrics(resolvedTranslationText);
+            if (resolvedCulturalContext) {
+                setCulturalContext(resolvedCulturalContext);
+            }
             setSourceLang(detectedSourceLang);
             setShowLanguageSelector(false);
 
@@ -481,107 +564,48 @@ const LyricContent: React.FC = () => {
             setTimeout(() => setNotification(null), 4000);
         } catch (err: any) {
             console.error('Translation generation error:', err);
+            stopElapsedTimer();
+            await refreshBalance().catch(() => {});
             if (String(err?.message || '').toLowerCase().includes('session expired')) {
                 setShowLoginPrompt(true);
             }
-            setNotification({
-                message: 'Failed to generate translation: ' + (err.message || 'Unknown error'),
-                type: 'error'
-            });
-            setTimeout(() => setNotification(null), 5000);
+            // Provide specific error messages based on failure reason
+            const msg = String(err?.message || '').toLowerCase();
+            let userMessage = 'Failed to generate translation';
+            if (
+                msg.includes('daily translation limit') ||
+                msg.includes('insufficient token balance') ||
+                msg.includes('translation credit') ||
+                msg.includes('at capacity') ||
+                msg.includes('budget')
+            ) {
+                userMessage = err.message;
+            } else if (msg.includes('rate') || msg.includes('429') || msg.includes('quota')) {
+                userMessage = 'Translation service is experiencing high demand. Please try again in a few minutes.';
+            } else if (msg.includes('no lyrics') || msg.includes('lyrics required')) {
+                userMessage = 'No lyrics found for this song. Please ensure lyrics are available before translating.';
+            } else if (msg.includes('failed after') || msg.includes('timeout')) {
+                userMessage = 'Translation timed out. The song may be too long or the service is busy. Please try again.';
+            } else if (msg.includes('session expired') || msg.includes('unauthorized')) {
+                userMessage = 'Your session has expired. Please sign in again.';
+            } else if (err.message) {
+                userMessage = `Failed to generate translation: ${err.message}`;
+            }
+            setNotification({ message: userMessage, type: 'error' });
+            setTimeout(() => setNotification(null), 6000);
         } finally {
+            stopElapsedTimer();
             setTranslationLoading(false);
             setDetectingLanguage(false);
         }
     };
 
-    const handleVote = async (voteType: 'upvote' | 'downvote') => {
-        if (!currentUser || !currentUser.uid) {
-            setNotification({ message: 'Please sign in to vote', type: 'error' });
-            setTimeout(() => setNotification(null), 4000);
-            return;
-        }
-        if (!existingTranslationId) return;
 
-        setVotingLoading(true);
-        try {
-            await authFetch('/api/translations/' + existingTranslationId + '/vote', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ voteType: voteType === 'upvote' ? 'UPVOTE' : 'DOWNVOTE' }),
-            });
 
-            setUserVote(voteType);
-            if (voteType === 'upvote') {
-                setUpvotes((prev) => prev + (userVote === 'upvote' ? 0 : 1));
-                if (userVote === 'downvote') {
-                    setDownvotes((prev) => Math.max(0, prev - 1));
-                }
-            } else {
-                setDownvotes((prev) => prev + (userVote === 'downvote' ? 0 : 1));
-                if (userVote === 'upvote') {
-                    setUpvotes((prev) => Math.max(0, prev - 1));
-                }
-            }
-            setNotification({
-                message: `Your ${voteType} has been recorded`,
-                type: 'success'
-            });
-            setTimeout(() => setNotification(null), 3000);
-        } catch (err: any) {
-            console.error('Voting error:', err);
-            if (String(err?.message || '').toLowerCase().includes('session expired')) {
-                setShowLoginPrompt(true);
-            }
-            const errorMessage = err.message || 'Failed to vote. Please try again.';
-            setNotification({ message: errorMessage, type: 'error' });
-            setTimeout(() => setNotification(null), 4000);
-        } finally {
-            setVotingLoading(false);
-        }
-    };
-
-    const handleSubmitCorrection = async () => {
-        if (!currentUser) {
-            setNotification({ message: 'Please sign in to suggest corrections', type: 'error' });
-            setTimeout(() => setNotification(null), 4000);
-            return;
-        }
-        if (!existingTranslationId || !correctionText.trim()) {
-            setNotification({ message: 'Please provide a correction', type: 'error' });
-            setTimeout(() => setNotification(null), 4000);
-            return;
-        }
-
-        try {
-            await authFetch('/api/translations/' + existingTranslationId + '/correction', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    originalText: translatedLyrics,
-                    suggestedText: correctionText,
-                    reason: correctionReason || undefined,
-                }),
-            });
-            setNotification({ message: 'Correction submitted! Thank you for your contribution.', type: 'success' });
-            setTimeout(() => setNotification(null), 4000);
-            setCorrectionText('');
-            setCorrectionReason('');
-            setShowCorrectionForm(false);
-        } catch (err: any) {
-            setNotification({ message: err.message || 'Failed to submit correction', type: 'error' });
-            setTimeout(() => setNotification(null), 4000);
-        }
-    };
-
-    const handleResetTranslation = async () => {
+    const performResetTranslation = async () => {
         if (!existingTranslationId) {
             setNotification({ message: 'No translation to reset', type: 'error' });
             setTimeout(() => setNotification(null), 4000);
-            return;
-        }
-
-        if (!window.confirm('Are you sure you want to reset the translation? This will clear the translated lyrics and allow you to generate a new translation.')) {
             return;
         }
 
@@ -592,7 +616,9 @@ const LyricContent: React.FC = () => {
                 body: JSON.stringify({ translatedLyrics: '' }),
             });
 
-            setTranslatedLyrics('No translation available yet. Use "Reveal the Meaning" to generate one.');
+            setExistingTranslationId(null);
+            setTranslatedLyrics('No translation available yet. Use "Translate Lyrics" to generate one.');
+            setCulturalContext('');
             setNotification({
                 message: 'Translation reset. You can now generate a new translation.',
                 type: 'success'
@@ -607,241 +633,165 @@ const LyricContent: React.FC = () => {
         }
     };
 
-    const hasNoLyrics = originalLyrics === 'No lyrics available yet for this song.' || !originalLyrics.trim();
-    const hasNoTranslation = translatedLyrics === 'No translation available yet. Use "Reveal the Meaning" to generate one.' || !translatedLyrics.trim();
+    // Reset requested from the Settings panel (SubSidebarSettings)
+    const resetRanForSignal = useRef(0);
+    useEffect(() => {
+        if (resetTranslationSignal > 0 && resetTranslationSignal !== resetRanForSignal.current) {
+            resetRanForSignal.current = resetTranslationSignal;
+            performResetTranslation();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [resetTranslationSignal]);
+
+    // Strip timestamps from lyrics for clean display
+    const cleanOriginalLyrics = useMemo(() => stripTimestamps(originalLyrics), [originalLyrics]);
+    const cleanTranslatedLyrics = useMemo(() => stripTimestamps(translatedLyrics), [translatedLyrics]);
+
+    const hasNoLyrics = cleanOriginalLyrics === 'No lyrics available yet for this song.' || !cleanOriginalLyrics.trim();
+    const hasNoTranslation = cleanTranslatedLyrics === 'No translation available yet. Use "Translate Lyrics" to generate one.' || !cleanTranslatedLyrics.trim();
     const hasOriginalLyrics = !hasNoLyrics;
     const canGenerateTranslation = hasOriginalLyrics && hasNoTranslation;
-    const hasValidTranslation = translatedLyrics &&
-        translatedLyrics.trim() &&
-        translatedLyrics !== 'No translation available yet. Use "Reveal the Meaning" to generate one.';
 
-    // Split lyrics into lines for hover and inline modes
-    const originalLines = originalLyrics.split('\n');
-    const translatedLines = translatedLyrics.split('\n');
+    // Estimate translation time based on lyrics character count (Gemini 3.5 Flash characteristics)
+    const estimateTranslationTime = (chars: number): { seconds: number; label: string } => {
+        if (chars < 1000) return { seconds: 10, label: '~10 seconds' };
+        if (chars < 3000) return { seconds: 15, label: '~15 seconds' };
+        if (chars < 8000) return { seconds: 25, label: '~25 seconds' };
+        return { seconds: 40, label: '~40+ seconds' };
+    };
 
-    // Render lyrics based on view mode
-    const renderLyrics = () => {
-        switch (viewMode) {
-            case 'tabs':
-                return (
-                    <>
-                        <div className="flex border-b-2 border-gray-700 mb-6 bg-gray-800/30 rounded-t-lg p-1">
-                            <button
-                                onClick={() => setShowTranslation(false)}
-                                className={`flex-1 py-3 px-4 font-semibold transition-all rounded-lg ${!showTranslation
-                                    ? 'text-white bg-gray-700/50 shadow-lg'
-                                    : 'text-gray-400 hover:text-gray-300'
-                                    }`}
-                            >
-                                Original
-                            </button>
-                            <button
-                                onClick={() => setShowTranslation(true)}
-                                className={`flex-1 py-3 px-4 font-semibold transition-all rounded-lg ${showTranslation
-                                    ? 'text-white bg-green-600/20 border border-green-500/30 shadow-lg'
-                                    : 'text-gray-400 hover:text-gray-300'
-                                    }`}
-                            >
-                                Translation
-                            </button>
-                        </div>
-                        <div className="text-gray-200 text-lg leading-loose min-h-[400px]">
-                            {!showTranslation ? (
-                                <pre className="font-sans whitespace-pre-wrap" style={{ fontSize: `${fontSize}px` }}>{originalLyrics}</pre>
-                            ) : (
-                                <pre className="font-sans whitespace-pre-wrap" style={{ fontSize: `${fontSize}px` }}>{translatedLyrics}</pre>
-                            )}
-                        </div>
-                    </>
-                );
+    // Format elapsed seconds to a human-readable string
+    const formatElapsed = (secs: number): string => {
+        if (secs < 60) return `${secs}s`;
+        const m = Math.floor(secs / 60);
+        const s = secs % 60;
+        return `${m}m ${s}s`;
+    };
 
-            case 'side-by-side':
-                return (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <h3 className="font-bold text-white mb-3">Original</h3>
-                            <pre className="font-sans whitespace-pre-wrap text-gray-200 leading-loose" style={{ fontSize: `${fontSize}px` }}>{originalLyrics}</pre>
-                        </div>
-                        <div>
-                            <h3 className="font-bold text-white mb-3">Translation</h3>
-                            <pre className="font-sans whitespace-pre-wrap text-gray-200 leading-loose" style={{ fontSize: `${fontSize}px` }}>{translatedLyrics}</pre>
-                        </div>
-                    </div>
-                );
-
-            case 'top-bottom':
-                return (
-                    <div className="space-y-8">
-                        <div>
-                            <h3 className="font-bold text-white mb-3">Original</h3>
-                            <pre className="font-sans whitespace-pre-wrap text-gray-200 leading-loose" style={{ fontSize: `${fontSize}px` }}>{originalLyrics}</pre>
-                        </div>
-                        <div>
-                            <h3 className="font-bold text-white mb-3">Translation</h3>
-                            <pre className="font-sans whitespace-pre-wrap text-gray-200 leading-loose" style={{ fontSize: `${fontSize}px` }}>{translatedLyrics}</pre>
-                        </div>
-                    </div>
-                );
-
-            case 'hover':
-                return (
-                    <div className="space-y-2">
-                        {originalLines.map((line, index) => (
-                            <div
-                                key={index}
-                                className="relative group"
-                                onMouseEnter={() => setHoveredLine(index)}
-                                onMouseLeave={() => setHoveredLine(null)}
-                            >
-                                <pre className="font-sans whitespace-pre-wrap text-gray-200 leading-loose" style={{ fontSize: `${fontSize}px` }}>
-                                    {line}
-                                </pre>
-                                {hoveredLine === index && translatedLines[index] && (
-                                    <div className="absolute left-0 top-full mt-2 bg-gray-800 border border-green-400 rounded-lg p-3 shadow-lg z-10 max-w-md">
-                                        <p className="text-green-400 font-semibold mb-1">Translation:</p>
-                                        <p className="text-gray-200 text-sm">{translatedLines[index]}</p>
-                                    </div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                );
-
-            case 'split-screen':
-                return (
-                    <div className="relative" style={{ height: '600px' }}>
-                        <div className="absolute inset-0 flex">
-                            <div
-                                className="overflow-y-auto pr-4"
-                                style={{ width: `${splitPosition}%` }}
-                            >
-                                <h3 className="font-bold text-white mb-3 sticky top-0 bg-[#122118] py-2">Original</h3>
-                                <pre className="font-sans whitespace-pre-wrap text-gray-200 leading-loose" style={{ fontSize: `${fontSize}px` }}>{originalLyrics}</pre>
-                            </div>
-                            <div
-                                className="w-1 bg-gray-600 cursor-col-resize hover:bg-green-400 transition-colors"
-                                onMouseDown={(e) => {
-                                    const startX = e.clientX;
-                                    const startWidth = splitPosition;
-                                    const handleMouseMove = (e: MouseEvent) => {
-                                        const delta = e.clientX - startX;
-                                        const containerWidth = (e.target as HTMLElement).closest('.relative')?.clientWidth || 1000;
-                                        const newPosition = Math.max(20, Math.min(80, startWidth + (delta / containerWidth) * 100));
-                                        setSplitPosition(newPosition);
-                                    };
-                                    const handleMouseUp = () => {
-                                        document.removeEventListener('mousemove', handleMouseMove);
-                                        document.removeEventListener('mouseup', handleMouseUp);
-                                    };
-                                    document.addEventListener('mousemove', handleMouseMove);
-                                    document.addEventListener('mouseup', handleMouseUp);
-                                }}
-                            />
-                            <div
-                                className="overflow-y-auto pl-4"
-                                style={{ width: `${100 - splitPosition}%` }}
-                            >
-                                <h3 className="font-bold text-white mb-3 sticky top-0 bg-[#122118] py-2">Translation</h3>
-                                <pre className="font-sans whitespace-pre-wrap text-gray-200 leading-loose" style={{ fontSize: `${fontSize}px` }}>{translatedLyrics}</pre>
-                            </div>
-                        </div>
-                    </div>
-                );
-
-            case 'inline':
-                return (
-                    <div className="space-y-4">
-                        {originalLines.map((line, index) => (
-                            <div key={index} className="space-y-1">
-                                <pre className="font-sans whitespace-pre-wrap text-gray-200 leading-loose" style={{ fontSize: `${fontSize}px` }}>
-                                    {line}
-                                </pre>
-                                {translatedLines[index] && (
-                                    <pre className="font-sans whitespace-pre-wrap text-green-400 leading-loose text-sm italic ml-4" style={{ fontSize: `${fontSize - 2}px` }}>
-                                        {translatedLines[index]}
-                                    </pre>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                );
-
-            case 'toggle':
-                return (
-                    <div className="text-gray-200 text-lg leading-loose">
-                        <button
-                            onClick={() => setShowTranslation(!showTranslation)}
-                            className="mb-4 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-                        >
-                            {showTranslation ? 'Show Original' : 'Show Translation'}
-                        </button>
-                        <pre className="font-sans whitespace-pre-wrap" style={{ fontSize: `${fontSize}px` }}>
-                            {showTranslation ? translatedLyrics : originalLyrics}
-                        </pre>
-                    </div>
-                );
-
-            default:
-                return null;
+    // Start/stop elapsed timer helper
+    const startElapsedTimer = () => {
+        setElapsedSeconds(0);
+        elapsedTimerRef.current = setInterval(() => {
+            setElapsedSeconds((prev) => prev + 1);
+        }, 1000);
+    };
+    const stopElapsedTimer = () => {
+        if (elapsedTimerRef.current) {
+            clearInterval(elapsedTimerRef.current);
+            elapsedTimerRef.current = null;
         }
     };
 
+    // Cleanup timer on unmount
+    useEffect(() => {
+        return () => {
+            if (elapsedTimerRef.current) clearInterval(elapsedTimerRef.current);
+        };
+    }, []);
+    const hasValidTranslation = cleanTranslatedLyrics &&
+        cleanTranslatedLyrics.trim() &&
+        cleanTranslatedLyrics !== 'No translation available yet. Use "Translate Lyrics" to generate one.';
+
+    // Split lyrics into lines for inline mode
+    const originalLines = cleanOriginalLyrics.split('\n');
+    const translatedLines = cleanTranslatedLyrics.split('\n');
+
+    // Render lyrics in inline view
+    const renderLyrics = () => {
+        return (
+            <div className="space-y-4" style={{ fontSize: '20px' }}>
+                {originalLines.map((line, index) => (
+                    <div key={index} className="space-y-1">
+                        <p className="font-sans whitespace-pre-wrap text-gray-200 leading-loose">
+                            {line}
+                        </p>
+                        {translatedLines[index] && (
+                            <p className="font-sans whitespace-pre-wrap text-green-400 leading-loose text-sm italic ml-4" style={{ fontSize: '18px' }}>
+                                {translatedLines[index]}
+                            </p>
+                        )}
+                    </div>
+                ))}
+            </div>
+        );
+    };
+
     return (
-        <div className="px-8 md:px-12 py-4 relative">
+        <div className="px-4 py-6 relative sm:px-6 lg:px-8">
             {/* Compact Song Header */}
             {!loading && !error && song && (
-                <div className="mb-4 flex items-center gap-4">
-                    {/* Small Song Image */}
-                    <div className="flex-shrink-0">
-                        {song.image ? (
-                            <img
-                                src={song.image}
-                                alt={`${title} by ${artist}`}
-                                className="w-32 h-32 md:w-40 md:h-40 rounded-lg object-cover border border-gray-700 cursor-pointer hover:opacity-80 transition-opacity"
-                                onClick={() => window.open(song.spotifyUrl || `https://open.spotify.com/search/${encodeURIComponent(title + ' ' + artist)}`, '_blank')}
-                            />
-                        ) : (
-                            <div className="w-32 h-32 md:w-40 md:h-40 rounded-lg bg-gradient-to-br from-green-600/30 to-amber-600/30 flex items-center justify-center border border-gray-700">
+                <div className="relative isolate mb-6 grid grid-cols-[112px_minmax(0,1fr)] items-center gap-x-5 gap-y-5 overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-br from-[#1a3328] via-[#12221b] to-[#0b1712] p-4 shadow-2xl shadow-black/20 sm:p-6 md:grid-cols-[168px_minmax(0,1fr)]">
+                    <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-28 h-72 w-72 rounded-full bg-emerald-300/10 blur-3xl" />
+                    {/* Album artwork */}
+                    <div className="relative z-10 row-span-2">
+                        <MediaImage
+                            src={song.image}
+                            alt={`${title} by ${artist}`}
+                            className="aspect-square w-28 rounded-2xl border border-white/15 object-cover shadow-2xl shadow-black/50 sm:w-32 md:w-44"
+                            fallback={
                                 <svg className="w-16 h-16 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
                                     <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
                                 </svg>
-                            </div>
-                        )}
+                            }
+                            fallbackClassName="flex aspect-square w-28 items-center justify-center rounded-2xl border border-white/15 bg-gradient-to-br from-emerald-300/20 via-[#183b2b] to-amber-400/20 shadow-2xl shadow-black/50 sm:w-32 md:w-44"
+                        />
                     </div>
 
                     {/* Song Info - Compact */}
-                    <div className="flex-1 min-w-0">
-                        <h1 className="text-xl md:text-2xl font-bold text-white mb-1 break-words" data-testid="song-title">
+                    <div className="relative z-10 min-w-0">
+                        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-emerald-200/70">Now playing</p>
+                        <h1 className="break-words text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl" data-testid="song-title">
                             {title || 'Loading...'}
                         </h1>
                         <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-sm md:text-base text-gray-300">
+                            <p className="text-sm font-medium text-white/70 sm:text-base">
                                 {artist || 'Unknown Artist'}
                             </p>
                             {song.artistId && (
                                 <Link
-                                    to={`/artist/${song.artistId}`}
-                                    className="text-green-400 hover:text-green-300 text-xs underline"
+                                    to={`/artists/${song.artistId}`}
+                                    className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-emerald-200 transition hover:border-emerald-300/40 hover:bg-emerald-300/10 hover:text-white"
                                 >
-                                    View Artist
+                                    View Catalog
                                 </Link>
                             )}
                         </div>
                     </div>
 
-                    {/* Compact Spotify Player */}
+                    {/* Like & Share Buttons */}
+                    <div className="relative z-10 col-start-2 flex items-center gap-1 self-start">
+                        <button
+                            onClick={handleFavoriteToggle}
+                            disabled={favoriteLoading}
+                            className={`flex items-center justify-center min-w-[44px] min-h-[44px] rounded-full hover:bg-white/10 transition-colors touch-manipulation ${isFavorite ? 'text-red-400' : 'text-gray-400 hover:text-white'}`}
+                            title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                        >
+                            <HeartIcon className={`h-6 w-6 ${isFavorite ? 'fill-current' : ''}`} />
+                        </button>
+                        <button
+                            onClick={handleShare}
+                            className="flex items-center justify-center min-w-[44px] min-h-[44px] rounded-full hover:bg-white/10 transition-colors text-gray-400 hover:text-white touch-manipulation"
+                            title="Share this song"
+                        >
+                            <ShareIcon className="h-6 w-6" />
+                        </button>
+                        <button
+                            onClick={() => setShowReportModal(true)}
+                            className="flex items-center justify-center min-w-[44px] min-h-[44px] rounded-full hover:bg-white/10 transition-colors text-gray-400 hover:text-red-400 touch-manipulation"
+                            title="Report"
+                        >
+                            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-2 7 2 7H9l-3 3H3z" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    {/* Song Player */}
                     {title && artist && (
-                        <div className="flex-shrink-0 hidden md:block">
-                            <SpotifyPlayer title={title} artist={artist} compact={true} />
+                        <div className="relative z-10 col-span-2 w-full">
+                            <SongPlayer songId={songId} title={title} artist={artist} />
                         </div>
                     )}
-                </div>
-            )}
-
-            {/* Mobile Spotify Player */}
-            {!loading && !error && song && title && artist && (
-                <div className="mb-4 md:hidden">
-                    <SpotifyPlayer title={title} artist={artist} compact={true} />
                 </div>
             )}
 
@@ -874,138 +824,67 @@ const LyricContent: React.FC = () => {
 
             {/* Generate Translation Button - Show when original lyrics exist but translation is empty */}
             {!loading && !error && canGenerateTranslation && (
-                <div className="mb-4 animate-fade-in-up">
-                    <div className="relative overflow-hidden bg-gradient-to-br from-green-800/20 to-emerald-800/20 backdrop-blur-sm border border-green-500/30 rounded-2xl shadow-2xl p-4 md:p-6">
-                        {/* Animated background gradient */}
-                        <div className="absolute inset-0 bg-gradient-to-r from-green-500/5 via-emerald-500/5 to-green-500/5 animate-gradient-shift"></div>
-
-                        {/* Content */}
-                        <div className="relative z-10">
-                            <div className="flex items-start gap-4 mb-4">
-                                <div className="flex-shrink-0 relative">
-                                    <div className="absolute inset-0 bg-green-500/20 rounded-full animate-ping"></div>
-                                    <div className="relative bg-gray-700/50 p-3 rounded-full border border-green-500/30">
-                                        <svg className="w-6 h-6 md:w-8 md:h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
-                                        </svg>
-                                    </div>
-                                </div>
-
-                                <div className="flex-1 min-w-0">
-                                    <h3 className="text-lg md:text-xl font-bold text-white mb-2">
-                                        Generate Translation with AI
-                                    </h3>
-                                    <p className="text-gray-300 text-sm md:text-base leading-relaxed mb-4">
-                                        Use AI to automatically translate the original lyrics. The source language will be detected automatically. Select the target language below.
-                                    </p>
-
-                                    {/* Language Selector - Only Target Language */}
-                                    {showLanguageSelector && (
-                                        <div className="mb-4 p-4 bg-gray-800/50 rounded-lg border border-gray-700">
-                                            <div className="mb-3">
-                                                <label className="block text-sm font-medium text-gray-300 mb-2">
-                                                    Target Language (Translate to)
-                                                </label>
-                                                <select
-                                                    value={targetLang}
-                                                    onChange={(e) => setTargetLang(e.target.value)}
-                                                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
-                                                    disabled={translationLoading || detectingLanguage}
-                                                >
-                                                    {languages.map(lang => (
-                                                        <option key={lang.code} value={lang.code}>{lang.name}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                            {sourceLang && sourceLang !== 'en' && (
-                                                <div className="mt-3 p-3 bg-blue-900/20 border border-blue-500/30 rounded-lg">
-                                                    <p className="text-xs text-blue-300">
-                                                        <span className="font-semibold">Source language will be detected automatically</span>
-                                                        {song?.language && (
-                                                            <span className="block mt-1 text-blue-400">
-                                                                (Song metadata suggests: {song.language})
-                                                            </span>
-                                                        )}
-                                                    </p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {/* Generate Button */}
-                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                                        <button
-                                            data-testid="translate-btn"
-                                            onClick={() => {
-                                                if (!showLanguageSelector) {
-                                                    setShowLanguageSelector(true);
-                                                } else {
-                                                    handleGenerateTranslation();
-                                                }
-                                            }}
-                                            disabled={translationLoading || detectingLanguage}
-                                            className="w-full sm:w-auto group relative overflow-hidden bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 disabled:from-gray-800 disabled:to-gray-800 text-white font-semibold py-3 px-6 md:px-8 rounded-xl transition-all duration-300 flex items-center justify-center gap-3 shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            {/* Shine effect on hover */}
-                                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
-
-                                            {translationLoading || detectingLanguage ? (
-                                                <>
-                                                    <span className="h-5 w-5 rounded-full border-2 border-white/60 border-t-transparent animate-pulse" />
-                                                    <span className="relative z-10">
-                                                        {detectingLanguage ? 'Detecting Language...' : 'Generating Translation...'}
-                                                    </span>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <svg className="w-5 h-5 relative z-10 group-hover:rotate-12 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                                    </svg>
-                                                    <span className="relative z-10">
-                                                        {showLanguageSelector ? 'Generate Translation' : 'Translate with AI'}
-                                                    </span>
-                                                    <svg className="w-4 h-4 relative z-10 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                                    </svg>
-                                                </>
-                                            )}
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Reset Translation Button - Show when translation exists */}
-            {!loading && !error && hasValidTranslation && (
-                <div className="mb-4 animate-fade-in-up">
-                    <div className="relative overflow-hidden bg-gradient-to-br from-amber-800/20 to-orange-800/20 backdrop-blur-sm border border-amber-500/30 rounded-2xl shadow-2xl p-4 md:p-6">
-                        <div className="relative z-10">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="bg-gray-700/50 p-2 rounded-full border border-amber-500/30">
-                                        <svg className="w-5 h-5 md:w-6 md:h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                        </svg>
-                                    </div>
-                                    <div>
-                                        <h3 className="text-base md:text-lg font-semibold text-white">Translation Available</h3>
-                                        <p className="text-xs md:text-sm text-gray-300">Reset to generate a new translation in a different language</p>
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={handleResetTranslation}
-                                    className="min-h-[44px] bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2.5 px-4 md:px-6 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm md:text-base"
+                <div className="mb-4">
+                    <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4">
+                        {/* Language Selector - Only Target Language */}
+                        {showLanguageSelector && (
+                            <div className="mb-4 p-3 bg-gray-700/50 rounded-lg border border-gray-600">
+                                <label className="block text-sm font-medium text-gray-300 mb-2">
+                                    Target Language
+                                </label>
+                                <select
+                                    value={targetLang}
+                                    onChange={(e) => setTargetLang(e.target.value)}
+                                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                                    disabled={translationLoading || detectingLanguage}
                                 >
-                                    <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                    </svg>
-                                    <span className="hidden sm:inline">Reset Translation</span>
-                                    <span className="sm:hidden">Reset</span>
-                                </button>
+                                    {languages.map(lang => (
+                                        <option key={lang.code} value={lang.code}>{lang.name}</option>
+                                    ))}
+                                </select>
                             </div>
+                        )}
+
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                            <button
+                                data-testid="translate-btn"
+                                onClick={() => {
+                                    if (!showLanguageSelector) {
+                                        setShowLanguageSelector(true);
+                                    } else {
+                                        handleGenerateTranslation();
+                                    }
+                                }}
+                                disabled={translationLoading || detectingLanguage}
+                                className="w-full sm:w-auto min-h-[44px] bg-green-600 hover:bg-green-700 disabled:bg-gray-700 text-white font-semibold py-2.5 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {translationLoading || detectingLanguage ? (
+                                    <>
+                                        <span className="h-4 w-4 rounded-full border-2 border-white/60 border-t-transparent animate-pulse" />
+                                        <span>
+                                            {detectingLanguage
+                                                ? 'Detecting Language...'
+                                                : `Translating... ${formatElapsed(elapsedSeconds)}`
+                                            }
+                                        </span>
+                                    </>
+                                ) : (
+                                    <span>{showLanguageSelector ? 'Generate Translation' : 'Translate Lyrics'}</span>
+                                )}
+                            </button>
+                            <button
+                                onClick={handleRequestTranslation}
+                                disabled={requestLoading}
+                                className="text-sm text-gray-400 hover:text-gray-300 underline transition-colors disabled:opacity-50"
+                            >
+                                {requestLoading ? 'Submitting...' : 'Prefer a human translation? Request one instead'}
+                            </button>
+                            {/* Estimated time hint - shown when language selector is visible */}
+                            {showLanguageSelector && !translationLoading && !detectingLanguage && hasOriginalLyrics && (
+                                <span className="text-xs text-gray-500 hidden sm:inline">
+                                    Estimated: {estimateTranslationTime(cleanOriginalLyrics.length).label}
+                                </span>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -1013,281 +892,47 @@ const LyricContent: React.FC = () => {
 
             {/* Request Translation Button - Show when no lyrics or translation */}
             {!loading && !error && (hasNoLyrics || (hasNoTranslation && !canGenerateTranslation)) && (
-                <div className="mb-4 animate-fade-in-up">
-                    <div className="relative overflow-hidden bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-sm border border-gray-600/50 rounded-2xl shadow-2xl p-6 md:p-8">
-                        {/* Animated background gradient */}
-                        <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-purple-500/5 to-pink-500/5 animate-gradient-shift"></div>
-
-                        {/* Content */}
-                        <div className="relative z-10">
-                            {/* Icon with pulse animation */}
-                            <div className="flex items-start gap-4 mb-4">
-                                <div className="flex-shrink-0 relative">
-                                    <div className="absolute inset-0 bg-blue-500/20 rounded-full animate-ping"></div>
-                                    <div className="relative bg-gray-700/50 p-3 rounded-full border border-gray-600">
-                                        <svg className="w-6 h-6 md:w-8 md:h-8 text-gray-300 animate-bounce-slow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
-                                        </svg>
-                                    </div>
-                                </div>
-
-                                <div className="flex-1 min-w-0">
-                                    <h3 className="text-lg md:text-xl font-bold text-white mb-2">
-                                        {hasNoLyrics && hasNoTranslation
-                                            ? 'Lyrics & Translation Needed'
-                                            : hasNoLyrics
-                                                ? 'Lyrics Needed'
-                                                : 'Translation Needed'}
-                                    </h3>
-                                    <p className="text-gray-300 text-sm md:text-base leading-relaxed">
-                                        {hasNoLyrics && hasNoTranslation
-                                            ? 'This song doesn\'t have lyrics or translation yet. Request one and our team will add it soon!'
-                                            : hasNoLyrics
-                                                ? 'This song doesn\'t have lyrics yet. Request them and our team will add it soon!'
-                                                : 'This song doesn\'t have a translation yet. Request one and our team will add it soon!'}
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* Button with hover animation */}
-                            <button
-                                onClick={handleRequestTranslation}
-                                disabled={requestLoading}
-                                className="w-full md:w-auto min-h-[44px] group relative overflow-hidden bg-gradient-to-r from-gray-700 to-gray-600 hover:from-gray-600 hover:to-gray-500 disabled:from-gray-800 disabled:to-gray-800 text-white font-semibold py-3 px-6 md:px-8 rounded-xl transition-all duration-300 flex items-center justify-center gap-3 shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {/* Shine effect on hover */}
-                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
-
-                                {requestLoading ? (
-                                    <>
-                                        <span className="h-5 w-5 rounded-full border-2 border-white/60 border-t-transparent animate-pulse" />
-                                        <span className="relative z-10">Submitting Request...</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <svg className="w-5 h-5 relative z-10 group-hover:rotate-12 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
-                                        </svg>
-                                        <span className="relative z-10">Request Translation</span>
-                                        <svg className="w-4 h-4 relative z-10 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                        </svg>
-                                    </>
-                                )}
-                            </button>
+                <div className="mb-4">
+                    <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4">
+                        <div className="mb-3">
+                            <h3 className="text-base font-semibold text-white">
+                                {hasNoLyrics && hasNoTranslation
+                                    ? 'Lyrics & Translation Needed'
+                                    : hasNoLyrics
+                                        ? 'Lyrics Needed'
+                                        : 'Translation Needed'}
+                            </h3>
+                            <p className="text-gray-400 text-sm mt-1">
+                                {hasNoLyrics && hasNoTranslation
+                                    ? 'This song doesn\'t have lyrics or translation yet. Request one and our team will add it soon!'
+                                    : hasNoLyrics
+                                        ? 'This song doesn\'t have lyrics yet. Request them and our team will add it soon!'
+                                        : 'This song doesn\'t have a translation yet. Request one and our team will add it soon!'}
+                            </p>
                         </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Voting and Community Actions */}
-            {!loading && !error && hasValidTranslation && existingTranslationId && (
-                <div className="mb-4 bg-gray-800/30 rounded-lg p-4 border border-gray-700/50">
-                    <div className="flex flex-wrap items-center justify-between gap-4">
-                        {/* Voting Section */}
-                        <div className="flex items-center gap-4">
-                            <span className="text-gray-300 text-sm font-medium">Rate this translation:</span>
-                            {currentUser ? (
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={() => handleVote('upvote')}
-                                        disabled={votingLoading}
-                                        className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${userVote === 'upvote'
-                                            ? 'bg-green-600 text-white'
-                                            : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                                            } disabled:opacity-50`}
-                                    >
-                                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                            <path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.43a2 2 0 001.106 1.79l.05.025A4 4 0 008.943 18h5.416a2 2 0 001.962-1.608l1.2-6A2 2 0 0015.56 8H12V4a2 2 0 00-2-2 1 1 0 00-1 1v.667a4 4 0 01-.8 2.4L6.8 7.933a4 4 0 00-.8 2.4z" />
-                                        </svg>
-                                        <span className="text-sm font-medium">{upvotes}</span>
-                                    </button>
-                                    <button
-                                        onClick={() => handleVote('downvote')}
-                                        disabled={votingLoading}
-                                        className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${userVote === 'downvote'
-                                            ? 'bg-red-600 text-white'
-                                            : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                                            } disabled:opacity-50`}
-                                    >
-                                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                            <path d="M18 9.5a1.5 1.5 0 11-3 0v-6a1.5 1.5 0 013 0v6zM14 9.667v-5.43a2 2 0 00-1.105-1.79l-.05-.025A4 4 0 0011.055 2H5.64a2 2 0 00-1.962 1.608l-1.2 6A2 2 0 004.44 12H8v4a2 2 0 002 2 1 1 0 001-1v-.667a4 4 0 01.8-2.4l1.4-1.866a4 4 0 00.8-2.4z" />
-                                        </svg>
-                                        <span className="text-sm font-medium">{downvotes}</span>
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className="flex items-center gap-2 text-gray-400 text-sm">
-                                    <span>{upvotes} upvotes • {downvotes} downvotes</span>
-                                    <Link
-                                        to="/"
-                                        className="text-green-400 hover:text-green-300 underline"
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            // Trigger login modal - you may need to adjust this based on your login flow
-                                            window.location.hash = '#/';
-                                            setTimeout(() => {
-                                                const loginButton = document.querySelector('[data-login-button]') as HTMLElement;
-                                                if (loginButton) loginButton.click();
-                                            }, 100);
-                                        }}
-                                    >
-                                        Sign in to vote
-                                    </Link>
-                                </div>
-                            )}
-                        </div>
-                        {/* Correction Button */}
-                        {currentUser ? (
-                            <button
-                                onClick={() => setShowCorrectionForm(!showCorrectionForm)}
-                                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
-                            >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                                Suggest Correction
-                            </button>
-                        ) : (
-                            <button
-                                onClick={() => {
-                                    setShowLoginPrompt(true);
-                                    setTimeout(() => setShowLoginPrompt(false), 5000);
-                                }}
-                                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
-                            >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                                Sign in to suggest
-                            </button>
-                        )}
-                    </div>
-                    {/* Correction Form */}
-                    {showCorrectionForm && (
-                        <div className="mt-4 p-4 bg-gray-700/50 rounded-lg border border-gray-600">
-                            <h4 className="text-white font-medium mb-3">Suggest a Correction</h4>
-                            <textarea
-                                value={correctionText}
-                                onChange={(e) => setCorrectionText(e.target.value)}
-                                placeholder="Enter your suggested correction for the translation..."
-                                rows={4}
-                                className="w-full px-4 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
-                            />
-                            <input
-                                type="text"
-                                value={correctionReason}
-                                onChange={(e) => setCorrectionReason(e.target.value)}
-                                placeholder="Reason (optional)"
-                                className="w-full px-4 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
-                            />
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={handleSubmitCorrection}
-                                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm font-medium"
-                                >
-                                    Submit Correction
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setShowCorrectionForm(false);
-                                        setCorrectionText('');
-                                        setCorrectionReason('');
-                                    }}
-                                    className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors text-sm font-medium"
-                                >
-                                    Cancel
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {/* View Mode Selector - Moved up to be with lyrics */}
-            {!loading && !error && !hasNoLyrics && !hasNoTranslation && (
-                <div className="mb-4 flex flex-wrap items-center gap-3 sm:gap-4 bg-gray-800/30 rounded-lg p-3 sm:p-4 border border-gray-700/50">
-                    <div className="flex items-center gap-2">
-                        <label className="text-gray-300 text-sm font-medium">View:</label>
-                        <select
-                            value={viewMode}
-                            onChange={(e) => setViewMode(e.target.value as TranslationViewMode)}
-                            className="min-h-[44px] bg-gray-800 border border-gray-600 text-white text-sm px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                        <button
+                            onClick={handleRequestTranslation}
+                            disabled={requestLoading}
+                            className="w-full sm:w-auto min-h-[44px] bg-green-600 hover:bg-green-700 disabled:bg-gray-700 text-white font-semibold py-2.5 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            <option value="tabs">Tabs</option>
-                            <option value="side-by-side">Side-by-Side</option>
-                            <option value="top-bottom">Top & Bottom</option>
-                            <option value="hover">Mouse-over</option>
-                            <option value="split-screen">Split-Screen</option>
-                            <option value="inline">Inline</option>
-                            <option value="toggle">Toggle</option>
-                        </select>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <label className="text-gray-300 text-sm">Font:</label>
-                        <input
-                            type="range"
-                            min="12"
-                            max="24"
-                            value={fontSize}
-                            onChange={(e) => setFontSize(Number(e.target.value))}
-                            className="w-24 min-w-[120px] sm:w-28"
-                        />
-                        <span className="text-gray-400 text-xs">{fontSize}px</span>
-                    </div>
-                    {/* Compact Status Indicators */}
-                    {song && (originalLyrics !== 'No lyrics available yet for this song.' || translatedLyrics !== 'No translation available yet. Use "Reveal the Meaning" to generate one.') && (
-                        <div className="ml-auto flex items-center gap-2 text-xs">
-                            {originalLyrics !== 'No lyrics available yet for this song.' && (
-                                <span className="text-green-400 flex items-center gap-1">
-                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                    </svg>
-                                    Original
-                                </span>
+                            {requestLoading ? (
+                                <>
+                                    <span className="h-4 w-4 rounded-full border-2 border-white/60 border-t-transparent animate-pulse" />
+                                    <span>Submitting...</span>
+                                </>
+                            ) : (
+                                <span>Request Translation</span>
                             )}
-                            {translatedLyrics !== 'No translation available yet. Use "Reveal the Meaning" to generate one.' && (
-                                <span className="text-amber-400 flex items-center gap-1">
-                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                    </svg>
-                                    Translation
-                                </span>
-                            )}
-                        </div>
-                    )}
+                        </button>
+                    </div>
                 </div>
             )}
 
-            {/* Cultural Context Display - Prominent */}
-            {!loading && !error && culturalContext && culturalContext.trim() && (
-                <div className="mb-6 animate-fade-in-up">
-                    <div className="bg-gradient-to-br from-amber-900/30 to-orange-900/30 backdrop-blur-sm border-2 border-amber-500/40 rounded-2xl shadow-2xl p-6 md:p-8">
-                        <div className="flex items-start gap-4 mb-4">
-                            <div className="flex-shrink-0 bg-amber-500/20 p-3 rounded-full border border-amber-500/30">
-                                <svg className="w-6 h-6 md:w-8 md:h-8 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                                </svg>
-                            </div>
-                            <div className="flex-1">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <h3 className="text-xl md:text-2xl font-bold text-white">Cultural Context</h3>
-                                    <span className="text-xs px-3 py-1 bg-green-600/30 border border-green-500/50 rounded-full text-green-300 font-medium">
-                                        Human-Added
-                                    </span>
-                                </div>
-                                <p className="text-gray-300 text-sm mb-4">
-                                    Learn about the cultural meanings, slang, and context behind these lyrics
-                                </p>
-                                <div className="bg-gray-900/50 rounded-lg p-4 md:p-6 border border-gray-700/50">
-                                    <pre className="whitespace-pre-wrap break-words font-sans text-gray-200 leading-relaxed text-sm md:text-base">
-                                        {formattedCulturalContext}
-                                    </pre>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+
+
+            {/* Cultural Context Display */}
+            {!loading && !error && formattedCulturalContext && formattedCulturalContext.trim() && (
+                <CulturalContextCarousel culturalContext={formattedCulturalContext} />
             )}
 
             {/* Lyrics Display - Main Focus */}
@@ -1303,47 +948,27 @@ const LyricContent: React.FC = () => {
                 </div>
             )}
 
-            {/* Action Bar */}
-            <div className="fixed left-1/2 -translate-x-1/2 w-[min(92vw,360px)] flex items-center justify-around gap-2 sm:gap-4 bg-[#2a3c30]/95 backdrop-blur-md p-3 rounded-full border border-white/10 shadow-2xl z-40 bottom-[max(1.5rem,env(safe-area-inset-bottom))]">
-                <button
-                    onClick={handleFavoriteToggle}
-                    disabled={favoriteLoading}
-                    className={`flex flex-col items-center justify-center min-w-[44px] min-h-[44px] w-20 h-14 rounded-full hover:bg-white/10 transition-colors touch-manipulation ${isFavorite ? 'text-red-400' : ''}`}
-                >
-                    <HeartIcon className={`h-6 w-6 ${isFavorite ? 'fill-current' : ''}`} />
-                    <span className="text-xs mt-1">{isFavorite ? 'Liked' : 'Like'}</span>
-                </button>
-                <button
-                    onClick={handleShare}
-                    className="flex flex-col items-center justify-center min-w-[44px] min-h-[44px] w-20 h-14 rounded-full hover:bg-white/10 transition-colors touch-manipulation"
-                >
-                    <ShareIcon className="h-6 w-6" />
-                    <span className="text-xs mt-1">Share</span>
-                </button>
-                {song && (
-                    <Link
-                        to={`/community/create?songId=${song.id}&artistId=${song.artistId}`}
-                        className="flex flex-col items-center justify-center min-w-[44px] min-h-[44px] w-20 h-14 rounded-full hover:bg-white/10 transition-colors text-amber-400 touch-manipulation"
-                        title="Discuss this song"
-                    >
-                        <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                        </svg>
-                        <span className="text-xs mt-1">Discuss</span>
-                    </Link>
-                )}
-            </div>
+            <ReportModal
+                isOpen={showReportModal}
+                onClose={() => setShowReportModal(false)}
+                targetType="translation"
+                targetId={existingTranslationId || songId}
+            />
 
             {/* Custom Notification Toast */}
             {notification && (
                 <div className="fixed top-4 right-4 left-4 md:left-auto md:right-4 z-50 max-w-md mx-auto md:mx-0 animate-slide-in-right">
                     <div className={`relative overflow-hidden rounded-2xl shadow-2xl border ${notification.type === 'success'
                         ? 'bg-gradient-to-br from-gray-800 to-gray-900 border-gray-600/50'
+                        : notification.type === 'info'
+                        ? 'bg-gradient-to-br from-gray-800 to-gray-900 border-blue-500/50'
                         : 'bg-gradient-to-br from-gray-900 to-gray-800 border-red-500/50'
                         } backdrop-blur-sm`}>
                         {/* Animated background gradient */}
                         <div className={`absolute inset-0 ${notification.type === 'success'
                             ? 'bg-gradient-to-r from-blue-500/10 via-green-500/10 to-blue-500/10'
+                            : notification.type === 'info'
+                            ? 'bg-gradient-to-r from-blue-500/10 via-cyan-500/10 to-blue-500/10'
                             : 'bg-gradient-to-r from-red-500/10 via-orange-500/10 to-red-500/10'
                             } animate-gradient-shift`}></div>
 
@@ -1351,15 +976,19 @@ const LyricContent: React.FC = () => {
                         <div className="relative z-10 p-4 md:p-5">
                             <div className="flex items-start gap-4">
                                 {/* Icon */}
-                                <div className={`flex-shrink-0 relative ${notification.type === 'success' ? 'text-green-400' : 'text-red-400'
+                                <div className={`flex-shrink-0 relative ${notification.type === 'success' ? 'text-green-400' : notification.type === 'info' ? 'text-blue-400' : 'text-red-400'
                                     }`}>
-                                    <div className={`absolute inset-0 ${notification.type === 'success' ? 'bg-green-500/20' : 'bg-red-500/20'
+                                    <div className={`absolute inset-0 ${notification.type === 'success' ? 'bg-green-500/20' : notification.type === 'info' ? 'bg-blue-500/20' : 'bg-red-500/20'
                                         } rounded-full animate-ping`}></div>
-                                    <div className={`relative bg-gray-700/50 p-2 rounded-full border ${notification.type === 'success' ? 'border-green-500/30' : 'border-red-500/30'
+                                    <div className={`relative bg-gray-700/50 p-2 rounded-full border ${notification.type === 'success' ? 'border-green-500/30' : notification.type === 'info' ? 'border-blue-500/30' : 'border-red-500/30'
                                         }`}>
                                         {notification.type === 'success' ? (
                                             <svg className="w-5 h-5 md:w-6 md:h-6 animate-scale-in" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        ) : notification.type === 'info' ? (
+                                            <svg className="w-5 h-5 md:w-6 md:h-6 animate-scale-in" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                             </svg>
                                         ) : (
                                             <svg className="w-5 h-5 md:w-6 md:h-6 animate-scale-in" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1372,7 +1001,7 @@ const LyricContent: React.FC = () => {
                                 {/* Message */}
                                 <div className="flex-1 min-w-0">
                                     <p className="text-white font-semibold text-sm md:text-base mb-1">
-                                        {notification.type === 'success' ? 'Success!' : 'Error'}
+                                        {notification.type === 'success' ? 'Success!' : notification.type === 'info' ? 'Processing' : 'Error'}
                                     </p>
                                     <p className="text-gray-300 text-xs md:text-sm leading-relaxed">
                                         {notification.message}
@@ -1394,10 +1023,10 @@ const LyricContent: React.FC = () => {
                             {/* Progress bar */}
                             <div className="mt-3 h-1 bg-gray-700/50 rounded-full overflow-hidden">
                                 <div
-                                    className={`h-full ${notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'
+                                    className={`h-full ${notification.type === 'success' ? 'bg-green-500' : notification.type === 'info' ? 'bg-blue-500' : 'bg-red-500'
                                         }`}
                                     style={{
-                                        animation: `progress-bar ${notification.type === 'success' ? '4s' : '5s'} linear forwards`
+                                        animation: `progress-bar ${notification.type === 'success' ? '4s' : notification.type === 'info' ? '8s' : '5s'} linear forwards`
                                     }}
                                 ></div>
                             </div>

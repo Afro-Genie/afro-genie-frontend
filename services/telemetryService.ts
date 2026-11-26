@@ -3,6 +3,9 @@ export type TelemetryEventName =
   | 'spotify_search_error'
   | 'search_no_result_view'
   | 'search_request_submitted'
+  | 'search_suggestion_click'
+  | 'search_submitted'
+  | 'search_result_section_view'
   | 'request_notification_received';
 
 export interface TelemetryPayload {

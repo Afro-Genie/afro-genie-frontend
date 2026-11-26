@@ -40,12 +40,7 @@ const Footer: React.FC = () => {
                 </Link>
               </li>
               <li>
-                <Link to="/request-translation" className="inline-flex items-center min-h-[44px] py-2 text-gray-400 hover:text-green-400 transition-colors text-sm">
-                  Request Translation
-                </Link>
-              </li>
-              <li>
-                <Link to="/artist/signup" className="inline-flex items-center min-h-[44px] py-2 text-gray-400 hover:text-green-400 transition-colors text-sm">
+                <Link to="/apply/artist" className="inline-flex items-center min-h-[44px] py-2 text-gray-400 hover:text-green-400 transition-colors text-sm">
                   For Artists
                 </Link>
               </li>

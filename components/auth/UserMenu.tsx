@@ -1,19 +1,57 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { usePendingRequests } from '../../hooks/usePendingRequests';
 import UserIcon from '../icons/UserIcon';
+import { PlayIcon } from '../icons/PlayIcon';
+import TokenBalance from '../TokenBalance';
 import { useNotification } from '../../hooks/useNotification';
 import Notification from '../Notification';
+import { moderationApi } from '../../services/moderationService';
+import { featureFlags } from '../../config/featureFlags';
+import Avatar from '../Avatar';
 
 interface UserMenuProps {
   onLoginClick: () => void;
 }
 
 const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
-  const { user, isAdmin, isArtist, logout } = useAuth();
+  const { user, userProfile, loading: authLoading, isAdmin, isArtist, isModerator, logout } = useAuth();
+  const { artistApplication, roleRequests, loading: pendingLoading, roleRequestsError, refresh: refreshPending } = usePendingRequests();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [pendingReports, setPendingReports] = useState(0);
   const { notification, showNotification, hideNotification } = useNotification();
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (!isModerator) return;
+    const fetchStats = async () => {
+      try {
+        const stats = await moderationApi.getReportStats();
+        setPendingReports(stats.pending);
+      } catch {
+        // Non-fatal
+      }
+    };
+    fetchStats();
+    const interval = setInterval(fetchStats, 60000);
+    return () => clearInterval(interval);
+  }, [isModerator]);
+
+  const hasPendingArtistApplication = !isArtist && !!artistApplication;
+  const hasPendingModeratorRequest = !isAdmin && roleRequests.some((r) => r.role === 'MODERATOR');
+  const avatarUrl = isArtist ? userProfile?.artistProfile?.profileImageUrl : user?.photoURL;
 
   const handleLogout = async () => {
     try {
@@ -31,51 +69,74 @@ const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
     }
   };
 
+  if (authLoading) {
+    return (
+      <div className="flex items-center space-x-2 sm:space-x-4" aria-hidden="true">
+        <div className="hidden md:block h-7 w-28 rounded-full bg-gray-700/50 animate-pulse" />
+        <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-gray-700/50 animate-pulse" />
+      </div>
+    );
+  }
+
   if (user) {
     return (
       <div className="flex items-center space-x-2 sm:space-x-4" data-testid="user-menu">
+        {/* Mobile: token balance pill (nav is collapsed on <md, so show it standalone) */}
+        <TokenBalance showLink className="md:hidden" />
         <div className="hidden md:flex items-center space-x-2">
+          <TokenBalance showLink />
           <span className="text-sm text-gray-300 max-w-[160px] truncate">{user.displayName || user.email || 'User'}</span>
           {isArtist && (
-            <Link 
-              to="/artist/dashboard" 
+            <Link
+              to="/artist"
               className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors min-h-[44px] flex items-center"
             >
               Artist Dashboard
             </Link>
           )}
+          {isModerator && (
+            <Link
+              to="/moderator"
+              className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors min-h-[44px] flex items-center gap-2"
+            >
+              Moderator
+              {pendingReports > 0 && (
+                <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold text-white bg-red-500 rounded-full">
+                  {pendingReports > 99 ? '99+' : pendingReports}
+                </span>
+              )}
+            </Link>
+          )}
           {isAdmin && (
-            <Link 
-              to="/admin" 
+            <Link
+              to="/admin"
               className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors min-h-[44px] flex items-center"
             >
               Admin
             </Link>
           )}
         </div>
-        <div className="relative">
-          <button 
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
+        <div className="relative" ref={menuRef}>
+          <button
+            onClick={() => {
+              const opening = !isMenuOpen;
+              setIsMenuOpen(opening);
+              if (opening) void refreshPending();
+            }}
             className="flex items-center justify-center min-h-[44px] min-w-[44px] rounded-md text-gray-300 hover:text-white focus:outline-none focus:ring-2 focus:ring-green-400"
             aria-label="User menu"
           >
-            {user.photoURL ? (
-              <img
-                src={user.photoURL}
-                alt="Profile"
-                className="h-8 w-8 sm:h-9 sm:w-9 rounded-full ring-2 ring-transparent hover:ring-green-400 transition-all"
-              />
-            ) : (
-              <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-gradient-to-br from-green-600 to-green-800 flex items-center justify-center ring-2 ring-transparent hover:ring-green-400 transition-all">
-                <span className="text-sm font-medium text-white">
-                  {user.displayName?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || 'U'}
-                </span>
-              </div>
-            )}
-            <svg 
+            <Avatar
+              src={avatarUrl}
+              name={user.displayName || user.email}
+              alt="Profile"
+              className="h-8 w-8 sm:h-9 sm:w-9 ring-2 ring-transparent transition-all hover:ring-green-400"
+              initialsClassName="text-sm font-medium text-white"
+            />
+            <svg
               className={`w-4 h-4 ml-1 hidden sm:block transition-transform ${isMenuOpen ? 'rotate-180' : ''}`}
-              fill="none" 
-              stroke="currentColor" 
+              fill="none"
+              stroke="currentColor"
               viewBox="0 0 24 24"
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -85,14 +146,14 @@ const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
           {/* Dropdown Menu */}
           {isMenuOpen && (
             <>
-              {/* Backdrop to close menu when clicking outside */}
-              <div 
-                className="fixed inset-0 z-10" 
+              {/* Backdrop to close menu when clicking outside on mobile */}
+              <div
+                className="fixed inset-0 z-10 md:hidden"
                 onClick={() => setIsMenuOpen(false)}
               />
-              
+
               {/* Menu */}
-              <div className="absolute right-0 mt-2 w-56 bg-gray-800 rounded-lg shadow-xl py-1 z-20 border border-gray-700">
+              <div className="fixed md:absolute inset-x-2 top-16 md:top-auto md:right-0 md:inset-x-auto mt-0 md:mt-2 w-auto md:w-56 bg-gray-800 rounded-lg shadow-xl py-1 z-20 border border-gray-700 max-h-[70vh] overflow-y-auto">
                 {/* User Info */}
                 <div className="px-4 py-3 border-b border-gray-700">
                   <p className="text-sm text-white font-medium truncate">
@@ -102,6 +163,11 @@ const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
                   {isArtist && (
                     <span className="inline-block mt-1 px-2 py-0.5 text-xs font-medium bg-purple-900/50 text-purple-300 rounded mr-1">
                       Artist
+                    </span>
+                  )}
+                  {isModerator && !isAdmin && (
+                    <span className="inline-block mt-1 px-2 py-0.5 text-xs font-medium bg-blue-900/50 text-blue-300 rounded">
+                      Moderator
                     </span>
                   )}
                   {isAdmin && (
@@ -114,28 +180,84 @@ const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
                 {/* Menu Items */}
                 <div className="py-1">
                   <Link
+                    to="/games"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="flex items-center min-h-[44px] px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
+                  >
+                    <PlayIcon className="w-4 h-4 mr-3 flex-shrink-0" />
+                    Games
+                  </Link>
+
+                  <Link
                     to="/community"
                     onClick={() => setIsMenuOpen(false)}
                     className="flex items-center min-h-[44px] px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
                   >
                     <UserIcon className="w-4 h-4 mr-3 flex-shrink-0" />
-                    Profile & Community
+                    Explore Community
                   </Link>
 
                   <Link
-                    to="/request-translation"
+                    to="/account"
                     onClick={() => setIsMenuOpen(false)}
                     className="flex items-center min-h-[44px] px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
                   >
                     <svg className="w-4 h-4 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
-                    Request Translation
+                    Profile & Account Settings
                   </Link>
+
+                  {!isArtist && !isAdmin && !isModerator && (
+                    hasPendingArtistApplication ? (
+                      <div className="flex items-center min-h-[44px] px-4 py-3 text-sm text-gray-500 cursor-not-allowed">
+                        <svg className="w-4 h-4 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" />
+                        </svg>
+                        <span>Artist Application Pending</span>
+                        <span className="ml-auto w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
+                      </div>
+                    ) : (
+                      <Link
+                        to="/apply/artist"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex items-center min-h-[44px] px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
+                      >
+                        <svg className="w-4 h-4 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" />
+                        </svg>
+                        Genie for Artistes
+                      </Link>
+                    )
+                  )}
+
+                  {!isAdmin && !isArtist && !isModerator && (
+                    hasPendingModeratorRequest || pendingLoading || roleRequestsError ? (
+                      <div className="flex items-center min-h-[44px] px-4 py-3 text-sm text-gray-500 cursor-not-allowed">
+                        <svg className="w-4 h-4 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                        <span>Moderator Application Pending</span>
+                        <span className="ml-auto w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
+                      </div>
+                    ) : (
+                      <Link
+                        to="/apply/moderator"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex items-center min-h-[44px] px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
+                      >
+                        <svg className="w-4 h-4 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                        Become a Moderator
+                      </Link>
+                    )
+                  )}
 
                   {isArtist && (
                     <Link
-                      to="/artist/dashboard"
+                      to="/artist"
                       onClick={() => setIsMenuOpen(false)}
                       className="flex items-center min-h-[44px] px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
                     >
@@ -143,6 +265,24 @@ const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
                       </svg>
                       Artist Dashboard
+                    </Link>
+                  )}
+
+                  {isModerator && (
+                    <Link
+                      to="/moderator"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="flex items-center min-h-[44px] px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
+                    >
+                      <svg className="w-4 h-4 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                      </svg>
+                      Moderator Dashboard
+                      {pendingReports > 0 && (
+                        <span className="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold text-white bg-red-500 rounded-full">
+                          {pendingReports > 99 ? '99+' : pendingReports}
+                        </span>
+                      )}
                     </Link>
                   )}
 
@@ -157,6 +297,34 @@ const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                       </svg>
                       Admin Panel
+                    </Link>
+                  )}
+
+                  <div className="border-t border-gray-700/50 my-1"></div>
+
+                  {featureFlags.storePage && (
+                    <Link
+                      to="/store"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="flex items-center min-h-[44px] px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
+                    >
+                      <svg className="w-4 h-4 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                      </svg>
+                      Token Store
+                    </Link>
+                  )}
+
+                  {featureFlags.referralsPage && (
+                    <Link
+                      to="/referrals"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="flex items-center min-h-[44px] px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
+                    >
+                      <svg className="w-4 h-4 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      Refer Friends
                     </Link>
                   )}
                 </div>

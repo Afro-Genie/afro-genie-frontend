@@ -1,5 +1,7 @@
-import React, { useMemo, useRef, useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react';
+import MediaImage from '../../components/MediaImage';
 import useClickOutside from '../../hooks/useClickOutside';
+import { getArtists } from '../../lib/apiClient';
 import type { Artist } from '../../types';
 
 export interface ArtistSearchSelectProps {
@@ -9,6 +11,7 @@ export interface ArtistSearchSelectProps {
   onArtistSelected?: (artist: Artist) => void;
   id?: string;
   disabled?: boolean;
+  allowedArtistNames?: readonly string[];
 }
 
 const MAX_VISIBLE = 120;
@@ -20,13 +23,32 @@ const ArtistSearchSelect: React.FC<ArtistSearchSelectProps> = ({
   onArtistSelected,
   id,
   disabled = false,
+  allowedArtistNames,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState('');
+  const [remoteResults, setRemoteResults] = useState<Artist[] | null>(null);
+  const [pickedArtist, setPickedArtist] = useState<Artist | null>(null);
+  const [remoteLoading, setRemoteLoading] = useState(false);
+  const [remoteError, setRemoteError] = useState<string | null>(null);
+  const allowedNames = useMemo(
+    () => allowedArtistNames ? new Set(allowedArtistNames.map((name) => name.trim().toLocaleLowerCase())) : null,
+    [allowedArtistNames],
+  );
+  const isAllowed = useCallback(
+    (artist: Artist) => !allowedNames || allowedNames.has(artist.name.trim().toLocaleLowerCase()),
+    [allowedNames],
+  );
 
-  const selected = useMemo(() => artists.find((a) => a.id === value) ?? null, [artists, value]);
+  const selected = useMemo(
+    () => (pickedArtist?.id === value ? pickedArtist : null)
+      ?? artists.find((artist) => artist.id === value && isAllowed(artist))
+      ?? remoteResults?.find((artist) => artist.id === value && isAllowed(artist))
+      ?? null,
+    [artists, isAllowed, pickedArtist, remoteResults, value],
+  );
 
   useClickOutside(containerRef, () => {
     setOpen(false);
@@ -35,13 +57,56 @@ const ArtistSearchSelect: React.FC<ArtistSearchSelectProps> = ({
 
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
-    const sorted = [...artists].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+    const source = (q && remoteResults ? remoteResults : artists).filter(isAllowed);
+    const sorted = [...source].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
     let list = !q ? sorted : sorted.filter((a) => a.name.toLowerCase().includes(q));
     if (selected && !list.some((a) => a.id === selected.id)) {
       list = [selected, ...list];
     }
     return list.slice(0, MAX_VISIBLE);
-  }, [artists, filter, selected]);
+  }, [artists, filter, isAllowed, remoteResults, selected]);
+
+  useEffect(() => {
+    const query = filter.trim();
+    if (!open || !query) {
+      setRemoteResults(null);
+      setRemoteError(null);
+      setRemoteLoading(false);
+      return undefined;
+    }
+
+    let disposed = false;
+    const timer = window.setTimeout(() => {
+      setRemoteLoading(true);
+      void getArtists({ search: query, limit: 50 })
+        .then((response: any) => {
+          if (disposed) return;
+          const rows = Array.isArray(response?.data) ? response.data : [];
+          setRemoteResults(rows.map((artist: any) => ({
+            id: artist.id,
+            name: artist.name,
+            genre: Array.isArray(artist.genres) ? artist.genres[0] || '' : artist.genre || '',
+            genres: Array.isArray(artist.genres) ? artist.genres : [],
+            image: artist.imageUrl || artist.image || '',
+          })).filter(isAllowed));
+          setRemoteError(null);
+        })
+        .catch((error: unknown) => {
+          if (!disposed) {
+            setRemoteError(error instanceof Error ? error.message : 'Could not search catalog artists.');
+            setRemoteResults([]);
+          }
+        })
+        .finally(() => {
+          if (!disposed) setRemoteLoading(false);
+        });
+    }, 250);
+
+    return () => {
+      disposed = true;
+      window.clearTimeout(timer);
+    };
+  }, [filter, isAllowed, open]);
 
   useEffect(() => {
     if (open && inputRef.current) {
@@ -62,6 +127,7 @@ const ArtistSearchSelect: React.FC<ArtistSearchSelectProps> = ({
   }, [open]);
 
   const handlePick = (artist: Artist) => {
+    setPickedArtist(artist);
     onChange(artist.id);
     onArtistSelected?.(artist);
     setFilter('');
@@ -69,6 +135,7 @@ const ArtistSearchSelect: React.FC<ArtistSearchSelectProps> = ({
   };
 
   const handleClear = () => {
+    setPickedArtist(null);
     onChange('');
     setFilter('');
     setOpen(false);
@@ -136,13 +203,17 @@ const ArtistSearchSelect: React.FC<ArtistSearchSelectProps> = ({
           role="listbox"
           className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-lg border border-gray-600 bg-gray-800 shadow-xl py-1"
         >
-          {filtered.length === 0 ? (
+          {remoteError ? (
+            <li role="alert" className="px-4 py-3 text-sm text-red-300">Artist search failed: {remoteError}</li>
+          ) : remoteLoading ? (
+            <li role="status" className="px-4 py-3 text-sm text-gray-400">Searching artists…</li>
+          ) : filtered.length === 0 ? (
             <li className="px-4 py-3 text-sm text-gray-400">No artists match “{filter.trim()}”.</li>
           ) : (
             <>
               {artists.length > 15 && !filter.trim() && (
                 <li className="px-4 py-2 text-xs text-gray-500 border-b border-gray-700/80 sticky top-0 bg-gray-800">
-                  {artists.length} artists — type to narrow results (showing first {filtered.length})
+                  {artists.length} loaded artists — type to search the full catalog (showing first {filtered.length})
                 </li>
               )}
               {filtered.map((artist) => (
@@ -156,7 +227,13 @@ const ArtistSearchSelect: React.FC<ArtistSearchSelectProps> = ({
                     }`}
                   >
                     {artist.image ? (
-                      <img src={artist.image} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                      <MediaImage
+                        src={artist.image}
+                        alt=""
+                        className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                        fallback={artist.name.charAt(0).toUpperCase()}
+                        fallbackClassName="w-8 h-8 rounded-full bg-gray-600 flex-shrink-0 flex items-center justify-center text-xs text-gray-300"
+                      />
                     ) : (
                       <span className="w-8 h-8 rounded-full bg-gray-600 flex-shrink-0 flex items-center justify-center text-xs text-gray-300">
                         {artist.name.charAt(0).toUpperCase()}

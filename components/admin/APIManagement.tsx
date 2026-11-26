@@ -15,8 +15,15 @@ import {
 } from '../../components/icons/FlatIcons';
 import APIManager from '../../services/apiManager';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import MediaImage from '../../components/MediaImage';
 import { useAuth } from '../../context/AuthContext';
-import { addArtist, addSong, addGenre, saveFullSongPackage } from '../../services/firebaseService';
+import { artistsApi, songsApi } from '../../services/api';
+import { saveFullSongPackage } from '../../utils/songPackage';
+
+const addGenre = async (_genre: { name: string; image: string }) => {
+  console.warn('addGenre: Not yet implemented in backend API');
+  return 'stub-id';
+};
 import lyricAPIService from '../../services/lyricAPIService';
 import type { APISearchResult, FullSongData } from '../../types';
 
@@ -238,7 +245,7 @@ const APIManagement: React.FC<APIManagementProps> = ({ onDataImported }) => {
 
     try {
       if (searchType === 'artist') {
-        await addArtist({
+        await artistsApi.create({
           name: result.artist || result.title,
           genre: result.metadata?.genre || 'Afrobeats',
           image: result.image || ''
@@ -263,7 +270,7 @@ const APIManagement: React.FC<APIManagementProps> = ({ onDataImported }) => {
           setImportProgress('Song with lyrics imported successfully');
         } else {
           // Import without lyrics
-          await addSong({
+          await songsApi.create({
             title: result.title,
             artist: result.artist,
             artistId: '',
@@ -1050,7 +1057,7 @@ const APIManagement: React.FC<APIManagementProps> = ({ onDataImported }) => {
               {/* Song Info */}
               <div className="flex items-start gap-4">
                 {previewItem.image && (
-                  <img
+                  <MediaImage
                     src={previewItem.image}
                     alt={previewItem.title}
                     className="w-24 h-24 object-cover rounded"

@@ -1,11 +1,11 @@
 // API client for the Express backend
 
-import { API_BASE_URL } from '../lib/apiBase';
+import { API_BASE_URL } from "../lib/apiBase";
 
 const API_BASE = API_BASE_URL;
 
-let accessToken: string | null = localStorage.getItem('accessToken');
-let refreshToken: string | null = localStorage.getItem('refreshToken');
+let accessToken: string | null = localStorage.getItem("accessToken");
+let refreshToken: string | null = localStorage.getItem("refreshToken");
 
 export const getAccessToken = () => accessToken;
 export const getRefreshToken = () => refreshToken;
@@ -13,15 +13,15 @@ export const getRefreshToken = () => refreshToken;
 export const setTokens = (access: string, refresh: string) => {
   accessToken = access;
   refreshToken = refresh;
-  localStorage.setItem('accessToken', access);
-  localStorage.setItem('refreshToken', refresh);
+  localStorage.setItem("accessToken", access);
+  localStorage.setItem("refreshToken", refresh);
 };
 
 export const clearTokens = () => {
   accessToken = null;
   refreshToken = null;
-  localStorage.removeItem('accessToken');
-  localStorage.removeItem('refreshToken');
+  localStorage.removeItem("accessToken");
+  localStorage.removeItem("refreshToken");
 };
 
 export const isAuthenticated = () => !!accessToken;
@@ -32,48 +32,33 @@ class ApiError extends Error {
 
   constructor(message: string, code: string, status: number) {
     super(message);
-    this.name = 'ApiError';
+    this.name = "ApiError";
     this.code = code;
     this.status = status;
   }
 }
 
-async function refreshAccessToken(): Promise<boolean> {
-  const storedRefresh = getRefreshToken();
-  if (!storedRefresh) return false;
+// Auth refresh function injected by AuthContext on mount.
+// This is the single source of truth for token refresh — AuthContext owns
+// React state updates (user, userProfile) and token lifecycle.
+let authRefreshFn: (() => Promise<boolean>) | null = null;
+let isRefreshing = false;
 
-  try {
-    const res = await fetch(`${API_BASE}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken: storedRefresh }),
-    });
-
-    if (!res.ok) {
-      clearTokens();
-      return false;
-    }
-
-    const data = await res.json();
-    setTokens(data.accessToken, data.refreshToken);
-    return true;
-  } catch {
-    clearTokens();
-    return false;
-  }
-}
+export const setAuthRefreshFn = (fn: (() => Promise<boolean>) | null) => {
+  authRefreshFn = fn;
+};
 
 export async function apiRequest<T>(
   path: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
 ): Promise<T> {
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
     ...(options.headers as Record<string, string>),
   };
 
   if (accessToken) {
-    headers['Authorization'] = `Bearer ${accessToken}`;
+    headers["Authorization"] = `Bearer ${accessToken}`;
   }
 
   let res = await fetch(`${API_BASE}${path}`, {
@@ -81,20 +66,34 @@ export async function apiRequest<T>(
     headers,
   });
 
-  if (res.status === 401 && refreshToken) {
-    const refreshed = await refreshAccessToken();
-    if (refreshed) {
-      headers['Authorization'] = `Bearer ${accessToken}`;
-      res = await fetch(`${API_BASE}${path}`, {
-        ...options,
-        headers,
-      });
+  if (res.status === 401 && refreshToken && authRefreshFn) {
+    if (isRefreshing) {
+      throw new ApiError('Session refresh already in progress', 'UNAUTHORIZED', 401);
+    }
+    isRefreshing = true;
+    try {
+      const refreshed = await authRefreshFn();
+      if (refreshed) {
+        headers["Authorization"] = `Bearer ${accessToken}`;
+        res = await fetch(`${API_BASE}${path}`, {
+          ...options,
+          headers,
+        });
+      }
+    } finally {
+      isRefreshing = false;
     }
   }
 
   if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: 'Request failed', code: 'UNKNOWN' }));
-    throw new ApiError(body.error || 'Request failed', body.code || 'UNKNOWN', res.status);
+    const body = await res
+      .json()
+      .catch(() => ({ error: "Request failed", code: "UNKNOWN" }));
+    throw new ApiError(
+      body.error || "Request failed",
+      body.code || "UNKNOWN",
+      res.status,
+    );
   }
 
   if (res.status === 204) return undefined as T;
@@ -102,36 +101,41 @@ export async function apiRequest<T>(
 }
 
 // Auth API
+type AuthUserResponse = {
+  id: string;
+  email: string;
+  displayName: string;
+  role: string;
+  photoUrl: string | null;
+};
+type AuthResultResponse = {
+  user: AuthUserResponse;
+  accessToken: string;
+  refreshToken: string;
+};
+
 export const authApi = {
   login: (email: string, password: string) =>
-    apiRequest<{
-      user: { id: string; email: string; displayName: string; role: string };
-      accessToken: string;
-      refreshToken: string;
-    }>('/auth/login', {
-      method: 'POST',
+    apiRequest<AuthResultResponse>("/auth/login", {
+      method: "POST",
       body: JSON.stringify({ email, password }),
     }),
 
   register: (email: string, password: string, displayName: string) =>
-    apiRequest<{
-      user: { id: string; email: string; displayName: string; role: string };
-      accessToken: string;
-      refreshToken: string;
-    }>('/auth/register', {
-      method: 'POST',
+    apiRequest<AuthResultResponse>("/auth/register", {
+      method: "POST",
       body: JSON.stringify({ email, password, displayName }),
     }),
 
   refresh: (token: string) =>
-    apiRequest<{ accessToken: string; refreshToken: string; user: { id: string; email: string; displayName: string; role: string } }>(
-      '/auth/refresh',
-      { method: 'POST', body: JSON.stringify({ refreshToken: token }) }
-    ),
+    apiRequest<AuthResultResponse>("/auth/refresh", {
+      method: "POST",
+      body: JSON.stringify({ refreshToken: token }),
+    }),
 
   logout: (token: string) =>
-    apiRequest<{ success: boolean }>('/auth/logout', {
-      method: 'POST',
+    apiRequest<{ success: boolean }>("/auth/logout", {
+      method: "POST",
       body: JSON.stringify({ refreshToken: token }),
     }),
 
@@ -146,37 +150,29 @@ export const authApi = {
     socialLinks?: Record<string, string | undefined>;
     photoURL?: string;
   }) =>
-    apiRequest<{
-      user: { id: string; email: string; displayName: string; role: string };
-      accessToken: string;
-      refreshToken: string;
-    }>('/auth/register-artist', {
-      method: 'POST',
+    apiRequest<AuthResultResponse>("/auth/register-artist", {
+      method: "POST",
       body: JSON.stringify(data),
     }),
 
   getGoogleUrl: () => `${API_BASE}/auth/google`,
 
-  signInWithSpotify: (accessToken: string) =>
-    apiRequest<{
-      user: { id: string; email: string; displayName: string; role: string };
-      accessToken: string;
-      refreshToken: string;
-    }>('/auth/spotify', {
-      method: 'POST',
-      body: JSON.stringify({ accessToken }),
-    }),
-
   forgotPassword: (email: string) =>
-    apiRequest<{ success: boolean }>('/auth/forgot-password', {
-      method: 'POST',
+    apiRequest<{ success: boolean }>("/auth/forgot-password", {
+      method: "POST",
       body: JSON.stringify({ email }),
     }),
 
   resetPassword: (token: string, newPassword: string) =>
-    apiRequest<{ success: boolean }>('/auth/reset-password', {
-      method: 'POST',
+    apiRequest<{ success: boolean }>("/auth/reset-password", {
+      method: "POST",
       body: JSON.stringify({ token, newPassword }),
+    }),
+
+  changePassword: (currentPassword: string, newPassword: string) =>
+    apiRequest<{ success: boolean }>("/auth/change-password", {
+      method: "POST",
+      body: JSON.stringify({ currentPassword, newPassword }),
     }),
 };
 
@@ -193,105 +189,350 @@ export const songsApi = {
     sortOrder?: string;
   }) => {
     const q = new URLSearchParams();
-    if (params?.cursor) q.set('cursor', params.cursor);
-    if (params?.limit) q.set('limit', String(params.limit));
-    if (params?.search) q.set('search', params.search);
-    if (params?.genre) q.set('genre', params.genre);
-    if (params?.language) q.set('language', params.language);
-    if (params?.artistId) q.set('artistId', params.artistId);
-    if (params?.sortBy) q.set('sortBy', params.sortBy);
-    if (params?.sortOrder) q.set('sortOrder', params.sortOrder);
+    if (params?.cursor) q.set("cursor", params.cursor);
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.search) q.set("search", params.search);
+    if (params?.genre) q.set("genre", params.genre);
+    if (params?.language) q.set("language", params.language);
+    if (params?.artistId) q.set("artistId", params.artistId);
+    if (params?.sortBy) q.set("sortBy", params.sortBy);
+    if (params?.sortOrder) q.set("sortOrder", params.sortOrder);
     const qs = q.toString();
-    return apiRequest<any>(`/songs${qs ? `?${qs}` : ''}`);
+    return apiRequest<any>(`/songs${qs ? `?${qs}` : ""}`);
   },
 
   get: (id: string) => apiRequest<any>(`/songs/${id}`),
 
-  getByLanguage: (languageCode: string, limit?: number) => {
-    const q = limit ? `?limit=${limit}` : '';
-    return apiRequest<any>(`/songs/by-language/${languageCode}${q}`);
+  getByLanguage: (
+    languageCode: string,
+    params?: { limit?: number; page?: number },
+  ) => {
+    const q = new URLSearchParams();
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.page) q.set("page", String(params.page));
+    const qs = q.toString();
+    return apiRequest<any>(
+      `/songs/by-language/${encodeURIComponent(languageCode)}${qs ? `?${qs}` : ""}`,
+    );
   },
 
   getTranslations: (id: string) => apiRequest<any>(`/songs/${id}/translations`),
 
   create: (data: any) =>
-    apiRequest<any>('/songs', { method: 'POST', body: JSON.stringify(data) }),
+    apiRequest<any>("/songs", { method: "POST", body: JSON.stringify(data) }),
 
   update: (id: string, data: any) =>
-    apiRequest<any>(`/songs/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    apiRequest<any>(`/songs/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
 
-  delete: (id: string) =>
-    apiRequest<any>(`/songs/${id}`, { method: 'DELETE' }),
+  delete: (id: string) => apiRequest<any>(`/songs/${id}`, { method: "DELETE" }),
 };
 
 // Artists API
 export const artistsApi = {
-  getAll: (params?: { cursor?: string; limit?: number; search?: string; genre?: string }) => {
+  getAll: (params?: {
+    cursor?: string;
+    limit?: number;
+    search?: string;
+    genre?: string;
+  }) => {
     const q = new URLSearchParams();
-    if (params?.cursor) q.set('cursor', params.cursor);
-    if (params?.limit) q.set('limit', String(params.limit));
-    if (params?.search) q.set('search', params.search);
-    if (params?.genre) q.set('genre', params.genre);
+    if (params?.cursor) q.set("cursor", params.cursor);
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.search) q.set("search", params.search);
+    if (params?.genre) q.set("genre", params.genre);
     const qs = q.toString();
-    return apiRequest<{ data: any[]; nextCursor: string | null; total: number }>(`/artists${qs ? `?${qs}` : ''}`);
+    return apiRequest<{
+      data: any[];
+      nextCursor: string | null;
+      total: number;
+    }>(`/artists${qs ? `?${qs}` : ""}`);
   },
 
   get: (id: string) => apiRequest<any>(`/artists/${id}`),
 
   create: (data: any) =>
-    apiRequest<any>('/artists', { method: 'POST', body: JSON.stringify(data) }),
+    apiRequest<any>("/artists", { method: "POST", body: JSON.stringify(data) }),
 
   update: (id: string, data: any) =>
-    apiRequest<any>(`/artists/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    apiRequest<any>(`/artists/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
 
   delete: (id: string) =>
-    apiRequest<any>(`/artists/${id}`, { method: 'DELETE' }),
+    apiRequest<any>(`/artists/${id}`, { method: "DELETE" }),
 };
 
 // Translations API
 export const translationsApi = {
   request: (songId: string, sourceLang: string, targetLang: string) =>
-    apiRequest<any>('/translations/request', {
-      method: 'POST',
+    apiRequest<any>("/translations/request", {
+      method: "POST",
       body: JSON.stringify({ songId, sourceLang, targetLang }),
     }),
 
-  getStatus: (jobId: string) => apiRequest<any>(`/translations/status/${jobId}`),
+  getStatus: (jobId: string) =>
+    apiRequest<any>(`/translations/status/${jobId}`),
 
   getForSong: (songId: string) => apiRequest<any>(`/translations/${songId}`),
 
   detectLanguage: (lyrics: string) =>
-    apiRequest<any>('/translations/detect-language', {
-      method: 'POST',
+    apiRequest<any>("/translations/detect-language", {
+      method: "POST",
       body: JSON.stringify({ lyrics }),
     }),
 
-  vote: (id: string, voteType: 'UPVOTE' | 'DOWNVOTE') =>
+  vote: (id: string, voteType: "UPVOTE" | "DOWNVOTE") =>
     apiRequest<any>(`/translations/${id}/vote`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify({ voteType }),
+    }),
+
+  update: (id: string, data: { translatedLyrics: string }) =>
+    apiRequest<any>(`/translations/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  submitCorrection: (
+    id: string,
+    correction: { originalText: string; suggestedText: string; reason?: string }
+  ) =>
+    apiRequest<any>(`/translations/${id}/correction`, {
+      method: "POST",
+      body: JSON.stringify(correction),
+    }),
+
+  directSave: (data: {
+    songId: string;
+    originalLyrics: string;
+    translatedLyrics: string;
+    sourceLang: string;
+    targetLang: string;
+    culturalContext?: string;
+    status?: string;
+  }) =>
+    apiRequest<any>("/translations/direct", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  health: () => apiRequest<any>("/translations/health"),
+
+  testSdk: () =>
+    apiRequest<any>("/translations/test", {
+      method: "POST",
     }),
 };
 
-// Search API
-export const searchApi = {
-  search: (params: { q?: string; type?: string; lang?: string; genre?: string; page?: number; limit?: number }) => {
+// Role Requests API
+export type RoleRequestStatus = 'PENDING' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED';
+export type RequestedRole = 'MODERATOR';
+
+export interface RoleRequest {
+  id: string;
+  userId: string;
+  role: RequestedRole;
+  status: RoleRequestStatus;
+  fields: Record<string, unknown>;
+  notes?: string | null;
+  reviewedBy?: string | null;
+  reviewedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RoleRequestWithUser extends RoleRequest {
+  user: {
+    id: string;
+    email: string;
+    displayName: string | null;
+    photoUrl: string | null;
+    role: string;
+  };
+}
+
+export const roleRequestsApi = {
+  submit: (role: RequestedRole, fields: Record<string, unknown>, notes?: string) =>
+    apiRequest<RoleRequest>('/roles', {
+      method: 'POST',
+      body: JSON.stringify({ role, fields, notes }),
+    }),
+
+  list: (params?: { status?: RoleRequestStatus; role?: RequestedRole }) => {
     const q = new URLSearchParams();
-    if (params.q) q.set('q', params.q);
-    if (params.type) q.set('type', params.type);
-    if (params.lang) q.set('lang', params.lang);
-    if (params.genre) q.set('genre', params.genre);
-    if (params.page) q.set('page', String(params.page));
-    if (params.limit) q.set('limit', String(params.limit));
+    if (params?.status) q.set('status', params.status);
+    if (params?.role) q.set('role', params.role);
     const qs = q.toString();
-    return apiRequest<any>(`/search${qs ? `?${qs}` : ''}`);
+    return apiRequest<RoleRequest[]>(`/roles${qs ? `?${qs}` : ''}`);
   },
 
-  suggest: (q: string) => apiRequest<any>(`/search/suggest?q=${encodeURIComponent(q)}`),
+  get: (id: string) => apiRequest<RoleRequest>(`/roles/${id}`),
+
+  getPending: () =>
+    apiRequest<{ requests: Array<{ id: string; role: string; status: string; createdAt: string }> }>(
+      '/roles/pending',
+    ),
+
+  cancel: (id: string) =>
+    apiRequest<{ success: boolean }>(`/roles/${id}`, { method: 'DELETE' }),
+};
+
+// Artist Application Status API
+export const artistApplicationApi = {
+  getStatus: () =>
+    apiRequest<{ application: { id: string; status: string; stageName: string; createdAt: string } | null }>(
+      '/artists/me/application-status',
+    ),
+
+  cancel: () =>
+    apiRequest<{ success: boolean }>('/artists/me/application', { method: 'DELETE' }),
+};
+
+// Artist Listener Regions API
+export const artistListenerRegionsApi = {
+  getRegions: (rangeDays: 30 | 90 = 30) =>
+    apiRequest<{
+      rangeDays: number;
+      totalListeners: number;
+      regions: { name: string; listeners: number; plays: number; percentage: number }[];
+      cities: { name: string; country: string; listeners: number; plays: number; percentage: number }[];
+    }>(`/artists/me/listener-regions?rangeDays=${rangeDays}`),
+};
+
+// Admin Role Requests API
+export const adminRoleRequestsApi = {
+  list: (params?: {
+    cursor?: string;
+    limit?: number;
+    status?: RoleRequestStatus;
+    role?: RequestedRole;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.cursor) q.set('cursor', params.cursor);
+    if (params?.limit) q.set('limit', String(params.limit));
+    if (params?.status) q.set('status', params.status);
+    if (params?.role) q.set('role', params.role);
+    const qs = q.toString();
+    return apiRequest<{
+      data: RoleRequestWithUser[];
+      total: number;
+      nextCursor: string | null;
+    }>(`/admin/role-requests${qs ? `?${qs}` : ''}`);
+  },
+
+  review: (id: string, status: 'APPROVED' | 'REJECTED', notes?: string) =>
+    apiRequest<RoleRequest>(`/admin/role-requests/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, notes }),
+    }),
 };
 
 // Health API
 export const healthApi = {
   check: (verbose?: boolean) =>
-    apiRequest<any>(`/health${verbose ? '?verbose=true' : ''}`),
+    apiRequest<any>(`/health${verbose ? "?verbose=true" : ""}`),
+};
+
+// Lyrics API — Structured lyrics data for playback integration
+export interface LyricLine {
+  time: number;
+  text: string;
+}
+
+export interface StructuredLyrics {
+  songId: string;
+  content: string | null;
+  syncedLyrics: string | null;
+  lyricLines: LyricLine[] | null;
+  sourceProvider: string;
+  licenseStatus: string;
+  language: string | null;
+}
+
+export const lyricsApi = {
+  /**
+   * Get structured lyrics for a song.
+   * Returns plain text, synced LRC, parsed timestamp lines,
+   * source provider, license status, and detected language.
+   */
+  getForSong: (songId: string) =>
+    apiRequest<StructuredLyrics>(`/lyrics/${songId}`),
+};
+
+// Admin Genres API
+export const adminGenres = (params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: string;
+}) => {
+  const q = new URLSearchParams();
+  if (params?.page) q.set('page', String(params.page));
+  if (params?.limit) q.set('limit', String(params.limit));
+  if (params?.search) q.set('search', params.search);
+  if (params?.sortBy) q.set('sortBy', params.sortBy);
+  if (params?.sortOrder) q.set('sortOrder', params.sortOrder);
+  const qs = q.toString();
+  return apiRequest<any>(`/admin/genres${qs ? `?${qs}` : ''}`);
+};
+
+// Admin Users API
+export const adminUsers = (params?: {
+  cursor?: string;
+  page?: number;
+  limit?: number;
+  search?: string;
+  role?: string;
+  sortBy?: string;
+  sortOrder?: string;
+}) => {
+  const q = new URLSearchParams();
+  if (params?.cursor) q.set('cursor', params.cursor);
+  if (params?.page) q.set('page', String(params.page));
+  if (params?.limit) q.set('limit', String(params.limit));
+  if (params?.search) q.set('search', params.search);
+  if (params?.role) q.set('role', params.role);
+  if (params?.sortBy) q.set('sortBy', params.sortBy);
+  if (params?.sortOrder) q.set('sortOrder', params.sortOrder);
+  const qs = q.toString();
+  return apiRequest<any>(`/admin/users${qs ? `?${qs}` : ''}`);
+};
+
+// Admin Topics API
+export const adminTopics = (params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  categoryId?: string;
+  sortBy?: string;
+  sortOrder?: string;
+}) => {
+  const q = new URLSearchParams();
+  if (params?.page) q.set('page', String(params.page));
+  if (params?.limit) q.set('limit', String(params.limit));
+  if (params?.categoryId) q.set('categoryId', params.categoryId);
+  if (params?.search) q.set('search', params.search);
+  if (params?.sortBy) q.set('sortBy', params.sortBy);
+  if (params?.sortOrder) q.set('sortOrder', params.sortOrder);
+  const qs = q.toString();
+  return apiRequest<any>(`/community/topics${qs ? `?${qs}` : ''}`);
+};
+
+// Admin Categories API
+export const adminCategories = (params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+}) => {
+  const q = new URLSearchParams();
+  if (params?.page) q.set('page', String(params.page));
+  if (params?.limit) q.set('limit', String(params.limit));
+  if (params?.search) q.set('search', params.search);
+  const qs = q.toString();
+  return apiRequest<any>(`/community/categories${qs ? `?${qs}` : ''}`);
 };

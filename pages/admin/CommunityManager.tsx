@@ -1,214 +1,580 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import {
-  DeleteIcon,
-  EditIcon,
-  SearchIcon,
-  FilterIcon,
-  PlusIcon,
-  SaveIcon,
-  CancelIcon,
-  XIcon
-} from '../../components/icons/FlatIcons';
-import UserGroupIcon from '../../components/icons/UserGroupIcon';
-import type { Topic, ForumCategory, TopicComment } from '../../types';
+import { useNotification } from '../../hooks/useNotification';
+import { useConfirm } from '../../hooks/useConfirm';
+import Notification from '../../components/Notification';
+import ConfirmDialog from '../../components/ConfirmDialog';
+import AdminPagination from '../../components/admin/AdminPagination';
+import { AdminListPageSkeleton } from '../../components/PageSkeletons';
 
 type ViewMode = 'topics' | 'categories' | 'comments';
-type SortBy = 'latest' | 'mostLiked' | 'mostCommented';
+type TopicSortBy = 'createdAt' | 'likes' | 'commentCount' | 'title';
 
-const sortToApiParam: Record<SortBy, string> = {
-  latest: 'new',
-  mostLiked: 'top',
-  mostCommented: 'new',
+interface AdminTopic {
+  id: string;
+  title: string;
+  content: string;
+  authorName: string;
+  categoryName: string;
+  likes: number;
+  commentCount: number;
+  isPinned: boolean;
+  isLocked: boolean;
+  createdAt: string;
+}
+
+interface AdminCategory {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  order: number;
+  topicCount: number;
+  memberCount: number;
+}
+
+interface AdminComment {
+  id: string;
+  content: string;
+  userName: string;
+  likes: number;
+  parentCommentId: string | null;
+  createdAt: string;
+  replies: AdminComment[];
+}
+
+interface CategoryFormData {
+  id: string | null;
+  name: string;
+  description: string;
+  icon: string;
+  order: string;
+}
+
+const emptyCategoryForm: CategoryFormData = { id: null, name: '', description: '', icon: 'chat', order: '0' };
+
+const toQuery = (params: Record<string, string | number | undefined>) => {
+  const search = new URLSearchParams(
+    Object.entries(params)
+      .filter(([, value]) => value !== undefined)
+      .map(([key, value]) => [key, String(value)]),
+  );
+  const query = search.toString();
+  return query ? `?${query}` : '';
 };
 
+const formatDate = (timestamp: any) => {
+  if (!timestamp) return 'Unknown';
+  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return 'Unknown';
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
+
+const mapComment = (comment: any): AdminComment => ({
+  id: comment.id,
+  content: comment.content || '',
+  userName: comment.user?.displayName || comment.userName || 'Anonymous',
+  likes: Number(comment.likes) || 0,
+  parentCommentId: comment.parentCommentId || null,
+  createdAt: comment.createdAt,
+  replies: Array.isArray(comment.replies) ? comment.replies.map(mapComment) : [],
+});
+
 const CommunityManager: React.FC = () => {
-  const { authFetch } = useAuth();
+  const { authFetch, applyBalance } = useAuth();
+  const { notification, showNotification, hideNotification } = useNotification();
+  const { confirmState, confirm } = useConfirm();
+
   const [viewMode, setViewMode] = useState<ViewMode>('topics');
-  const [topics, setTopics] = useState<Topic[]>([]);
-  const [categories, setCategories] = useState<ForumCategory[]>([]);
-  const [comments, setComments] = useState<TopicComment[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string | undefined>();
-  const [sortBy, setSortBy] = useState<SortBy>('latest');
-  const [editingTopic, setEditingTopic] = useState<Topic | null>(null);
-  const [editingCategory, setEditingCategory] = useState<ForumCategory | null>(null);
-  const [newCategory, setNewCategory] = useState({ name: '', description: '', icon: 'chat', order: 0 });
-  const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
+
+  const [topics, setTopics] = useState<AdminTopic[]>([]);
+  const [topicsLoading, setTopicsLoading] = useState(true);
+  const [topicSearch, setTopicSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [sortBy, setSortBy] = useState<TopicSortBy>('createdAt');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [topicPage, setTopicPage] = useState(1);
+  const [filteredTopics, setFilteredTopics] = useState(0);
+  const [topicTotalPages, setTopicTotalPages] = useState(1);
+
+  const [categories, setCategories] = useState<AdminCategory[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [categorySearch, setCategorySearch] = useState('');
+  const [categoryPage, setCategoryPage] = useState(1);
+  const [filteredCategories, setFilteredCategories] = useState(0);
+  const [categoryTotalPages, setCategoryTotalPages] = useState(1);
+
+  const [totalTopics, setTotalTopics] = useState(0);
+  const [pinnedCount, setPinnedCount] = useState(0);
+  const [totalCategories, setTotalCategories] = useState(0);
+  const [categoryOptions, setCategoryOptions] = useState<{ id: string; name: string }[]>([]);
+
+  const [selectedTopic, setSelectedTopic] = useState<{ id: string; title: string } | null>(null);
+  const [comments, setComments] = useState<AdminComment[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+
+  const [topicForm, setTopicForm] = useState<{ id: string; title: string; content: string } | null>(null);
+  const [categoryForm, setCategoryForm] = useState<CategoryFormData | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const itemsPerPage = 20;
+  const topicSequence = useRef(0);
+  const categorySequence = useRef(0);
+  const commentSequence = useRef(0);
+
+  const fetchTotals = useCallback(async () => {
+    try {
+      const [topicsTotals, categoriesTotals] = await Promise.all([
+        authFetch('/api/community/topics' + toQuery({ page: 1, limit: 1 })),
+        authFetch('/api/community/categories' + toQuery({ page: 1, limit: 1 })),
+      ]);
+      setTotalTopics(Number(topicsTotals?.total) || 0);
+      setPinnedCount(Number(topicsTotals?.pinnedCount) || 0);
+      setTotalCategories(Number(categoriesTotals?.total) || 0);
+    } catch {
+      // Totals are non-critical; list fetches surface errors.
+    }
+  }, [authFetch]);
+
+  const fetchCategoryOptions = useCallback(async () => {
+    try {
+      const response = await authFetch('/api/community/categories');
+      const list = Array.isArray(response) ? response : response?.data || [];
+      setCategoryOptions(list.map((c: any) => ({ id: c.id, name: c.name })));
+    } catch {
+      // Options are non-critical.
+    }
+  }, [authFetch]);
+
+  const fetchTopics = useCallback(async (forceFresh = false) => {
+    const sequence = ++topicSequence.current;
+    setTopicsLoading(true);
+    try {
+      const fresh = forceFresh ? { _ts: Date.now() } : {};
+      const response = await authFetch('/api/community/topics' + toQuery({
+        page: topicPage,
+        limit: itemsPerPage,
+        search: topicSearch.trim() || undefined,
+        categoryId: categoryFilter === 'all' ? undefined : categoryFilter,
+        sortBy,
+        sortOrder,
+        ...fresh,
+      }));
+      if (sequence !== topicSequence.current) return;
+
+      const topicsData = Array.isArray(response?.topics) ? response.topics : [];
+      setTopics(topicsData.map((topic: any) => ({
+        id: topic.id,
+        title: topic.title || '',
+        content: topic.content || '',
+        authorName: topic.author?.displayName || 'Anonymous',
+        categoryName: topic.category?.name || '',
+        likes: Number(topic.likes) || 0,
+        commentCount: Number(topic.commentCount) || 0,
+        isPinned: Boolean(topic.isPinned),
+        isLocked: Boolean(topic.isLocked),
+        createdAt: topic.createdAt,
+      })));
+
+      const total = Number(response?.total) || 0;
+      setFilteredTopics(total);
+      const responseTotalPages = Math.max(1, Math.ceil(total / itemsPerPage));
+      setTopicTotalPages(responseTotalPages);
+      if (topicPage > responseTotalPages) {
+        setTopicPage(responseTotalPages);
+        return;
+      }
+    } catch (error: any) {
+      if (sequence !== topicSequence.current) return;
+      showNotification({ message: `Error loading topics: ${error.message}`, type: 'error' });
+    } finally {
+      if (sequence === topicSequence.current) setTopicsLoading(false);
+    }
+  }, [authFetch, categoryFilter, itemsPerPage, showNotification, sortBy, sortOrder, topicPage, topicSearch]);
+
+  const fetchCategories = useCallback(async (forceFresh = false) => {
+    const sequence = ++categorySequence.current;
+    setCategoriesLoading(true);
+    try {
+      const fresh = forceFresh ? { _ts: Date.now() } : {};
+      const response = await authFetch('/api/community/categories' + toQuery({
+        page: categoryPage,
+        limit: itemsPerPage,
+        search: categorySearch.trim() || undefined,
+        ...fresh,
+      }));
+      if (sequence !== categorySequence.current) return;
+
+      const categoriesData = Array.isArray(response?.data) ? response.data : [];
+      setCategories(categoriesData.map((category: any) => ({
+        id: category.id,
+        name: category.name || '',
+        description: category.description || '',
+        icon: category.icon || 'chat',
+        order: Number(category.order) || 0,
+        topicCount: Number(category.topicCount) || 0,
+        memberCount: Number(category.memberCount) || 0,
+      })));
+
+      setFilteredCategories(Number(response?.total) || 0);
+      const responseTotalPages = Math.max(1, Number(response?.totalPages) || 1);
+      setCategoryTotalPages(responseTotalPages);
+      if (categoryPage > responseTotalPages) {
+        setCategoryPage(responseTotalPages);
+        return;
+      }
+    } catch (error: any) {
+      if (sequence !== categorySequence.current) return;
+      showNotification({ message: `Error loading categories: ${error.message}`, type: 'error' });
+    } finally {
+      if (sequence === categorySequence.current) setCategoriesLoading(false);
+    }
+  }, [authFetch, categoryPage, categorySearch, itemsPerPage, showNotification]);
+
+  const fetchComments = useCallback(async () => {
+    if (!selectedTopic) return;
+    const sequence = ++commentSequence.current;
+    setCommentsLoading(true);
+    try {
+      const response = await authFetch(`/api/community/topics/${selectedTopic.id}`);
+      if (sequence !== commentSequence.current) return;
+      const commentsData = Array.isArray(response?.comments) ? response.comments : [];
+      setComments(commentsData.map(mapComment));
+    } catch (error: any) {
+      if (sequence !== commentSequence.current) return;
+      showNotification({ message: `Error loading comments: ${error.message}`, type: 'error' });
+    } finally {
+      if (sequence === commentSequence.current) setCommentsLoading(false);
+    }
+  }, [authFetch, selectedTopic, showNotification]);
 
   useEffect(() => {
-    loadData();
-  }, [viewMode, selectedCategory, sortBy, searchTerm]);
+    void fetchTotals();
+    void fetchCategoryOptions();
+  }, [fetchTotals, fetchCategoryOptions]);
 
-  const loadData = async () => {
-    setLoading(true);
+  useEffect(() => {
+    if (viewMode !== 'topics') return;
+    const delay = topicSearch.trim() ? 250 : 0;
+    const timer = window.setTimeout(() => void fetchTopics(), delay);
+    return () => window.clearTimeout(timer);
+  }, [fetchTopics, topicSearch, viewMode]);
+
+  useEffect(() => {
+    if (viewMode !== 'categories') return;
+    const delay = categorySearch.trim() ? 250 : 0;
+    const timer = window.setTimeout(() => void fetchCategories(), delay);
+    return () => window.clearTimeout(timer);
+  }, [fetchCategories, categorySearch, viewMode]);
+
+  useEffect(() => {
+    if (viewMode !== 'comments') return;
+    void fetchComments();
+  }, [fetchComments, viewMode]);
+
+  const refreshAfterTopicChange = () => {
+    void fetchTopics(true);
+    void fetchTotals();
+  };
+
+  const refreshAfterCategoryChange = () => {
+    void fetchCategories(true);
+    void fetchCategoryOptions();
+    void fetchTotals();
+  };
+
+  const handlePinTopic = async (topic: AdminTopic) => {
     try {
-      if (viewMode === 'topics') {
-        const params = new URLSearchParams();
-        if (selectedCategory) params.set('categoryId', selectedCategory);
-        if (searchTerm) params.set('search', searchTerm);
-        params.set('sort', sortToApiParam[sortBy]);
-        params.set('limit', '100');
-        const data = await authFetch(`/api/community/topics?${params.toString()}`);
-        setTopics(data.topics || data.data || []);
-      } else if (viewMode === 'categories') {
-        const cats = await authFetch('/api/community/categories');
-        setCategories(Array.isArray(cats) ? cats : cats.categories || cats.data || []);
-      } else if (viewMode === 'comments' && selectedTopicId) {
-        const data = await authFetch(`/api/community/topics/${selectedTopicId}`);
-        setComments(data.comments || []);
-      }
-    } catch (error) {
-      console.error('Error loading data:', error);
-    } finally {
-      setLoading(false);
+      const result = await authFetch(`/api/community/topics/${topic.id}/pin`, { method: 'PATCH' });
+      if (result?.reward?.balance != null) applyBalance(result.reward.balance);
+      showNotification({
+        message: (result?.isPinned ?? !topic.isPinned) ? 'Topic pinned!' : 'Topic unpinned!',
+        type: 'success'
+      });
+      refreshAfterTopicChange();
+    } catch (error: any) {
+      showNotification({ message: `Error pinning topic: ${error.message}`, type: 'error' });
     }
   };
 
-  const handleDeleteTopic = async (topicId: string) => {
-    if (window.confirm('Are you sure you want to delete this topic? This action cannot be undone.')) {
-      try {
-        await authFetch(`/api/community/topics/${topicId}`, { method: 'DELETE' });
-        loadData();
-      } catch (error) {
-        console.error('Error deleting topic:', error);
-        alert('Failed to delete topic');
-      }
-    }
-  };
-
-  const handlePinTopic = async (topicId: string, isPinned: boolean) => {
+  const handleLockTopic = async (topic: AdminTopic) => {
     try {
-      await authFetch(`/api/community/topics/${topicId}/pin`, { method: 'PATCH' });
-      loadData();
-    } catch (error) {
-      console.error('Error pinning topic:', error);
-    }
-  };
-
-  const handleLockTopic = async (topicId: string, isLocked: boolean) => {
-    try {
-      await authFetch(`/api/community/topics/${topicId}/lock`, { method: 'PATCH' });
-      loadData();
-    } catch (error) {
-      console.error('Error locking topic:', error);
+      const result = await authFetch(`/api/community/topics/${topic.id}/lock`, { method: 'PATCH' });
+      if (result?.reward?.balance != null) applyBalance(result.reward.balance);
+      showNotification({
+        message: (result?.isLocked ?? !topic.isLocked) ? 'Topic locked!' : 'Topic unlocked!',
+        type: 'success'
+      });
+      refreshAfterTopicChange();
+    } catch (error: any) {
+      showNotification({ message: `Error locking topic: ${error.message}`, type: 'error' });
     }
   };
 
   const handleSaveTopic = async () => {
-    if (!editingTopic || !editingTopic.id) return;
+    if (!topicForm) return;
+    if (!topicForm.title.trim()) {
+      showNotification({ message: 'Topic title is required', type: 'error' });
+      return;
+    }
+
+    setSubmitting(true);
     try {
-      await authFetch(`/api/community/topics/${editingTopic.id}`, {
+      await authFetch(`/api/community/topics/${topicForm.id}`, {
         method: 'PATCH',
-        body: JSON.stringify({
-          title: editingTopic.title,
-          content: editingTopic.content,
-        }),
+        body: JSON.stringify({ title: topicForm.title.trim(), content: topicForm.content }),
       });
-      setEditingTopic(null);
-      loadData();
-    } catch (error) {
-      console.error('Error updating topic:', error);
-      alert('Failed to update topic');
+      showNotification({ message: 'Topic updated successfully!', type: 'success' });
+      setTopicForm(null);
+      refreshAfterTopicChange();
+    } catch (error: any) {
+      showNotification({ message: `Error updating topic: ${error.message}`, type: 'error' });
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const handleDeleteCategory = async (categoryId: string) => {
-    if (window.confirm('Are you sure you want to delete this category? Topics in this category will not be deleted.')) {
-      try {
-        await authFetch(`/api/community/categories/${categoryId}`, { method: 'DELETE' });
-        loadData();
-      } catch (error) {
-        console.error('Error deleting category:', error);
-        alert('Failed to delete category');
-      }
+  const handleDeleteTopic = async (topic: AdminTopic) => {
+    const hasConfirmed = await confirm({
+      title: 'Delete Topic',
+      message: `Are you sure you want to delete "${topic.title}"? This action cannot be undone.`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+    if (!hasConfirmed) return;
+
+    try {
+      await authFetch(`/api/community/topics/${topic.id}`, { method: 'DELETE' });
+      showNotification({ message: 'Topic deleted successfully!', type: 'success' });
+      refreshAfterTopicChange();
+    } catch (error: any) {
+      showNotification({ message: `Error deleting topic: ${error.message}`, type: 'error' });
     }
+  };
+
+  const openComments = (topic: AdminTopic) => {
+    setSelectedTopic({ id: topic.id, title: topic.title });
+    setViewMode('comments');
   };
 
   const handleSaveCategory = async () => {
-    if (editingCategory && editingCategory.id) {
-      try {
-        await authFetch(`/api/community/categories/${editingCategory.id}`, {
+    if (!categoryForm) return;
+    if (!categoryForm.name.trim()) {
+      showNotification({ message: 'Category name is required', type: 'error' });
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const payload = {
+        name: categoryForm.name.trim(),
+        description: categoryForm.description.trim(),
+        icon: categoryForm.icon,
+        order: Number(categoryForm.order) || 0,
+      };
+
+      if (categoryForm.id) {
+        await authFetch(`/api/community/categories/${categoryForm.id}`, {
           method: 'PATCH',
-          body: JSON.stringify({
-            name: editingCategory.name,
-            description: editingCategory.description,
-            icon: editingCategory.icon,
-            order: editingCategory.order,
-          }),
+          body: JSON.stringify(payload),
         });
-        setEditingCategory(null);
-        loadData();
-      } catch (error) {
-        console.error('Error updating category:', error);
-        alert('Failed to update category');
-      }
-    } else {
-      try {
+        showNotification({ message: 'Category updated successfully!', type: 'success' });
+      } else {
         await authFetch('/api/community/categories', {
           method: 'POST',
-          body: JSON.stringify({
-            name: newCategory.name,
-            description: newCategory.description,
-            icon: newCategory.icon,
-            order: newCategory.order,
-          }),
+          body: JSON.stringify(payload),
         });
-        setNewCategory({ name: '', description: '', icon: 'chat', order: 0 });
-        loadData();
-      } catch (error) {
-        console.error('Error creating category:', error);
-        alert('Failed to create category');
+        showNotification({ message: 'Category created successfully!', type: 'success' });
       }
+
+      setCategoryForm(null);
+      refreshAfterCategoryChange();
+    } catch (error: any) {
+      showNotification({ message: `Error saving category: ${error.message}`, type: 'error' });
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const handleDeleteComment = async (commentId: string, topicId: string) => {
-    if (window.confirm('Are you sure you want to delete this comment?')) {
-      try {
-        await authFetch(`/api/community/comments/${commentId}`, { method: 'DELETE' });
-        loadData();
-      } catch (error) {
-        console.error('Error deleting comment:', error);
-        alert('Failed to delete comment');
-      }
-    }
-  };
-
-  const formatDate = (timestamp: any) => {
-    if (!timestamp) return 'Unknown';
-    const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+  const handleDeleteCategory = async (category: AdminCategory) => {
+    const hasConfirmed = await confirm({
+      title: 'Delete Category',
+      message: `Are you sure you want to delete "${category.name}"? Topics in this category will not be deleted.`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      type: 'danger'
     });
+    if (!hasConfirmed) return;
+
+    try {
+      await authFetch(`/api/community/categories/${category.id}`, { method: 'DELETE' });
+      showNotification({ message: 'Category deleted successfully!', type: 'success' });
+      if (categoryFilter === category.id) setCategoryFilter('all');
+      refreshAfterCategoryChange();
+    } catch (error: any) {
+      showNotification({ message: `Error deleting category: ${error.message}`, type: 'error' });
+    }
   };
 
-  if (loading && viewMode === 'topics' && topics.length === 0) {
-    return (
-      <div className="space-y-6 animate-pulse">
-        <div className="h-16 rounded-xl bg-gray-800/70 border border-gray-700" />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 6 }).map((_, index) => (
-            <div key={index} className="h-48 rounded-xl bg-gray-800/70 border border-gray-700" />
-          ))}
+  const handleDeleteComment = async (comment: AdminComment) => {
+    const hasConfirmed = await confirm({
+      title: 'Delete Comment',
+      message: 'Are you sure you want to delete this comment? This action cannot be undone.',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+    if (!hasConfirmed) return;
+
+    try {
+      await authFetch(`/api/community/comments/${comment.id}`, { method: 'DELETE' });
+      showNotification({ message: 'Comment deleted successfully!', type: 'success' });
+      void fetchComments();
+      void fetchTotals();
+    } catch (error: any) {
+      showNotification({ message: `Error deleting comment: ${error.message}`, type: 'error' });
+    }
+  };
+
+  const resetTopicFilters = () => {
+    setTopicSearch('');
+    setCategoryFilter('all');
+    setSortBy('createdAt');
+    setSortOrder('desc');
+    setTopicPage(1);
+  };
+
+  const renderTopicBadges = (topic: AdminTopic) => (
+    <>
+      {topic.isPinned && (
+        <span className="px-2 py-0.5 text-xs font-medium bg-amber-500/20 text-amber-400 rounded-full">Pinned</span>
+      )}
+      {topic.isLocked && (
+        <span className="px-2 py-0.5 text-xs font-medium bg-red-500/20 text-red-400 rounded-full">Locked</span>
+      )}
+    </>
+  );
+
+  const renderTopicActions = (topic: AdminTopic) => (
+    <div className="flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
+      <button
+        onClick={() => void handlePinTopic(topic)}
+        className={`px-3 py-1 text-sm font-semibold rounded transition-colors ${topic.isPinned ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
+        title={topic.isPinned ? 'Unpin' : 'Pin'}
+      >
+        {topic.isPinned ? 'Unpin' : 'Pin'}
+      </button>
+      <button
+        onClick={() => void handleLockTopic(topic)}
+        className={`px-3 py-1 text-sm font-semibold rounded transition-colors ${topic.isLocked ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
+        title={topic.isLocked ? 'Unlock' : 'Lock'}
+      >
+        {topic.isLocked ? 'Unlock' : 'Lock'}
+      </button>
+      <button
+        onClick={() => setTopicForm({ id: topic.id, title: topic.title, content: topic.content })}
+        className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded transition-colors"
+      >
+        Edit
+      </button>
+      <button
+        onClick={() => openComments(topic)}
+        className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-white text-sm font-semibold rounded transition-colors"
+      >
+        Comments
+      </button>
+      <button
+        onClick={() => void handleDeleteTopic(topic)}
+        className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded transition-colors"
+      >
+        Delete
+      </button>
+    </div>
+  );
+
+  const renderComment = (comment: AdminComment, depth = 0): React.ReactNode => (
+    <div key={comment.id} className={depth > 0 ? 'ml-6 sm:ml-10 border-l border-gray-700 pl-4' : ''}>
+      <div className="py-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-2 mb-1">
+              <span className="font-semibold text-white text-sm">{comment.userName}</span>
+              <span className="text-gray-500 text-xs">{formatDate(comment.createdAt)}</span>
+              {comment.parentCommentId && (
+                <span className="px-2 py-0.5 text-xs bg-gray-700 text-gray-300 rounded-full">Reply</span>
+              )}
+            </div>
+            <p className="text-gray-300 text-sm whitespace-pre-wrap break-words">{comment.content}</p>
+            <p className="text-xs text-gray-500 mt-1">{comment.likes} likes</p>
+          </div>
+          <button
+            onClick={() => void handleDeleteComment(comment)}
+            className="flex-shrink-0 px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded transition-colors"
+          >
+            Delete
+          </button>
         </div>
       </div>
+      {comment.replies.map((reply) => renderComment(reply, depth + 1))}
+    </div>
+  );
+
+  const activeLoading = viewMode === 'topics' ? topicsLoading : viewMode === 'categories' ? categoriesLoading : commentsLoading;
+
+  if (activeLoading) {
+    return (
+      <AdminListPageSkeleton rows={8} />
     );
   }
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white">Community Management</h1>
-          <p className="text-gray-400 mt-1">Manage topics, categories, and comments</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white">Community Management</h1>
+          <p className="text-sm sm:text-base text-gray-400 mt-1">Manage topics, categories, and comments</p>
+        </div>
+        {viewMode === 'categories' && (
+          <button
+            onClick={() => setCategoryForm(emptyCategoryForm)}
+            className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 min-h-[44px] sm:w-auto"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add Category
+          </button>
+        )}
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-gray-800 rounded-lg p-3 sm:p-4 border border-gray-700">
+          <p className="text-xs sm:text-sm text-gray-400 mb-1">Total Topics</p>
+          <p className="text-xl sm:text-2xl font-bold text-white">{totalTopics}</p>
+        </div>
+        <div className="bg-gray-800 rounded-lg p-3 sm:p-4 border border-gray-700">
+          <p className="text-xs sm:text-sm text-gray-400 mb-1">Filtered Results</p>
+          <p className="text-xl sm:text-2xl font-bold text-white">
+            {viewMode === 'categories' ? filteredCategories : filteredTopics}
+          </p>
+        </div>
+        <div className="bg-gray-800 rounded-lg p-3 sm:p-4 border border-gray-700">
+          <p className="text-xs sm:text-sm text-gray-400 mb-1">Pinned Topics</p>
+          <p className="text-xl sm:text-2xl font-bold text-white">{pinnedCount}</p>
+        </div>
+        <div className="bg-gray-800 rounded-lg p-3 sm:p-4 border border-gray-700">
+          <p className="text-xs sm:text-sm text-gray-400 mb-1">Categories</p>
+          <p className="text-xl sm:text-2xl font-bold text-white">{totalCategories}</p>
         </div>
       </div>
 
@@ -217,7 +583,7 @@ const CommunityManager: React.FC = () => {
         <button
           onClick={() => {
             setViewMode('topics');
-            setSelectedTopicId(null);
+            setSelectedTopic(null);
           }}
           className={`px-4 py-2 font-semibold transition-colors ${
             viewMode === 'topics'
@@ -225,408 +591,605 @@ const CommunityManager: React.FC = () => {
               : 'text-gray-400 hover:text-white'
           }`}
         >
-          Topics ({topics.length})
+          Topics
         </button>
         <button
-          onClick={() => setViewMode('categories')}
+          onClick={() => {
+            setViewMode('categories');
+            setSelectedTopic(null);
+          }}
           className={`px-4 py-2 font-semibold transition-colors ${
             viewMode === 'categories'
               ? 'text-green-400 border-b-2 border-green-400'
               : 'text-gray-400 hover:text-white'
           }`}
         >
-          Categories ({categories.length})
+          Categories
         </button>
-        <button
-          onClick={() => {
-            if (!selectedTopicId) {
-              alert('Please select a topic first to view comments');
-              return;
-            }
-            setViewMode('comments');
-          }}
-          className={`px-4 py-2 font-semibold transition-colors ${
-            viewMode === 'comments'
-              ? 'text-green-400 border-b-2 border-green-400'
-              : 'text-gray-400 hover:text-white'
-          }`}
-          disabled={!selectedTopicId}
-        >
-          Comments {selectedTopicId && `(${comments.length})`}
-        </button>
+        {viewMode === 'comments' && selectedTopic && (
+          <button className="px-4 py-2 font-semibold text-green-400 border-b-2 border-green-400">
+            Comments
+          </button>
+        )}
       </div>
 
       {/* Topics View */}
       {viewMode === 'topics' && (
-        <div className="space-y-4">
-          {/* Filters */}
-          <div className="bg-gray-800 rounded-lg p-4">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="relative">
-                <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input
-                  type="text"
-                  placeholder="Search topics..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
-                />
+        <>
+          {/* Search and Filters */}
+          <div className="bg-gray-800 rounded-lg p-4 sm:p-6 border border-gray-700">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 mb-4">
+              {/* Search */}
+              <div className="lg:col-span-2">
+                <label className="block text-sm font-medium text-gray-300 mb-2">Search</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={topicSearch}
+                    onChange={(e) => {
+                      setTopicSearch(e.target.value);
+                      setTopicPage(1);
+                    }}
+                    placeholder="Search by title, content, or author..."
+                    className="w-full px-4 py-2.5 text-base bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                  <svg
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
               </div>
-              <select
-                value={selectedCategory || ''}
-                onChange={(e) => setSelectedCategory(e.target.value || undefined)}
-                className="px-4 py-2 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
-              >
-                <option value="">All Categories</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as SortBy)}
-                className="px-4 py-2 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
-              >
-                <option value="latest">Latest</option>
-                <option value="mostLiked">Most Liked</option>
-                <option value="mostCommented">Most Discussed</option>
-              </select>
-              <button
-                onClick={() => {
-                  setSearchTerm('');
-                  setSelectedCategory(undefined);
-                  setSortBy('latest');
-                }}
-                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
-              >
-                Clear Filters
-              </button>
+
+              {/* Category Filter */}
+              <div>
+                <label htmlFor="topic-category-filter" className="block text-sm font-medium text-gray-300 mb-2">Category</label>
+                <select
+                  id="topic-category-filter"
+                  value={categoryFilter}
+                  onChange={(e) => {
+                    setCategoryFilter(e.target.value);
+                    setTopicPage(1);
+                  }}
+                  className="w-full select-chevron px-3 pr-10 py-2.5 text-base bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  <option value="all">All Categories</option>
+                  {categoryOptions.map((category) => (
+                    <option key={category.id} value={category.id}>{category.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Sort */}
+              <div className="lg:col-span-2">
+                <label htmlFor="topic-sort-by" className="block text-sm font-medium text-gray-300 mb-2">Sort By</label>
+                <div className="flex gap-2">
+                  <select
+                    id="topic-sort-by"
+                    value={sortBy}
+                    onChange={(e) => {
+                      setSortBy(e.target.value as TopicSortBy);
+                      setTopicPage(1);
+                    }}
+                    className="flex-1 select-chevron px-3 pr-10 py-2.5 text-base bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="createdAt">Date Created</option>
+                    <option value="likes">Likes</option>
+                    <option value="commentCount">Comments</option>
+                    <option value="title">Title</option>
+                  </select>
+                  <button
+                    onClick={() => {
+                      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                      setTopicPage(1);
+                    }}
+                    className="px-3 py-2.5 min-w-[44px] bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg text-white transition-colors"
+                    title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+                  >
+                    {sortOrder === 'asc' ? '↑' : '↓'}
+                  </button>
+                </div>
+              </div>
             </div>
+
+            {/* Reset Filters */}
+            {(topicSearch || categoryFilter !== 'all') && (
+              <button
+                onClick={resetTopicFilters}
+                className="text-sm text-green-400 hover:text-green-300 flex items-center gap-1"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Reset Filters
+              </button>
+            )}
           </div>
 
           {/* Topics List */}
-          <div className="bg-gray-800 rounded-lg">
-            <div className="p-6 border-b border-gray-700">
-              <h2 className="text-xl font-semibold text-white">All Topics ({topics.length})</h2>
-            </div>
-
+          <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
             {topics.length === 0 ? (
-              <div className="p-6 text-center text-gray-400">No topics found.</div>
-            ) : (
-              <div className="divide-y divide-gray-700">
-                {topics.map((topic) => (
-                  <div key={topic.id} className="p-6 hover:bg-gray-700/50 transition-colors">
-                    {editingTopic?.id === topic.id ? (
-                      <div className="space-y-4">
-                        <input
-                          type="text"
-                          value={editingTopic.title}
-                          onChange={(e) => setEditingTopic({ ...editingTopic, title: e.target.value })}
-                          className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg"
-                          placeholder="Topic title"
-                        />
-                        <textarea
-                          value={editingTopic.content}
-                          onChange={(e) => setEditingTopic({ ...editingTopic, content: e.target.value })}
-                          className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg"
-                          rows={4}
-                          placeholder="Topic content"
-                        />
-                        <div className="flex gap-2">
-                          <button
-                            onClick={handleSaveTopic}
-                            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center gap-2"
-                          >
-                            <SaveIcon className="w-4 h-4" />
-                            Save
-                          </button>
-                          <button
-                            onClick={() => setEditingTopic(null)}
-                            className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg flex items-center gap-2"
-                          >
-                            <CancelIcon className="w-4 h-4" />
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            {topic.isPinned && (
-                              <span className="px-2 py-1 bg-amber-500/20 text-amber-400 text-xs rounded">Pinned</span>
-                            )}
-                            {topic.isLocked && (
-                              <span className="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded">Locked</span>
-                            )}
-                            <Link
-                              to={`/community/topic/${topic.id}`}
-                              className="text-lg font-semibold text-white hover:text-green-400 transition-colors"
-                            >
-                              {topic.title}
-                            </Link>
-                          </div>
-                          <p className="text-gray-400 text-sm mb-2 line-clamp-2">{topic.content}</p>
-                          <div className="flex items-center gap-4 text-xs text-gray-500">
-                            <span>By {topic.authorName}</span>
-                            <span>•</span>
-                            <span>{formatDate(topic.createdAt)}</span>
-                            <span>•</span>
-                            <span>{topic.likes || 0} likes</span>
-                            <span>•</span>
-                            <span>{topic.commentCount || 0} comments</span>
-                            {(typeof topic.category === 'string' ? topic.category : topic.category?.name) && (
-                              <>
-                                <span>•</span>
-                                <span className="px-2 py-0.5 bg-gray-700 rounded">{typeof topic.category === 'string' ? topic.category : topic.category?.name}</span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex gap-2 ml-4">
-                          <button
-                            onClick={() => handlePinTopic(topic.id, topic.isPinned)}
-                            className={`p-2 rounded-lg transition-colors ${
-                              topic.isPinned
-                                ? 'bg-amber-500/20 text-amber-400'
-                                : 'bg-gray-700 hover:bg-gray-600 text-gray-400'
-                            }`}
-                            title={topic.isPinned ? 'Unpin' : 'Pin'}
-                          >
-                            📌
-                          </button>
-                          <button
-                            onClick={() => handleLockTopic(topic.id, topic.isLocked)}
-                            className={`p-2 rounded-lg transition-colors ${
-                              topic.isLocked
-                                ? 'bg-red-500/20 text-red-400'
-                                : 'bg-gray-700 hover:bg-gray-600 text-gray-400'
-                            }`}
-                            title={topic.isLocked ? 'Unlock' : 'Lock'}
-                          >
-                            🔒
-                          </button>
-                          <button
-                            onClick={() => setEditingTopic(topic)}
-                            className="p-2 bg-gray-700 hover:bg-gray-600 text-gray-400 rounded-lg transition-colors"
-                            title="Edit"
-                          >
-                            <EditIcon className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteTopic(topic.id)}
-                            className="p-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg transition-colors"
-                            title="Delete"
-                          >
-                            <DeleteIcon className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedTopicId(topic.id);
-                              setViewMode('comments');
-                            }}
-                            className="p-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded-lg transition-colors"
-                            title="View Comments"
-                          >
-                            💬
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
+              <div className="p-6 sm:p-12 text-center">
+                <div className="text-gray-400">
+                  <svg className="w-16 h-16 mx-auto mb-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                  <p className="text-lg font-semibold text-white mb-2">No Topics Found</p>
+                  <p>Try adjusting your filters or search query</p>
+                </div>
               </div>
+            ) : (
+              <>
+                {/* Desktop Table View */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full min-w-[900px]">
+                    <thead className="bg-gray-900 border-b border-gray-700">
+                      <tr>
+                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                          Topic
+                        </th>
+                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                          Author
+                        </th>
+                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                          Category
+                        </th>
+                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                          Likes
+                        </th>
+                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                          Comments
+                        </th>
+                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                          Created
+                        </th>
+                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-700">
+                      {topics.map((topic) => (
+                        <tr key={topic.id} className="hover:bg-gray-700/50 transition-colors">
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2 mb-1">
+                              {renderTopicBadges(topic)}
+                              <Link
+                                to={`/community/topic/${topic.id}`}
+                                className="font-medium text-white hover:text-green-400 transition-colors line-clamp-1"
+                              >
+                                {topic.title}
+                              </Link>
+                            </div>
+                            <p className="text-xs text-gray-400 line-clamp-1 max-w-[320px]">{topic.content}</p>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-300">{topic.authorName}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {topic.categoryName ? (
+                              <span className="px-2 py-1 text-xs font-medium bg-gray-700 text-gray-300 rounded-full">
+                                {topic.categoryName}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-gray-500">—</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-300">{topic.likes}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-300">{topic.commentCount}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-300">{formatDate(topic.createdAt)}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {renderTopicActions(topic)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="md:hidden divide-y divide-gray-700">
+                  {topics.map((topic) => (
+                    <div key={topic.id} className="p-4 hover:bg-gray-700/50 transition-colors">
+                      <div className="flex items-center gap-2 mb-1">
+                        {renderTopicBadges(topic)}
+                        <Link
+                          to={`/community/topic/${topic.id}`}
+                          className="font-semibold text-white hover:text-green-400 transition-colors line-clamp-1"
+                        >
+                          {topic.title}
+                        </Link>
+                      </div>
+                      <p className="text-sm text-gray-400 line-clamp-2 mb-2">{topic.content}</p>
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500 mb-3">
+                        <span>By {topic.authorName}</span>
+                        {topic.categoryName && <span>{topic.categoryName}</span>}
+                        <span>{topic.likes} likes</span>
+                        <span>{topic.commentCount} comments</span>
+                        <span>{formatDate(topic.createdAt)}</span>
+                      </div>
+                      {renderTopicActions(topic)}
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
+
+            {/* Pagination */}
+            <AdminPagination
+              currentPage={topicPage}
+              totalPages={topicTotalPages}
+              totalItems={filteredTopics}
+              itemsPerPage={itemsPerPage}
+              itemLabel="topics"
+              onPageChange={setTopicPage}
+            />
           </div>
-        </div>
+        </>
       )}
 
       {/* Categories View */}
       {viewMode === 'categories' && (
-        <div className="space-y-4">
-          <div className="bg-gray-800 rounded-lg p-6">
-            <h2 className="text-xl font-semibold text-white mb-4">Create New Category</h2>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <input
-                type="text"
-                placeholder="Category name"
-                value={newCategory.name}
-                onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
-                className="px-4 py-2 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
-              />
-              <input
-                type="text"
-                placeholder="Description"
-                value={newCategory.description}
-                onChange={(e) => setNewCategory({ ...newCategory, description: e.target.value })}
-                className="px-4 py-2 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
-              />
-              <select
-                value={newCategory.icon}
-                onChange={(e) => setNewCategory({ ...newCategory, icon: e.target.value })}
-                className="px-4 py-2 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
-              >
-                <option value="chat">Chat</option>
-                <option value="translate">Translate</option>
-                <option value="book">Book</option>
-                <option value="users">Users</option>
-              </select>
-              <input
-                type="number"
-                placeholder="Order"
-                value={newCategory.order}
-                onChange={(e) => setNewCategory({ ...newCategory, order: parseInt(e.target.value) || 0 })}
-                className="px-4 py-2 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
-              />
-            </div>
-            <button
-              onClick={handleSaveCategory}
-              className="mt-4 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center gap-2"
-            >
-              <PlusIcon className="w-4 h-4" />
-              Create Category
-            </button>
-          </div>
-
-          <div className="bg-gray-800 rounded-lg">
-            <div className="p-6 border-b border-gray-700">
-              <h2 className="text-xl font-semibold text-white">All Categories ({categories.length})</h2>
-            </div>
-
-            {categories.length === 0 ? (
-              <div className="p-6 text-center text-gray-400">No categories found.</div>
-            ) : (
-              <div className="divide-y divide-gray-700">
-                {categories.map((category) => (
-                  <div key={category.id} className="p-6">
-                    {editingCategory?.id === category.id ? (
-                      <div className="space-y-4">
-                        <input
-                          type="text"
-                          value={editingCategory.name}
-                          onChange={(e) => setEditingCategory({ ...editingCategory, name: e.target.value })}
-                          className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg"
-                        />
-                        <textarea
-                          value={editingCategory.description}
-                          onChange={(e) => setEditingCategory({ ...editingCategory, description: e.target.value })}
-                          className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg"
-                          rows={2}
-                        />
-                        <div className="flex gap-2">
-                          <button
-                            onClick={handleSaveCategory}
-                            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center gap-2"
-                          >
-                            <SaveIcon className="w-4 h-4" />
-                            Save
-                          </button>
-                          <button
-                            onClick={() => setEditingCategory(null)}
-                            className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg flex items-center gap-2"
-                          >
-                            <CancelIcon className="w-4 h-4" />
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="text-lg font-semibold text-white">{category.name}</h3>
-                          <p className="text-gray-400 text-sm mt-1">{category.description}</p>
-                          <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                            <span>Icon: {category.icon}</span>
-                            <span>•</span>
-                            <span>Order: {category.order}</span>
-                            <span>•</span>
-                            <span>Topics: {category.topicCount || 0}</span>
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => setEditingCategory(category)}
-                            className="p-2 bg-gray-700 hover:bg-gray-600 text-gray-400 rounded-lg transition-colors"
-                          >
-                            <EditIcon className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteCategory(category.id)}
-                            className="p-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg transition-colors"
-                          >
-                            <DeleteIcon className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
+        <>
+          {/* Search */}
+          <div className="bg-gray-800 rounded-lg p-4 sm:p-6 border border-gray-700">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 mb-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Search</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={categorySearch}
+                    onChange={(e) => {
+                      setCategorySearch(e.target.value);
+                      setCategoryPage(1);
+                    }}
+                    placeholder="Search by name or description..."
+                    className="w-full px-4 py-2.5 text-base bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                  <svg
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
               </div>
+            </div>
+
+            {categorySearch && (
+              <button
+                onClick={() => {
+                  setCategorySearch('');
+                  setCategoryPage(1);
+                }}
+                className="text-sm text-green-400 hover:text-green-300 flex items-center gap-1"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Reset Filters
+              </button>
             )}
           </div>
-        </div>
+
+          {/* Categories List */}
+          <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+            {categories.length === 0 ? (
+              <div className="p-6 sm:p-12 text-center">
+                <div className="text-gray-400">
+                  <svg className="w-16 h-16 mx-auto mb-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                  <p className="text-lg font-semibold text-white mb-2">No Categories Found</p>
+                  <p>Try adjusting your search or add a new category</p>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Desktop Table View */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full min-w-[760px]">
+                    <thead className="bg-gray-900 border-b border-gray-700">
+                      <tr>
+                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                          Category
+                        </th>
+                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                          Icon
+                        </th>
+                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                          Order
+                        </th>
+                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                          Topics
+                        </th>
+                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                          Members
+                        </th>
+                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-700">
+                      {categories.map((category) => (
+                        <tr
+                          key={category.id}
+                          className="hover:bg-gray-700/50 transition-colors cursor-pointer"
+                          onClick={() => setCategoryForm({
+                            id: category.id,
+                            name: category.name,
+                            description: category.description,
+                            icon: category.icon,
+                            order: String(category.order),
+                          })}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCategoryForm({ id: category.id, name: category.name, description: category.description, icon: category.icon, order: String(category.order) }); } }}
+                          tabIndex={0}
+                          role="button"
+                          aria-label={`Edit ${category.name}`}
+                        >
+                          <td className="px-6 py-4">
+                            <div className="font-medium text-white">{category.name}</div>
+                            <div className="text-xs text-gray-400 line-clamp-1 max-w-[320px]">{category.description}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="px-2 py-1 text-xs font-medium bg-gray-700 text-gray-300 rounded-full">{category.icon}</span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-300">{category.order}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-300">{category.topicCount}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-300">{category.memberCount}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                onClick={() => setCategoryForm({
+                                  id: category.id,
+                                  name: category.name,
+                                  description: category.description,
+                                  icon: category.icon,
+                                  order: String(category.order),
+                                })}
+                                className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded transition-colors"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => void handleDeleteCategory(category)}
+                                className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded transition-colors"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="md:hidden divide-y divide-gray-700">
+                  {categories.map((category) => (
+                    <div key={category.id} className="p-4 hover:bg-gray-700/50 transition-colors">
+                      <h3 className="font-semibold text-white mb-1">{category.name}</h3>
+                      <p className="text-sm text-gray-400 line-clamp-2 mb-2">{category.description}</p>
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500 mb-3">
+                        <span>Icon: {category.icon}</span>
+                        <span>Order: {category.order}</span>
+                        <span>{category.topicCount} topics</span>
+                        <span>{category.memberCount} members</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={() => setCategoryForm({
+                            id: category.id,
+                            name: category.name,
+                            description: category.description,
+                            icon: category.icon,
+                            order: String(category.order),
+                          })}
+                          className="flex-1 min-h-[44px] px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded transition-colors"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => void handleDeleteCategory(category)}
+                          className="flex-1 min-h-[44px] px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Pagination */}
+            <AdminPagination
+              currentPage={categoryPage}
+              totalPages={categoryTotalPages}
+              totalItems={filteredCategories}
+              itemsPerPage={itemsPerPage}
+              itemLabel="categories"
+              onPageChange={setCategoryPage}
+            />
+          </div>
+        </>
       )}
 
       {/* Comments View */}
-      {viewMode === 'comments' && selectedTopicId && (
-        <div className="space-y-4">
-          <div className="bg-gray-800 rounded-lg p-4">
+      {viewMode === 'comments' && selectedTopic && (
+        <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+          <div className="px-4 sm:px-6 py-4 border-b border-gray-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-white line-clamp-1">Comments on "{selectedTopic.title}"</h2>
+              <p className="text-xs text-gray-400 mt-1">Showing the first 20 top-level comments and their replies</p>
+            </div>
             <button
               onClick={() => {
                 setViewMode('topics');
-                setSelectedTopicId(null);
+                setSelectedTopic(null);
               }}
-              className="text-green-400 hover:text-green-300 flex items-center gap-2"
+              className="min-h-[44px] px-4 py-2 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg text-white text-sm font-medium transition-colors flex-shrink-0"
             >
               ← Back to Topics
             </button>
           </div>
 
-          <div className="bg-gray-800 rounded-lg">
-            <div className="p-6 border-b border-gray-700">
-              <h2 className="text-xl font-semibold text-white">Comments ({comments.length})</h2>
+          {comments.length === 0 ? (
+            <div className="p-6 sm:p-12 text-center text-gray-400">
+              <p className="text-lg font-semibold text-white mb-2">No Comments Found</p>
+              <p>This topic has no comments yet</p>
             </div>
+          ) : (
+            <div className="divide-y divide-gray-700 px-4 sm:px-6">
+              {comments.map((comment) => renderComment(comment))}
+            </div>
+          )}
+        </div>
+      )}
 
-            {comments.length === 0 ? (
-              <div className="p-6 text-center text-gray-400">No comments found.</div>
-            ) : (
-              <div className="divide-y divide-gray-700">
-                {comments.map((comment) => (
-                  <div key={comment.id} className="p-6">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="font-semibold text-white">{comment.userName}</span>
-                          <span className="text-gray-500 text-sm">•</span>
-                          <span className="text-gray-500 text-sm">{formatDate(comment.createdAt)}</span>
-                        </div>
-                        <p className="text-gray-300 mb-2">{comment.content}</p>
-                        <div className="flex items-center gap-4 text-xs text-gray-500">
-                          <span>{comment.likes || 0} likes</span>
-                          {comment.parentCommentId && (
-                            <span className="px-2 py-0.5 bg-gray-700 rounded">Reply</span>
-                          )}
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => handleDeleteComment(comment.id, selectedTopicId)}
-                        className="p-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg transition-colors ml-4"
-                      >
-                        <DeleteIcon className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+      {/* Topic Edit Modal */}
+      {topicForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => !submitting && setTopicForm(null)}>
+          <div className="w-full max-w-lg rounded-xl border border-gray-700 bg-gray-800 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Edit topic">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-white">Edit Topic</h2>
+              <button onClick={() => !submitting && setTopicForm(null)} className="text-gray-400 hover:text-white" aria-label="Close">✕</button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="topic-title" className="mb-1 block text-sm font-medium text-gray-300">Title</label>
+                <input
+                  id="topic-title"
+                  value={topicForm.title}
+                  onChange={(e) => setTopicForm((f) => f ? { ...f, title: e.target.value } : f)}
+                  className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
               </div>
-            )}
+              <div>
+                <label htmlFor="topic-content" className="mb-1 block text-sm font-medium text-gray-300">Content</label>
+                <textarea
+                  id="topic-content"
+                  value={topicForm.content}
+                  onChange={(e) => setTopicForm((f) => f ? { ...f, content: e.target.value } : f)}
+                  rows={6}
+                  className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button onClick={() => setTopicForm(null)} disabled={submitting} className="min-h-[44px] rounded-lg border border-gray-600 px-4 text-gray-200 hover:bg-gray-700 disabled:opacity-50">Cancel</button>
+              <button onClick={() => void handleSaveTopic()} disabled={submitting} className="min-h-[44px] rounded-lg bg-green-600 px-5 font-semibold text-white hover:bg-green-700 disabled:opacity-50">
+                {submitting ? 'Saving…' : 'Save changes'}
+              </button>
+            </div>
           </div>
         </div>
+      )}
+
+      {/* Category Add/Edit Modal */}
+      {categoryForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => !submitting && setCategoryForm(null)}>
+          <div className="w-full max-w-lg rounded-xl border border-gray-700 bg-gray-800 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={categoryForm.id ? 'Edit category' : 'Add category'}>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-white">{categoryForm.id ? 'Edit Category' : 'Add New Category'}</h2>
+              <button onClick={() => !submitting && setCategoryForm(null)} className="text-gray-400 hover:text-white" aria-label="Close">✕</button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="category-name" className="mb-1 block text-sm font-medium text-gray-300">Category Name</label>
+                <input
+                  id="category-name"
+                  value={categoryForm.name}
+                  onChange={(e) => setCategoryForm((f) => f ? { ...f, name: e.target.value } : f)}
+                  className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                  placeholder="e.g. General Discussion"
+                />
+              </div>
+              <div>
+                <label htmlFor="category-description" className="mb-1 block text-sm font-medium text-gray-300">Description (optional)</label>
+                <textarea
+                  id="category-description"
+                  value={categoryForm.description}
+                  onChange={(e) => setCategoryForm((f) => f ? { ...f, description: e.target.value } : f)}
+                  rows={3}
+                  className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="category-icon" className="mb-1 block text-sm font-medium text-gray-300">Icon</label>
+                  <select
+                    id="category-icon"
+                    value={categoryForm.icon}
+                    onChange={(e) => setCategoryForm((f) => f ? { ...f, icon: e.target.value } : f)}
+                    className="w-full select-chevron rounded-lg border border-gray-600 bg-gray-700 px-3 pr-10 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="chat">Chat</option>
+                    <option value="translate">Translate</option>
+                    <option value="book">Book</option>
+                    <option value="users">Users</option>
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="category-order" className="mb-1 block text-sm font-medium text-gray-300">Order</label>
+                  <input
+                    id="category-order"
+                    type="number"
+                    value={categoryForm.order}
+                    onChange={(e) => setCategoryForm((f) => f ? { ...f, order: e.target.value } : f)}
+                    className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button onClick={() => setCategoryForm(null)} disabled={submitting} className="min-h-[44px] rounded-lg border border-gray-600 px-4 text-gray-200 hover:bg-gray-700 disabled:opacity-50">Cancel</button>
+              <button onClick={() => void handleSaveCategory()} disabled={submitting} className="min-h-[44px] rounded-lg bg-green-600 px-5 font-semibold text-white hover:bg-green-700 disabled:opacity-50">
+                {submitting ? 'Saving…' : categoryForm.id ? 'Save changes' : 'Add Category'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Notification */}
+      <Notification notification={notification} onClose={hideNotification} />
+
+      {/* Confirm Dialog */}
+      {confirmState && (
+        <ConfirmDialog
+          isOpen={confirmState.isOpen}
+          title={confirmState.options.title}
+          message={confirmState.options.message}
+          confirmText={confirmState.options.confirmText}
+          cancelText={confirmState.options.cancelText}
+          type={confirmState.options.type}
+          onConfirm={confirmState.onConfirm}
+          onCancel={confirmState.onCancel}
+        />
       )}
     </div>
   );
 };
 
 export default CommunityManager;
-

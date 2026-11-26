@@ -109,7 +109,7 @@ const LyricInputForm: React.FC<LyricInputFormProps> = ({ onTranslate, isLoading 
                 ) : (
                     <>
                         <TranslateIcon className="h-5 w-5 mr-2" />
-                        <span>Reveal the Meaning</span>
+                        <span>Translate Lyrics</span>
                     </>
                 )}
             </button>

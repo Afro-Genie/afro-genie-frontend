@@ -1,26 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { saveTranslation } from '../services/firebaseService';
-import { getAiAnalysis } from '../services/geminiService';
+import { SUPPORTED_LANGUAGES } from '../constants';
+import { translationsApi } from '../services/api';
 import UserProfileCard from '../components/community/UserProfileCard';
 import RegistrationForm from '../components/community/RegistrationForm';
 import { useNotification } from '../hooks/useNotification';
 import Notification from '../components/Notification';
+import CulturalContextCarousel from '../components/CulturalContextCarousel';
 import type { AiAnalysisResult } from '../types';
 
 const RequestTranslationPage: React.FC = () => {
   const navigate = useNavigate();
   const { notification, showNotification, hideNotification } = useNotification();
-
-  // Redirect to homepage if accessed directly
-  useEffect(() => {
-    // Show a message and redirect after a brief delay
-    const timer = setTimeout(() => {
-      navigate('/', { replace: true });
-    }, 3000);
-    return () => clearTimeout(timer);
-  }, [navigate]);
   const { user } = useAuth();
   const [artist, setArtist] = useState('');
   const [title, setTitle] = useState('');
@@ -48,19 +40,9 @@ const RequestTranslationPage: React.FC = () => {
     setSaved(false);
 
     try {
-      // If no lyrics provided, use a placeholder
-      const lyricsToAnalyze = lyrics.trim() ||
-        `Provide cultural context and meaning analysis for "${title}" by ${artist}`;
-
-      const analysisResult = await getAiAnalysis(
-        artist,
-        title,
-        lyricsToAnalyze,
-        sourceLang,
-        targetLang
-      );
-
-      setResult(analysisResult);
+      // Translation requests now go through the backend API via song pages.
+      // This deprecated page redirects to homepage automatically.
+      setError('This page is deprecated. Please use the translation button on any song page instead.');
     } catch (err: any) {
       setError(err.message || 'Failed to get translation. Please try again.');
     } finally {
@@ -77,16 +59,16 @@ const RequestTranslationPage: React.FC = () => {
     if (!result) return;
 
     try {
-      await saveTranslation({
-        songId: `${artist}-${title}`.toLowerCase().replace(/\s+/g, '-'),
-        userId: user.uid,
+      const songId = `${artist}-${title}`.toLowerCase().replace(/\s+/g, '-');
+      // If translated lyrics are already provided, persist directly without queuing AI
+      await translationsApi.directSave({
+        songId,
         originalLyrics: lyrics || 'Lyrics not provided',
         translatedLyrics: result.translatedLyrics,
-        culturalContext: result.culturalContext,
         sourceLang,
         targetLang,
-        status: 'pending',
-        source: 'user_request'
+        culturalContext: result.culturalContext,
+        status: 'PENDING',
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -110,22 +92,27 @@ const RequestTranslationPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#122118]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Redirect Message */}
-        <div className="mb-8 p-6 bg-amber-900/30 border border-amber-700 rounded-lg text-center">
-          <h2 className="text-2xl font-bold text-amber-200 mb-2">Translation Request Flow Updated</h2>
-          <p className="text-amber-100 mb-4">
-            To request a translation, please navigate to a song page that doesn't have lyrics or translation yet.
-            You'll see a "Request Translation" button there.
+        {/* Guidance Banner */}
+        <div className="mb-8 p-6 bg-green-900/30 border border-green-700 rounded-lg text-center">
+          <h2 className="text-2xl font-bold text-green-200 mb-2">Translation Requests Are Now On Song Pages</h2>
+          <p className="text-green-100 mb-4">
+            Navigate to any song page to request a translation, generate one with AI, or view existing translations.
+            Each song page has built-in translation tools.
           </p>
-          <p className="text-amber-200 text-sm">
-            Redirecting to homepage in 3 seconds...
-          </p>
-          <button
-            onClick={() => navigate('/')}
-            className="mt-4 min-h-[44px] bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 px-6 rounded-lg transition-colors"
-          >
-            Go to Homepage Now
-          </button>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <button
+              onClick={() => navigate('/')}
+              className="min-h-[44px] bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 px-6 rounded-lg transition-colors"
+            >
+              Browse Songs
+            </button>
+            <button
+              onClick={() => navigate('/search')}
+              className="min-h-[44px] bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2.5 px-6 rounded-lg transition-colors"
+            >
+              Search for a Song
+            </button>
+          </div>
         </div>
 
         {/* Hero Section */}
@@ -192,12 +179,9 @@ const RequestTranslationPage: React.FC = () => {
                       onChange={(e) => setSourceLang(e.target.value)}
                       className="w-full min-h-[44px] text-base px-4 py-3 bg-[#0d1612] border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
                     >
-                      <option value="yo">Yoruba</option>
-                      <option value="ig">Igbo</option>
-                      <option value="ha">Hausa</option>
-                      <option value="pidgin">Nigerian Pidgin</option>
-                      <option value="en">English</option>
-                      <option value="sw">Swahili</option>
+                      {SUPPORTED_LANGUAGES.filter(l => l.isActive).map(l => (
+                        <option key={l.code} value={l.code}>{l.name}</option>
+                      ))}
                     </select>
                   </div>
                   <div>
@@ -209,10 +193,9 @@ const RequestTranslationPage: React.FC = () => {
                       onChange={(e) => setTargetLang(e.target.value)}
                       className="w-full min-h-[44px] text-base px-4 py-3 bg-[#0d1612] border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
                     >
-                      <option value="en">English</option>
-                      <option value="fr">French</option>
-                      <option value="es">Spanish</option>
-                      <option value="pt">Portuguese</option>
+                      {SUPPORTED_LANGUAGES.filter(l => l.isActive).map(l => (
+                        <option key={l.code} value={l.code}>{l.name}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -309,20 +292,7 @@ const RequestTranslationPage: React.FC = () => {
 
                   {/* Cultural Context - Only show if present (added by humans) */}
                   {result.culturalContext && (
-                    <div>
-                      <h3 className="text-xl font-bold text-white mb-3 flex items-center gap-2">
-                        <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                        </svg>
-                        Cultural Context
-                        <span className="text-xs px-2 py-1 bg-green-700 rounded-full">Human-Added</span>
-                      </h3>
-                      <div className="bg-[#0d1612] rounded-lg p-4 text-gray-300 prose prose-invert max-w-none">
-                        {result.culturalContext.split('\n').map((paragraph, i) => (
-                          <p key={i} className="mb-2">{paragraph}</p>
-                        ))}
-                      </div>
-                    </div>
+                    <CulturalContextCarousel culturalContext={result.culturalContext} />
                   )}
 
                   {/* Actions */}

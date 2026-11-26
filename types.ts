@@ -25,15 +25,12 @@ export interface Artist {
   name: string;
   genre: string;
   image: string;
-  // Spotify integration fields
-  spotifyId?: string;
   bio?: string;
   popularity?: number;
   followers?: number;
-  externalUrl?: string; // Spotify profile URL
-  genres?: string[]; // Multiple genres from Spotify
+  externalUrl?: string; // Profile URL
+  genres?: string[]; // Multiple genres
   updatedAt?: any;
-  spotifySyncedAt?: any; // Last time synced with Spotify
 }
 
 export interface Song {
@@ -56,6 +53,8 @@ export interface Song {
   releaseDate?: string; // Release date
   popularity?: number; // Popularity score
   requestCount?: number; // Number of translation requests
+  lyrics?: string;
+  source?: 'DB' | 'HYBRID';
 }
 
 export interface Genre {
@@ -67,8 +66,7 @@ export interface Genre {
 export type Suggestion =
   | { type: 'artist'; data: Artist }
   | { type: 'song'; data: Song }
-  | { type: 'genre'; data: Genre }
-  | { type: 'lyrics'; data: { id: string; songId: string; songTitle?: string; artistName?: string; preview: string } };
+  | { type: 'genre'; data: Genre };
 
 export interface GenieSettings {
   id?: string;
@@ -89,7 +87,7 @@ export interface APISearchResult {
   year?: number;
   image?: string;
   lyrics?: string;
-  source: 'lyricfind' | 'genius' | 'musicbrainz' | 'lastfm';
+  source: 'lrclib' | 'lyricfind' | 'genius' | 'musicbrainz' | 'lastfm';
   confidence: number;
   metadata: {
     genre?: string;
@@ -259,6 +257,7 @@ export interface CommunityTopic {
   artistId?: string;
   imageUrl?: string;
   userVote?: 'UPVOTE' | 'DOWNVOTE' | null;
+  liked?: boolean;
   author?: { id: string; displayName: string; photoUrl?: string; role?: string };
   forumCategory?: { id: string; name: string };
 }
@@ -270,11 +269,116 @@ export interface CommunityComment {
   parentCommentId?: string;
   content: string;
   likes: number;
+  userVote?: 'UPVOTE' | 'DOWNVOTE' | null;
   createdAt: string;
   updatedAt?: string;
   user: { id: string; displayName: string; photoUrl?: string; role?: string };
   _count?: { replies: number };
   replies?: CommunityComment[];
+}
+
+// ── Community Redesign Types ─────────────────────────────────
+export interface TopicView {
+  id: string;
+  topicId: string;
+  userId: string | null;
+  viewedAt: string;
+}
+
+export interface UserListeningPreference {
+  id: string;
+  userId: string;
+  genreIds: string[];
+  languageCodes: string[];
+  listenedArtistIds: string[];
+  lastComputedAt: string;
+}
+
+export interface Playlist {
+  id: string;
+  name: string;
+  description: string | null;
+  imageUrl: string | null;
+  songIds: string[];
+  createdBy: string;
+  isPublic: boolean;
+  likeCount: number;
+  createdAt: string;
+  updatedAt: string;
+  creator?: { displayName: string | null };
+}
+
+export interface PlaylistLike {
+  id: string;
+  userId: string;
+  playlistId: string;
+  createdAt: string;
+}
+
+export interface ExploreAlbums {
+  albumId: string;
+  albumName: string;
+  artistName: string;
+  imageUrl: string | null;
+  playCount: number;
+}
+
+export interface ExploreGenres {
+  genreId: string;
+  genreName: string;
+  playCount: number;
+}
+
+export interface ExploreTracks {
+  songId: string;
+  title: string;
+  artistName: string;
+  imageUrl: string | null;
+  playCount: number;
+}
+
+export interface ExplorePlaylists {
+  id: string;
+  name: string;
+  description: string | null;
+  imageUrl: string | null;
+  createdBy: string;
+  creatorName: string | null;
+  likeCount: number;
+  songCount: number;
+}
+
+export interface ExploreData {
+  albums: ExploreAlbums[];
+  genres: ExploreGenres[];
+  tracks: ExploreTracks[];
+  playlists: ExplorePlaylists[];
+}
+
+export interface RecommendedModerator {
+  id: string;
+  displayName: string | null;
+  photoUrl: string | null;
+  role: string;
+  tokenBalance: number;
+  reportsResolved: number;
+  translationsApproved: number;
+  correctionsApproved: number;
+}
+
+export interface CommunityTopicExtended extends CommunityTopic {
+  isModeratorOnly?: boolean;
+  viewCount?: number;
+  hotScore?: number;
+  song?: { id: string; title: string; imageUrl: string | null } | null;
+}
+
+export interface CommunityFeedResponse {
+  topics: CommunityTopicExtended[];
+  total: number;
+  page: number;
+  limit: number;
+  message?: string;
 }
 
 export type TranslationViewMode =
@@ -365,4 +469,65 @@ export interface AppNotification {
   sourceId?: string | null;
   read: boolean;
   createdAt?: any;
+}
+
+export interface Favorite {
+  id?: string;
+  userId: string;
+  songId: string;
+  createdAt?: any;
+}
+
+export interface History {
+  id?: string;
+  userId: string;
+  songId: string;
+  viewedAt?: any;
+}
+
+export interface UserProfile {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  photoURL: string | null;
+  role: 'user' | 'admin' | 'moderator' | 'artist';
+  createdAt?: any;
+  lastLogin?: any;
+  artistProfile?: {
+    stageName: string;
+    genre: string;
+    bio: string;
+    location?: string;
+    website?: string;
+    socialLinks?: {
+      instagram?: string;
+      twitter?: string;
+      facebook?: string;
+      youtube?: string;
+    };
+    verified: boolean;
+    verifiedAt?: any;
+  };
+}
+
+export interface BulkSaveResult {
+  songId: string;
+  artistId: string;
+  translationId?: string;
+  success: boolean;
+  error?: string;
+}
+
+export interface SyncJobData {
+  id: string;
+  type: 'manual' | 'scheduled' | 'auto';
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  progress: number;
+  startTime: any;
+  endTime?: any;
+  results: { artists: number; songs: number; genres: number; errors: number };
+  resultData: { artists: any[]; songs: any[]; genres: any[] };
+  logs?: string[];
+  userId?: string;
+  query?: string;
 }

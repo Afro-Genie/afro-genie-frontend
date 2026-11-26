@@ -1,8 +1,13 @@
 // Lyric Data Processor - Normalize, detect duplicates, and merge data
 
-import { getAllSongs, getAllArtists } from './firebaseService';
-import { uploadImage } from './firebaseService';
+import { artistsApi, songsApi } from './api';
+import { normalizeArtist, normalizeSong } from '../utils/apiHelpers';
 import type { FullSongData, DuplicateCheckResult, Song, Artist } from '../types';
+
+const uploadImage = async (_file: File, _path: string): Promise<string> => {
+  console.warn('uploadImage: Not yet implemented in backend API');
+  return '';
+};
 
 class LyricDataProcessor {
   // Calculate Levenshtein distance for fuzzy matching
@@ -48,7 +53,9 @@ class LyricDataProcessor {
   // Check for duplicates
   async checkForDuplicates(songData: FullSongData): Promise<DuplicateCheckResult> {
     try {
-      const allSongs = await getAllSongs();
+      const allSongsResult = await songsApi.getAll();
+      const allSongsRaw = Array.isArray(allSongsResult) ? allSongsResult : (allSongsResult?.data || []);
+      const allSongs = allSongsRaw.map(normalizeSong);
       const normalizedTitle = this.normalizeString(songData.song.title);
       const normalizedArtist = this.normalizeString(songData.song.artist);
 
@@ -175,7 +182,9 @@ class LyricDataProcessor {
   // Find or create artist
   async findOrCreateArtist(artistData: Omit<Artist, 'id'>): Promise<{ id: string; isNew: boolean }> {
     try {
-      const allArtists = await getAllArtists();
+      const allArtistsResult = await artistsApi.getAll();
+      const allArtistsRaw = Array.isArray(allArtistsResult) ? allArtistsResult : (allArtistsResult?.data || []);
+      const allArtists = allArtistsRaw.map(normalizeArtist);
       const normalizedName = this.normalizeString(artistData.name);
 
       // Check for existing artist

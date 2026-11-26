@@ -1,7 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { getGenieSettings, updateGenieSettings, uploadGenieImage } from '../../services/firebaseService';
 import type { GenieSettings } from '../../types';
+import { uploadImage } from '../../services/uploadService';
+
+const getGenieSettings = async (): Promise<GenieSettings | null> => {
+  return {
+    imageUrl: '/Images/gene.png',
+    animationType: 'float',
+    animationDuration: 3,
+    animationDelay: 0,
+    opacity: 20,
+    size: 'large'
+  };
+};
+
+const updateGenieSettings = async (_settings: Partial<GenieSettings>) => {
+  console.warn('updateGenieSettings: Not yet implemented in backend API');
+};
 import { AdminFormPageSkeleton } from '../../components/PageSkeletons';
+import MediaImage from '../../components/MediaImage';
 
 const GenieManager: React.FC = () => {
   const [settings, setSettings] = useState<GenieSettings>({
@@ -64,8 +80,8 @@ const GenieManager: React.FC = () => {
       };
       reader.readAsDataURL(file);
 
-      // Upload to Firebase Storage
-      const imageUrl = await uploadGenieImage(file);
+      // Upload to server
+      const imageUrl = await uploadImage(file, 'genie');
       
       // Update settings with new image URL
       setSettings(prev => ({ ...prev, imageUrl }));
@@ -313,7 +329,7 @@ const GenieManager: React.FC = () => {
           <div className="relative bg-[#122118] rounded-lg h-[500px] flex items-center justify-center overflow-hidden">
             {/* Background Genie (blurred) */}
             <div className="absolute inset-0 flex items-center justify-center">
-              <img
+              <MediaImage
                 src={imagePreview || settings.imageUrl}
                 alt="Background Genie"
                 className="genie-preview"
@@ -327,7 +343,7 @@ const GenieManager: React.FC = () => {
 
             {/* Foreground Genie */}
             <div className="relative z-10">
-              <img
+              <MediaImage
                 src={imagePreview || settings.imageUrl}
                 alt="Genie Preview"
                 className="genie-preview"

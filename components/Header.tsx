@@ -1,31 +1,111 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import LogoIcon from './icons/LogoIcon';
-import MenuIcon from './icons/MenuIcon';
 import SearchBar from './SearchBar';
 import UserMenu from './auth/UserMenu';
 import LoginModal from './auth/LoginModal';
 import Notification, { NotificationData } from './Notification';
 import { useAuth } from '../context/AuthContext';
-import { markNotificationAsRead, subscribeToUnreadNotifications } from '../services/firebaseService';
-import { featureFlags } from '../config/featureFlags';
 import { trackEvent } from '../services/telemetryService';
+import {
+  notificationApi,
+  type BackendNotification,
+} from '../services/notificationService';
 import type { AppNotification } from '../types';
+import { getAccessToken } from '../services/api';
+import { toApiUrl } from '../lib/apiBase';
+
+const markNotificationAsRead = async (notificationId: string) => {
+  try {
+    await notificationApi.markRead(notificationId);
+  } catch (err) {
+    console.error('Failed to mark notification as read:', err);
+  }
+};
+
+const subscribeToUnreadNotifications = (
+  _userId: string,
+  onUpdate: (items: AppNotification[]) => void
+) => {
+  let cancelled = false;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let stream: EventSource | null = null;
+  const knownNotifIds = new Set<string>();
+  let seeded = false;
+
+  const deliver = (notification: BackendNotification) => {
+    if (cancelled || notification.read || knownNotifIds.has(notification.id)) return;
+    knownNotifIds.add(notification.id);
+    onUpdate([notificationApi.mapToApp(notification)]);
+  };
+
+  const connectStream = () => {
+    const token = getAccessToken();
+    if (!token || cancelled) return;
+    stream = new EventSource(
+      toApiUrl(`/users/me/notifications/stream?token=${encodeURIComponent(token)}`)
+    );
+    stream.addEventListener('notification', (event) => {
+      try {
+        deliver(JSON.parse((event as MessageEvent).data) as BackendNotification);
+      } catch (err) {
+        console.error('Failed to parse notification event:', err);
+      }
+    });
+  };
+
+  const poll = async () => {
+    if (cancelled) return;
+    try {
+      const feed = await notificationApi.getFeed(1, 50);
+      // First poll seeds the "already seen" set so history is not toasted.
+      if (!seeded) {
+        for (const notification of feed.data) {
+          knownNotifIds.add(notification.id);
+        }
+        seeded = true;
+        onUpdate([]);
+      } else {
+        for (const notification of feed.data) deliver(notification);
+      }
+    } catch (err) {
+      // Poll failures are transient; ignore and retry on the next interval.
+    } finally {
+      if (!cancelled) {
+        if (!stream) connectStream();
+        timer = setTimeout(poll, 15000);
+      }
+    }
+  };
+
+  poll();
+  return () => {
+    cancelled = true;
+    if (timer) clearTimeout(timer);
+    stream?.close();
+  };
+};
 
 const Header: React.FC = () => {
+  const navigate = useNavigate();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [toast, setToast] = useState<NotificationData | null>(null);
+  const [notifications, setNotifications] = useState<BackendNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
   const { user, loading } = useAuth();
 
-  useEffect(() => {
-    if (!isMobileMenuOpen) return;
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setIsMobileMenuOpen(false);
-    };
-    window.addEventListener('keydown', handleEscape);
-    return () => window.removeEventListener('keydown', handleEscape);
-  }, [isMobileMenuOpen]);
+  const refreshUnreadCount = useCallback(async () => {
+    if (!user?.uid) return;
+    try {
+      const { count } = await notificationApi.getUnreadCount();
+      setUnreadCount(count);
+    } catch (err) {
+      // ignore
+    }
+  }, [user?.uid]);
 
   useEffect(() => {
     const handleAuthExpired = () => {
@@ -33,121 +113,176 @@ const Header: React.FC = () => {
       setToast({ message: 'Session expired. Please sign in again.', type: 'error', duration: 5000 });
     };
 
+    const handleLoginModalOpen = () => {
+      setIsLoginModalOpen(true);
+    };
+
     window.addEventListener('auth:expired', handleAuthExpired);
-    return () => window.removeEventListener('auth:expired', handleAuthExpired);
+    window.addEventListener('login-modal:open', handleLoginModalOpen);
+    return () => {
+      window.removeEventListener('auth:expired', handleAuthExpired);
+      window.removeEventListener('login-modal:open', handleLoginModalOpen);
+    };
   }, []);
 
   useEffect(() => {
-    // Wait for AuthContext to finish initializing so Firestore has an auth token.
-    if (loading) return;
-    if (!user?.uid || !featureFlags.requestCompletionNotifications) return;
-    let seen = new Set<string>();
-    const unsubscribe = subscribeToUnreadNotifications(user.uid, async (items: AppNotification[]) => {
-      const next = items.find((item) => item.id && !seen.has(item.id));
+    setToast(null);
+    if (loading || !user?.uid) return;
+    const unsubscribe = subscribeToUnreadNotifications(user.uid, (items: AppNotification[]) => {
+      const next = items[0];
       if (!next || !next.id) return;
-      seen.add(next.id);
-      trackEvent('request_notification_received', { source: next.sourceCollection || 'unknown' });
+      trackEvent('request_notification_received', { source: next.sourceCollection || 'backend' });
       setToast({ message: `${next.title}\n${next.message}`, type: 'info', duration: 6000 });
-      await markNotificationAsRead(next.id);
     });
     return () => unsubscribe();
   }, [user?.uid, loading]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
+        setIsNotifOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (loading) return;
+    if (!user?.uid) {
+      setUnreadCount(0);
+      setIsNotifOpen(false);
+      return;
+    }
+    refreshUnreadCount();
+    const interval = setInterval(refreshUnreadCount, 30000);
+    return () => clearInterval(interval);
+  }, [user?.uid, loading, refreshUnreadCount]);
+
+  useEffect(() => {
+    if (!isNotifOpen || !user?.uid) return;
+    let cancelled = false;
+    notificationApi
+      .getFeed(1, 20)
+      .then((feed) => {
+        if (!cancelled) setNotifications(feed.data);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [isNotifOpen, user?.uid]);
+
+  const handleMarkRead = async (id: string) => {
+    await markNotificationAsRead(id);
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
+    );
+    await refreshUnreadCount();
+  };
 
   return (
     <>
       <header className="bg-[#1A2B22]/80 backdrop-blur-sm sticky top-0 z-50 border-b border-white/10 flex-shrink-0">
         <div className="container mx-auto px-3 sm:px-4 lg:px-8">
           <div className="flex items-center justify-between h-14 sm:h-16 gap-2 sm:gap-4">
-            {/* Logo */}
-            <Link to="/" className="flex items-center space-x-1.5 sm:space-x-2 flex-shrink-0">
-              <LogoIcon className="h-4 w-4 sm:h-5 sm:w-5 text-green-400" />
-              <span className="text-lg sm:text-xl font-bold text-white">AfroGenie</span>
-            </Link>
-
-            {/* Search, Actions */}
-            <div className="flex items-center space-x-2 sm:space-x-4 flex-1 min-w-0">
-              <div className="flex-1 min-w-0 hidden sm:block">
-                <SearchBar variant="header" />
-              </div>
-              <Link
-                to="/artist/signup"
-                className="text-gray-300 hover:text-white px-2 sm:px-3 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-colors hidden lg:block whitespace-nowrap"
-              >
-                For Artists
+            {/* Logo - hidden when search is open */}
+            {!isSearchOpen && (
+              <Link to="/" className="flex items-center space-x-1.5 sm:space-x-2 flex-shrink-0">
+                <LogoIcon className="h-4 w-4 sm:h-5 sm:w-5 text-green-400" />
+                <span className="text-lg sm:text-xl font-bold text-white">AfroGenie</span>
               </Link>
-              <button
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="p-2 rounded-md text-gray-300 hover:bg-[#2a3c30] hover:text-white transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
-                aria-label="Toggle menu"
+            )}
+
+            {!isSearchOpen && (
+              <Link
+                to="/games"
+                className="hidden md:flex min-h-10 items-center rounded-full border border-emerald-400/30 px-3 text-sm font-semibold text-emerald-200 transition hover:border-emerald-300 hover:bg-emerald-300/10"
               >
-                <MenuIcon className="h-5 w-5 sm:h-6 sm:w-6" />
-              </button>
-              <UserMenu onLoginClick={() => setIsLoginModalOpen(true)} />
+                Games
+              </Link>
+            )}
+
+            {/* Right side: Search + Notifications + User */}
+            <div className={`flex items-center justify-end space-x-2 sm:space-x-4 flex-1 min-w-0 ${isSearchOpen ? '' : ''}`}>
+              <SearchBar
+                variant="header"
+                isOpen={isSearchOpen}
+                onOpen={() => setIsSearchOpen(true)}
+                onClose={() => setIsSearchOpen(false)}
+              />
+              {!isSearchOpen && user?.uid && (
+                <div className="relative flex-shrink-0" ref={notifRef}>
+                  <button
+                    onClick={() => setIsNotifOpen((open) => !open)}
+                    className="relative p-2 text-gray-300 hover:text-white transition-colors"
+                    aria-label="Notifications"
+                  >
+                    <BellIcon className="h-5 w-5" />
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
+                  </button>
+                  {isNotifOpen && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-40 md:hidden"
+                        onClick={() => setIsNotifOpen(false)}
+                      />
+                      <div className="fixed md:absolute inset-x-2 top-16 md:top-auto md:right-0 md:mt-2 md:inset-x-auto w-auto md:w-80 bg-[#1A2B22] border border-white/10 rounded-lg shadow-xl z-50 max-h-[70vh] md:max-h-96 overflow-hidden flex flex-col">
+                        <div className="p-3 border-b border-white/10 flex items-center justify-between">
+                          <span className="text-sm font-semibold text-white">Notifications</span>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => { setIsNotifOpen(false); navigate('/account?tab=notifications'); }}
+                              className="text-xs text-green-400 hover:text-green-300 md:hidden"
+                            >
+                              View all
+                            </button>
+                            <button
+                              onClick={() => setIsNotifOpen(false)}
+                              className="text-xs text-gray-400 hover:text-white"
+                            >
+                              Close
+                            </button>
+                          </div>
+                        </div>
+                        <div className="overflow-y-auto flex-1">
+                          {notifications.length === 0 ? (
+                            <p className="p-4 text-sm text-gray-400">No notifications yet.</p>
+                          ) : (
+                            notifications.map((n) => (
+                              <div
+                                key={n.id}
+                                className={`p-3 border-b border-white/5 ${n.read ? 'opacity-60' : ''}`}
+                              >
+                                <p className="text-sm font-medium text-white">{n.title}</p>
+                                <p className="text-xs text-gray-400 mt-1">{n.message}</p>
+                                {!n.read && (
+                                  <button
+                                    onClick={() => handleMarkRead(n.id)}
+                                    className="mt-2 text-xs text-green-400 hover:text-green-300"
+                                  >
+                                    Mark as read
+                                  </button>
+                                )}
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+              {!isSearchOpen && (
+                <UserMenu onLoginClick={() => setIsLoginModalOpen(true)} />
+              )}
             </div>
-          </div>
-          {/* Mobile Search Bar */}
-          <div className="sm:hidden pb-3">
-            <SearchBar variant="header" />
           </div>
         </div>
-
-        {/* Mobile Menu */}
-        {isMobileMenuOpen && (
-          <>
-            <button
-              type="button"
-              aria-label="Close menu"
-              className="fixed inset-0 z-40 lg:hidden"
-              onClick={() => setIsMobileMenuOpen(false)}
-            />
-            <div className="lg:hidden bg-[#1A2B22] border-t border-white/10 relative z-50">
-            <div className="container mx-auto px-4 py-4 space-y-1">
-              <Link
-                to="/"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center min-h-[44px] pl-4 py-3 text-gray-300 hover:text-white hover:bg-[#2a3c30] rounded-md transition-colors"
-              >
-                Home
-              </Link>
-              <Link
-                to="/songs"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center min-h-[44px] pl-4 py-3 text-gray-300 hover:text-white hover:bg-[#2a3c30] rounded-md transition-colors"
-              >
-                Browse Songs
-              </Link>
-              <Link
-                to="/search"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center min-h-[44px] pl-4 py-3 text-gray-300 hover:text-white hover:bg-[#2a3c30] rounded-md transition-colors"
-              >
-                Search
-              </Link>
-              <Link
-                to="/community"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center min-h-[44px] pl-4 py-3 text-gray-300 hover:text-white hover:bg-[#2a3c30] rounded-md transition-colors"
-              >
-                Community
-              </Link>
-              <Link
-                to="/request-translation"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center min-h-[44px] pl-4 py-3 text-gray-300 hover:text-white hover:bg-[#2a3c30] rounded-md transition-colors"
-              >
-                Request Translation
-              </Link>
-              <Link
-                to="/artist/signup"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center min-h-[44px] pl-4 py-3 text-green-400 hover:text-green-300 hover:bg-[#2a3c30] rounded-md transition-colors font-semibold"
-              >
-                For Artists
-              </Link>
-            </div>
-          </div>
-          </>
-        )}
       </header>
 
       <LoginModal
@@ -158,5 +293,11 @@ const Header: React.FC = () => {
     </>
   );
 };
+
+const BellIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+  </svg>
+);
 
 export default Header;

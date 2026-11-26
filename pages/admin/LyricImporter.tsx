@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import lyricAPIService from '../../services/lyricAPIService';
 import lyricDataProcessor from '../../services/lyricDataProcessor';
-import { saveFullSongPackage, updateFullSongPackage } from '../../services/firebaseService';
+import { saveFullSongPackage, updateFullSongPackage } from '../../utils/songPackage';
 import DuplicateResolver from '../../components/admin/DuplicateResolver';
+import MediaImage from '../../components/MediaImage';
 import type { APISearchResult, FullSongData, DuplicateCheckResult, Song } from '../../types';
 
 interface ImportProgress {
@@ -374,7 +375,7 @@ const LyricImporter: React.FC = () => {
                         )}
                       </div>
                       {result.image && (
-                        <img
+                        <MediaImage
                           src={result.image}
                           alt={result.title}
                           className="w-16 h-16 object-cover rounded flex-shrink-0"

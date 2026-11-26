@@ -11,7 +11,14 @@ import {
 import ExternalMusicAPIService from '../../services/externalMusicAPIService';
 import lyricAPIService from '../../services/lyricAPIService';
 import lyricDataProcessor from '../../services/lyricDataProcessor';
-import { addArtist, addSong, addGenre, saveFullSongPackage, getAllArtists } from '../../services/firebaseService';
+import { artistsApi, songsApi } from '../../services/api';
+import { saveFullSongPackage } from '../../utils/songPackage';
+import { normalizeArtist } from '../../utils/apiHelpers';
+
+const addGenre = async (_genre: { name: string; image: string }) => {
+  console.warn('addGenre: Not yet implemented in backend API');
+  return 'stub-id';
+};
 import type { APISearchResult, FullSongData } from '../../types';
 
 interface APIImportProps {
@@ -93,9 +100,9 @@ const APIImportManager: React.FC<APIImportProps> = ({ onImportComplete }) => {
     
     try {
       if (searchType === 'artists') {
-        await addArtist({
+        await artistsApi.create({
           name: item.name || item.artist,
-          genre: 'Afrobeats', // Default genre
+          genre: 'Afrobeats',
           image: item.image || ''
         });
         setImportProgress('Artist imported successfully');
@@ -155,7 +162,7 @@ const APIImportManager: React.FC<APIImportProps> = ({ onImportComplete }) => {
             console.error('Error importing song with lyrics:', error);
             // Fallback to basic import without lyrics
             setImportProgress('Lyrics import failed, importing song metadata only...');
-            await addSong({
+            await songsApi.create({
               title: item.title,
               artist: item.artist,
               artistId: '',
@@ -169,7 +176,7 @@ const APIImportManager: React.FC<APIImportProps> = ({ onImportComplete }) => {
           }
         } else {
           // Basic import without lyrics
-          await addSong({
+          await songsApi.create({
             title: item.title,
             artist: item.artist,
             artistId: '',
@@ -208,7 +215,7 @@ const APIImportManager: React.FC<APIImportProps> = ({ onImportComplete }) => {
       // Import popular Nigerian artists
       for (const artistName of popularArtists.slice(0, 5)) { // Limit to 5 for demo
         try {
-          await addArtist({
+          await artistsApi.create({
             name: artistName,
             genre: 'Afrobeats',
             image: ''

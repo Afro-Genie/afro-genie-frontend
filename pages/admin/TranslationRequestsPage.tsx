@@ -1,12 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getTranslationRequests, updateTranslationRequest, getSong } from '../../services/firebaseService';
 import { useNotification } from '../../hooks/useNotification';
 import { useConfirm } from '../../hooks/useConfirm';
 import Notification from '../../components/Notification';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import { AdminListPageSkeleton } from '../../components/PageSkeletons';
 import type { TranslationRequest } from '../../types';
+
+const getTranslationRequests = async (_status?: TranslationRequest['status']): Promise<TranslationRequest[]> => {
+  return [];
+};
+
+const updateTranslationRequest = async (
+  _requestId: string,
+  _updates: Partial<Omit<TranslationRequest, 'id'>>
+) => {
+  console.warn('updateTranslationRequest: Not yet implemented');
+};
+
+const getSong = async (_songId: string) => {
+  console.warn('getSong: Not yet implemented');
+  return null;
+};
 
 const TranslationRequestsPage: React.FC = () => {
   const { notification, showNotification, hideNotification } = useNotification();
@@ -160,7 +175,7 @@ const TranslationRequestsPage: React.FC = () => {
       ) : (
         <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full min-w-[640px]">
               <thead className="bg-gray-900 border-b border-gray-700">
                 <tr>
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">

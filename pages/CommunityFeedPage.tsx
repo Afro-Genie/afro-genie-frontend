@@ -1,26 +1,24 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../hooks/useNotification';
 import Notification from '../components/Notification';
 import TopicCard from '../components/community/TopicCard';
-import CreateTopicModal from '../components/community/CreateTopicModal';
-import type { CommunityTopic } from '../types';
+import type { CommunityTopic, ForumCategory } from '../types';
 
 type SortBy = 'hot' | 'new' | 'top';
 
 const CommunityFeedPage: React.FC = () => {
   const { categoryId } = useParams<{ categoryId: string }>();
-  const { user, userProfile, authFetch } = useAuth();
+  const { authFetch } = useAuth();
   const { notification, showNotification, hideNotification } = useNotification();
+  const navigate = useNavigate();
   const [topics, setTopics] = useState<CommunityTopic[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState<SortBy>('hot');
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-
-  const canCreate = !!user;
+  const [categoryName, setCategoryName] = useState<string | null>(null);
 
   const fetchTopics = useCallback(async (pageNum: number, append: boolean = false) => {
     setLoading(true);
@@ -49,20 +47,23 @@ const CommunityFeedPage: React.FC = () => {
     fetchTopics(1);
   }, [fetchTopics]);
 
+  useEffect(() => {
+    if (!categoryId) return;
+    let mounted = true;
+    authFetch('/api/community/categories')
+      .then((data: any) => {
+        const cats: ForumCategory[] = Array.isArray(data) ? data : data.categories || data.data || [];
+        const match = cats.find(c => c.id === categoryId);
+        if (mounted) setCategoryName(match?.name || null);
+      })
+      .catch(() => {});
+    return () => { mounted = false; };
+  }, [categoryId, authFetch]);
+
   const handleLoadMore = () => {
     const next = page + 1;
     setPage(next);
     fetchTopics(next, true);
-  };
-
-  const handleCreateTopic = async (title: string, content: string) => {
-    await authFetch('/api/community/topics', {
-      method: 'POST',
-      body: JSON.stringify({ title, content, forumCategoryId: categoryId }),
-    });
-    showNotification({ message: 'Topic created successfully!', type: 'success' });
-    setPage(1);
-    fetchTopics(1);
   };
 
   const sortTabs: { key: SortBy; label: string }[] = [
@@ -78,7 +79,7 @@ const CommunityFeedPage: React.FC = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Link
-                to="/community"
+                to="/community?tab=forum-categories"
                 className="inline-flex items-center gap-2 text-gray-400 hover:text-amber-400 transition-colors"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -86,16 +87,14 @@ const CommunityFeedPage: React.FC = () => {
                 </svg>
                 Back
               </Link>
-              <h1 className="text-2xl font-bold text-gray-100 capitalize">{categoryId} Forum</h1>
+              <h1 className="text-2xl font-bold text-gray-100">{categoryName || 'Forum'}</h1>
             </div>
-            {canCreate && (
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-gray-900 font-semibold rounded-lg transition-colors"
-              >
-                Create Topic
-              </button>
-            )}
+            <button
+              onClick={() => navigate(`/community/create?category=${categoryId}`)}
+              className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-gray-900 font-semibold rounded-lg transition-colors text-sm"
+            >
+              Create Topic
+            </button>
           </div>
 
           <div className="flex gap-2">
@@ -127,14 +126,7 @@ const CommunityFeedPage: React.FC = () => {
           ) : topics.length === 0 ? (
             <div className="bg-gray-800/50 p-8 rounded-lg border border-gray-700 text-center">
               <p className="text-gray-400 text-lg mb-2">No topics yet</p>
-              {canCreate && (
-                <button
-                  onClick={() => setShowCreateModal(true)}
-                  className="text-amber-400 hover:text-amber-300 font-semibold"
-                >
-                  Create the first topic
-                </button>
-              )}
+              <p className="text-gray-500 text-sm">Be the first to start a discussion in this category.</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -159,12 +151,6 @@ const CommunityFeedPage: React.FC = () => {
           )}
         </div>
       </div>
-      <CreateTopicModal
-        categoryId={categoryId || ''}
-        open={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        onSubmit={handleCreateTopic}
-      />
       <Notification notification={notification} onClose={hideNotification} />
     </div>
   );

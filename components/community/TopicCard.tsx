@@ -1,22 +1,22 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
-import { CommunityTopic } from '../../types';
+import { useNavigate } from 'react-router-dom';
+import { Eye, MessageCircle } from 'lucide-react';
+import { CommunityTopicExtended } from '../../types';
+import MediaImage from '../MediaImage';
+import Avatar from '../Avatar';
 import TopicActions from './TopicActions';
 
 interface TopicCardProps {
-  topic: CommunityTopic;
+  topic: CommunityTopicExtended;
   onLike?: (topicId: string) => void;
   onShare?: (topicId: string) => void;
   isLiked?: boolean;
 }
 
-const getAuthorName = (topic: CommunityTopic) =>
+const getAuthorName = (topic: CommunityTopicExtended) =>
   topic.author?.displayName || topic.authorName || 'Unknown';
 
-const getAuthorAvatar = (topic: CommunityTopic) =>
-  topic.author?.photoUrl || topic.authorAvatar || '';
-
-const getCategoryName = (topic: CommunityTopic) =>
+const getCategoryName = (topic: CommunityTopicExtended) =>
   topic.forumCategory?.name || (typeof topic.category === 'object' ? topic.category.name : topic.category) || '';
 
 const formatTimeAgo = (timestamp: string) => {
@@ -32,93 +32,98 @@ const formatTimeAgo = (timestamp: string) => {
   return date.toLocaleDateString();
 };
 
-const truncateContent = (content: string, maxLength: number = 150) => {
-  if (content.length <= maxLength) return content;
-  return content.substring(0, maxLength) + '...';
-};
-
-const TopicCard: React.FC<TopicCardProps> = ({ topic, onLike, onShare, isLiked }) => {
+const TopicCard: React.FC<TopicCardProps> = React.memo(({ topic, onLike, onShare, isLiked }) => {
+  const navigate = useNavigate();
   const authorName = getAuthorName(topic);
-  const authorAvatar = getAuthorAvatar(topic);
   const categoryName = getCategoryName(topic);
 
-  return (
-    <div className={`bg-gray-800/50 hover:bg-gray-700/50 transition-colors duration-200 rounded-lg border ${topic.isPinned ? 'border-amber-400/50' : 'border-gray-700'} p-5`}>
-      {topic.isPinned && (
-        <div className="flex items-center gap-2 mb-2 text-amber-400 text-sm">
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
-          </svg>
-          <span>Pinned</span>
-        </div>
-      )}
+  const openTopic = () => navigate(`/community/topic/${topic.id}`);
 
-      <div className="flex items-start gap-4">
-        <div className="flex-shrink-0">
-          {authorAvatar ? (
-            <img
-              src={authorAvatar}
-              alt={authorName}
-              className="h-10 w-10 rounded-full"
-            />
-          ) : (
-            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-green-600 to-green-800 flex items-center justify-center">
-              <span className="text-white font-bold text-sm">
-                {authorName[0]?.toUpperCase() || 'U'}
-              </span>
-            </div>
+  return (
+    <article
+      role="link"
+      tabIndex={0}
+      onClick={openTopic}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          openTopic();
+        }
+      }}
+      className={`flex min-h-[320px] cursor-pointer flex-col overflow-hidden rounded-2xl border bg-[#151d1b] shadow-sm transition-colors hover:border-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 md:flex-row ${
+        topic.isModeratorOnly ? 'border-blue-500/60' : 'border-gray-700/80'
+      }`}
+    >
+      <div className="relative h-64 shrink-0 bg-[#101715] p-3 md:h-auto md:w-[36%] md:min-w-[260px] md:max-w-[340px]">
+        <div className="relative h-full min-h-[220px] overflow-hidden rounded-lg bg-gray-900/50">
+          <MediaImage
+            src={topic.imageUrl}
+            alt={topic.title}
+            loading="lazy"
+            className="h-full w-full object-contain p-2"
+            fallbackClassName="bg-gradient-to-br from-green-950/60 via-gray-900 to-gray-950"
+          />
+          {categoryName && (
+            <span className="absolute left-3 top-3 max-w-[calc(100%-1.5rem)] truncate rounded-full border border-white/10 bg-[#151d1b]/90 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-200 backdrop-blur-sm">
+              <span className="mr-1.5 text-amber-400">•</span>
+              {categoryName}
+            </span>
+          )}
+          {topic.isModeratorOnly && (
+            <span className="absolute bottom-3 left-3 rounded-full border border-blue-300/20 bg-blue-950/90 px-2.5 py-1 text-[10px] font-semibold text-blue-100">
+              Moderator&apos;s Pick
+            </span>
           )}
         </div>
+      </div>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2 mb-2">
-            <Link
-              to={`/community/topic/${topic.id}`}
-              className="flex-1 group"
-            >
-              <h3 className="text-lg font-bold text-gray-100 group-hover:text-amber-400 transition-colors line-clamp-2">
-                {topic.title}
-              </h3>
-            </Link>
-            {topic.isLocked && (
-              <svg className="w-5 h-5 text-gray-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-              </svg>
-            )}
-          </div>
-
-          <p className="text-gray-400 text-sm mb-3 line-clamp-3">
-            {truncateContent(topic.content)}
-          </p>
-
-          <div className="flex items-center gap-4 text-xs text-gray-500 mb-3">
-            <span className="flex items-center gap-1">
-              <span className="font-semibold text-gray-400">{authorName}</span>
-            </span>
-            <span>•</span>
-            <span>{formatTimeAgo(topic.createdAt)}</span>
-            {categoryName && (
-              <>
-                <span>•</span>
-                <span className="px-2 py-0.5 bg-gray-700 rounded text-gray-300">
-                  {categoryName}
-                </span>
-              </>
-            )}
-          </div>
-
-          <TopicActions
-            topic={topic}
-            onLike={onLike}
-            onShare={onShare}
-            isLiked={isLiked}
-            compact
+      <div className="flex min-w-0 flex-1 flex-col p-5 md:p-6">
+        <div className="flex min-w-0 items-center gap-3">
+          <Avatar
+            src={topic.author?.photoUrl || topic.authorAvatar}
+            name={authorName}
+            alt=""
+            className="h-10 w-10 shrink-0 border border-gray-600"
+            initialsClassName="text-sm font-semibold text-white"
           />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-gray-100">{authorName}</p>
+            <p className="mt-0.5 truncate text-xs text-gray-400">
+              Shared {formatTimeAgo(topic.createdAt)}
+              {categoryName && <><span className="mx-1.5 text-gray-600">·</span>{categoryName}</>}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5">
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-400">Community story</p>
+          <h3 className="mt-2 line-clamp-2 font-serif text-2xl font-medium leading-tight tracking-tight text-gray-50 md:text-3xl">
+            {topic.title}
+          </h3>
+          <p className="mt-3 line-clamp-3 text-sm leading-6 text-gray-300">{topic.content}</p>
+        </div>
+
+        <div className="mt-auto flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-t border-gray-700/80 pt-4">
+          <div className="flex items-center gap-4 text-xs text-gray-400">
+            <span className="inline-flex items-center gap-1.5">
+              <Eye className="h-4 w-4 text-gray-500" />
+              <strong className="font-medium text-gray-200">{topic.viewCount ?? 0}</strong>
+              <span>views</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <MessageCircle className="h-4 w-4 text-gray-500" />
+              <strong className="font-medium text-gray-200">{topic.commentCount}</strong>
+              <span>replies</span>
+            </span>
+          </div>
+          <div onClick={(event) => event.stopPropagation()}>
+            <TopicActions topic={topic} onLike={onLike} onShare={onShare} isLiked={isLiked} compact />
+          </div>
         </div>
       </div>
-    </div>
+    </article>
   );
-};
+});
 
 export default TopicCard;
-

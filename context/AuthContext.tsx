@@ -1,7 +1,22 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { authApi, setTokens, clearTokens, getAccessToken, getRefreshToken } from '../services/api';
-import { spotifyAuthService, SpotifyUserProfile, SpotifyTokenResponse } from '../services/spotifyAuthService';
-import { toApiUrl } from '../lib/apiBase';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+} from "react";
+import {
+  authApi,
+  apiRequest,
+  setTokens,
+  clearTokens,
+  getAccessToken,
+  getRefreshToken,
+  setAuthRefreshFn,
+} from "../services/api";
+import { toApiUrl } from "../lib/apiBase";
+import { clearAllAuthData } from "../lib/fallbacks";
+import { useBalanceStream, BalanceUpdateEvent } from "../hooks/useBalanceStream";
 
 interface AuthUser {
   uid: string;
@@ -18,19 +33,14 @@ interface UserProfile {
   email: string | null;
   displayName: string | null;
   photoURL: string | null;
-  role: 'user' | 'admin' | 'moderator' | 'artist';
+  role: "user" | "admin" | "moderator" | "artist";
   createdAt?: any;
   lastLogin?: any;
-  spotifyId?: string;
-  spotifyTokens?: {
-    accessToken: string;
-    refreshToken: string;
-    expiresAt: number;
-  };
   artistProfile?: {
     stageName: string;
     genre: string;
     bio: string;
+    profileImageUrl?: string | null;
     location?: string;
     website?: string;
     socialLinks?: {
@@ -44,45 +54,61 @@ interface UserProfile {
   };
 }
 
-type BackendRole = 'USER' | 'ADMIN' | 'ARTIST' | 'MODERATOR';
+type BackendRole = "USER" | "ADMIN" | "ARTIST" | "MODERATOR" | "ARBITER";
 
-const mapRole = (role: string): 'user' | 'admin' | 'moderator' | 'artist' => {
-  const mapping: Record<string, 'user' | 'admin' | 'moderator' | 'artist'> = {
-    USER: 'user',
-    ADMIN: 'admin',
-    MODERATOR: 'moderator',
-    ARTIST: 'artist',
+const mapRole = (role: string): "user" | "admin" | "moderator" | "artist" => {
+  const mapping: Record<string, "user" | "admin" | "moderator" | "artist"> = {
+    USER: "user",
+    ADMIN: "admin",
+    MODERATOR: "moderator",
+    ARBITER: "moderator",
+    ARTIST: "artist",
   };
-  return mapping[role] || 'user';
+  return mapping[role] || "user";
 };
 
 interface AuthContextType {
   user: AuthUser | null;
   userProfile: UserProfile | null;
   loading: boolean;
+  balance: number | null;
+  balanceStatus: "idle" | "connecting" | "open" | "error";
+  lastBalanceEvent: BalanceUpdateEvent | null;
+  refreshBalance: () => Promise<void>;
+  applyBalance: (balance: number, event?: BalanceUpdateEvent) => void;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, displayName: string) => Promise<void>;
-  signUpAsArtist: (email: string, password: string, artistData: {
-    stageName: string;
-    genre: string;
-    bio: string;
-    location?: string;
-    website?: string;
-    socialLinks?: {
-      instagram?: string;
-      twitter?: string;
-      facebook?: string;
-      youtube?: string;
-    };
-    photoURL?: string;
-  }) => Promise<void>;
+  signUp: (
+    email: string,
+    password: string,
+    displayName: string,
+  ) => Promise<void>;
+  signUpAsArtist: (
+    email: string,
+    password: string,
+    artistData: {
+      stageName: string;
+      genre: string;
+      bio: string;
+      location?: string;
+      website?: string;
+      socialLinks?: {
+        instagram?: string;
+        twitter?: string;
+        facebook?: string;
+        youtube?: string;
+      };
+      photoURL?: string;
+    },
+  ) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
-  signInWithSpotify: () => Promise<void>;
   signInAnonymously: () => Promise<void>;
   logout: () => Promise<void>;
+  updateUserProfile: (profile: { displayName: string | null; photoUrl: string | null }) => void;
+  updateArtistProfileImage: (profileImageUrl: string | null) => void;
   authFetch: (url: string, options?: RequestInit) => Promise<any>;
   isAdmin: boolean;
   isArtist: boolean;
+  isModerator: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -90,88 +116,123 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 };
 
-const buildUser = (data: { id: string; email: string; displayName: string; role: string }): AuthUser => ({
+const buildUser = (data: {
+  id: string;
+  email: string;
+  displayName: string;
+  role: string;
+  photoUrl?: string | null;
+}): AuthUser => ({
   uid: data.id,
   id: data.id,
   email: data.email,
   displayName: data.displayName,
-  photoURL: null,
+  photoURL: data.photoUrl ?? null,
   role: data.role,
 });
 
-const buildProfile = (data: { id: string; email: string; displayName: string; role: string }): UserProfile => ({
+const buildProfile = (data: {
+  id: string;
+  email: string;
+  displayName: string;
+  role: string;
+  photoUrl?: string | null;
+}): UserProfile => ({
   uid: data.id,
   id: data.id,
   email: data.email,
   displayName: data.displayName,
-  photoURL: null,
+  photoURL: data.photoUrl ?? null,
   role: mapRole(data.role),
 });
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const initFromAuthResult = useCallback((authResult: {
-    user: { id: string; email: string; displayName: string; role: string };
-    accessToken: string;
-    refreshToken: string;
-  }) => {
-    setTokens(authResult.accessToken, authResult.refreshToken);
-    setUser(buildUser(authResult.user));
-    setUserProfile(buildProfile(authResult.user));
-  }, []);
+  const { balance, status: balanceStatus, lastEvent: lastBalanceEvent, refresh: refreshBalance, applyBalance } = useBalanceStream(
+    user?.id ?? null,
+  );
+
+  const initFromAuthResult = useCallback(
+    (authResult: {
+      user: {
+        id: string;
+        email: string;
+        displayName: string;
+        role: string;
+        photoUrl: string | null;
+      };
+      accessToken: string;
+      refreshToken: string;
+    }) => {
+      setTokens(authResult.accessToken, authResult.refreshToken);
+      setUser(buildUser(authResult.user));
+      setUserProfile(buildProfile(authResult.user));
+    },
+    [],
+  );
+
+  // Inject the token refresh function into api.ts so all API helpers
+  // (songsApi, artistsApi, etc.) use the same refresh logic as authFetch.
+  // This is the single source of truth for token refresh.
+  useEffect(() => {
+    setAuthRefreshFn(async () => {
+      try {
+        const storedRefresh = getRefreshToken();
+        if (!storedRefresh) return false;
+        const result = await authApi.refresh(storedRefresh);
+        initFromAuthResult(result);
+        return true;
+      } catch {
+        clearTokens();
+        setUser(null);
+        setUserProfile(null);
+        window.dispatchEvent(new Event("auth:expired"));
+        return false;
+      }
+    });
+
+    return () => setAuthRefreshFn(null);
+  }, [initFromAuthResult]);
 
   useEffect(() => {
     const init = async () => {
       try {
         const params = new URLSearchParams(window.location.search);
 
-        const accessTokenParam = params.get('accessToken');
-        const refreshTokenParam = params.get('refreshToken');
-        const userId = params.get('userId');
-        const email = params.get('email');
-        const displayName = params.get('displayName');
-        const role = params.get('role');
+        const accessTokenParam = params.get("accessToken");
+        const refreshTokenParam = params.get("refreshToken");
+        const userId = params.get("userId");
+        const email = params.get("email");
+        const displayName = params.get("displayName");
+        const role = params.get("role");
+        const photoUrl = params.get("photoUrl");
 
         if (accessTokenParam && refreshTokenParam && userId) {
           setTokens(accessTokenParam, refreshTokenParam);
-          const authUser = { id: userId, email: email || '', displayName: displayName || email?.split('@')[0] || 'User', role: role || 'USER' };
+          const authUser = {
+            id: userId,
+            email: email || "",
+            displayName: displayName || email?.split("@")[0] || "User",
+            role: role || "USER",
+            photoUrl,
+          };
           setUser(buildUser(authUser));
           setUserProfile(buildProfile(authUser));
-          window.history.replaceState({}, document.title, window.location.pathname);
-          setLoading(false);
-          return;
-        }
-
-        const spotifyCode = params.get('code');
-        const spotifyState = params.get('state');
-        if (spotifyCode) {
-          try {
-            const spotifyTokens = await spotifyAuthService.exchangeCodeForToken(spotifyCode, spotifyState);
-            const authResult = await authApi.signInWithSpotify(spotifyTokens.access_token);
-            initFromAuthResult(authResult);
-
-            const redirectAfterAuth = sessionStorage.getItem('spotify_redirect_after_auth');
-            sessionStorage.removeItem('spotify_redirect_after_auth');
-
-            if (redirectAfterAuth) {
-              const targetUrl = new URL(redirectAfterAuth, window.location.origin);
-              if (targetUrl.origin === window.location.origin) {
-                window.location.replace(targetUrl.toString());
-                return;
-              }
-            }
-          } catch (err) {
-            console.error('Spotify auth callback error:', err);
-          }
-          window.history.replaceState({}, document.title, window.location.pathname);
+          window.history.replaceState(
+            {},
+            document.title,
+            window.location.origin + "/",
+          );
           setLoading(false);
           return;
         }
@@ -194,12 +255,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     init();
   }, [initFromAuthResult]);
 
+  useEffect(() => {
+    if (user?.role !== 'ARTIST') return;
+
+    let cancelled = false;
+    apiRequest<{
+      stageName?: string;
+      bio?: string | null;
+      genres?: string[];
+      verified?: boolean;
+      imageUrl?: string | null;
+      profileImageUrl?: string | null;
+    }>('/artists/me/profile')
+      .then((profile) => {
+        if (cancelled) return;
+        setUserProfile((current) => current ? {
+          ...current,
+          artistProfile: {
+            stageName: profile.stageName ?? current.artistProfile?.stageName ?? current.displayName ?? 'Artist',
+            genre: profile.genres?.[0] ?? current.artistProfile?.genre ?? '',
+            bio: profile.bio ?? current.artistProfile?.bio ?? '',
+            verified: profile.verified ?? current.artistProfile?.verified ?? false,
+            profileImageUrl: current.artistProfile?.profileImageUrl ?? profile.profileImageUrl ?? profile.imageUrl,
+          },
+        } : current);
+      })
+      .catch((error) => {
+        if (!cancelled) console.error('Error loading artist profile image:', error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, user?.role]);
+
   const signIn = async (email: string, password: string) => {
     const result = await authApi.login(email, password);
     initFromAuthResult(result);
+
+    if (result.user.role === 'ARTIST') {
+      window.location.href = '/artist';
+    }
   };
 
-  const signUp = async (email: string, password: string, displayName: string) => {
+  const signUp = async (
+    email: string,
+    password: string,
+    displayName: string,
+  ) => {
     const result = await authApi.register(email, password, displayName);
     initFromAuthResult(result);
   };
@@ -220,7 +323,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         youtube?: string;
       };
       photoURL?: string;
-    }
+    },
   ) => {
     const result = await authApi.registerArtist({
       email,
@@ -234,26 +337,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       photoURL: artistData.photoURL,
     });
     initFromAuthResult(result);
+
+    if (result.user.role === 'ARTIST') {
+      window.location.href = '/artist';
+    }
   };
 
   const signInWithGoogle = async () => {
     window.location.href = authApi.getGoogleUrl();
   };
 
-  const signInWithSpotify = async () => {
-    try {
-      const { url } = await spotifyAuthService.getAuthorizationUrl();
-      sessionStorage.setItem('spotify_redirect_after_auth', window.location.href);
-      window.location.href = url;
-    } catch (error) {
-      console.error('Spotify sign in error:', error);
-      throw error;
-    }
-  };
-
   const signInAnonymously = async () => {
-    console.warn('Anonymous sign-in is not available with the current backend');
-    throw new Error('Anonymous sign-in is not available');
+    console.warn("Anonymous sign-in is not available with the current backend");
+    throw new Error("Anonymous sign-in is not available");
   };
 
   const logout = async () => {
@@ -263,6 +359,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await authApi.logout(storedRefresh).catch(() => {});
       }
     } finally {
+      // Clear all auth-related data (JWT + OAuth session keys)
+      clearAllAuthData();
       clearTokens();
       setUser(null);
       setUserProfile(null);
@@ -275,13 +373,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ...(options.headers as Record<string, string>),
       };
 
-      if (options.body && !nextHeaders['Content-Type']) {
-        nextHeaders['Content-Type'] = 'application/json';
+      if (options.body && !nextHeaders["Content-Type"]) {
+        nextHeaders["Content-Type"] = "application/json";
       }
 
       const token = getAccessToken();
       if (token) {
-        nextHeaders['Authorization'] = `Bearer ${token}`;
+        nextHeaders["Authorization"] = `Bearer ${token}`;
       }
 
       return nextHeaders;
@@ -294,35 +392,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     if (res.status === 401) {
+      let refreshed = false;
       const storedRefresh = getRefreshToken();
-      if (!storedRefresh) {
-        clearTokens();
-        setUser(null);
-        setUserProfile(null);
-        window.dispatchEvent(new Event('auth:expired'));
-        throw new Error('Session expired. Please sign in again.');
+      if (storedRefresh) {
+        try {
+          const result = await authApi.refresh(storedRefresh);
+          initFromAuthResult(result);
+          refreshed = true;
+        } catch {
+          refreshed = false;
+        }
       }
 
-      try {
-        const refreshed = await authApi.refresh(storedRefresh);
-        initFromAuthResult(refreshed);
-        headers = buildHeaders();
-        res = await fetch(toApiUrl(url), {
-          ...options,
-          headers,
-        });
-      } catch {
+      if (!refreshed) {
         clearTokens();
         setUser(null);
         setUserProfile(null);
-        window.dispatchEvent(new Event('auth:expired'));
-        throw new Error('Session expired. Please sign in again.');
+        window.dispatchEvent(new Event("auth:expired"));
+        throw new Error("Session expired. Please sign in again.");
       }
+
+      headers = buildHeaders();
+      res = await fetch(toApiUrl(url), {
+        ...options,
+        headers,
+      });
     }
 
     if (!res.ok) {
-      const body = await res.json().catch(() => ({ error: 'Request failed' }));
-      throw new Error(body.error || body.message || 'Request failed');
+      const body = await res.json().catch(() => ({ error: "Request failed" }));
+      const sanitize = (val: unknown) =>
+        typeof val === "string" ? val.replace(/[<>"'`]/g, "") : "Request failed";
+      throw new Error(sanitize(body.error) || sanitize(body.message) || "Request failed");
     }
 
     if (res.status === 204) {
@@ -332,23 +433,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return res.json();
   };
 
-  const isAdmin = userProfile?.role === 'admin';
-  const isArtist = userProfile?.role === 'artist';
+  const isAdmin = userProfile?.role === "admin";
+  const isArtist = userProfile?.role === "artist";
+  const isModerator = userProfile?.role === "moderator" || userProfile?.role === "admin";
+  const updateUserProfile = (profile: { displayName: string | null; photoUrl: string | null }) => {
+    setUser((current) => current ? { ...current, displayName: profile.displayName, photoURL: profile.photoUrl } : current);
+    setUserProfile((current) => current ? { ...current, displayName: profile.displayName, photoURL: profile.photoUrl } : current);
+  };
+  const updateArtistProfileImage = (profileImageUrl: string | null) => {
+    setUserProfile((current) => current ? {
+      ...current,
+      artistProfile: {
+        stageName: current.artistProfile?.stageName ?? current.displayName ?? 'Artist',
+        genre: current.artistProfile?.genre ?? '',
+        bio: current.artistProfile?.bio ?? '',
+        verified: current.artistProfile?.verified ?? false,
+        ...current.artistProfile,
+        profileImageUrl,
+      },
+    } : current);
+  };
 
   const value = {
     user,
     userProfile,
     loading,
+    balance,
+    balanceStatus,
+    lastBalanceEvent,
+    refreshBalance,
+    applyBalance,
     signIn,
     signUp,
     signUpAsArtist,
     signInWithGoogle,
-    signInWithSpotify,
     signInAnonymously,
     logout,
+    updateUserProfile,
+    updateArtistProfileImage,
     authFetch,
     isAdmin,
     isArtist,
+    isModerator,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

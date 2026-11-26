@@ -12,11 +12,21 @@ interface TopicActionsProps {
 const TopicActions: React.FC<TopicActionsProps> = ({ topic, onLike, onShare, isLiked, compact = false }) => {
   const [copied, setCopied] = useState(false);
 
-  const handleShare = () => {
+  const handleShare = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     if (onShare) {
       onShare(topic.id);
+    }
+    const url = `${window.location.origin}/#/community/topic/${topic.id}`;
+    if (navigator.share) {
+      navigator.share({ title: topic.title, url }).catch(() => {
+        navigator.clipboard.writeText(url).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        });
+      });
     } else {
-      const url = `${window.location.origin}/#/community/topic/${topic.id}`;
       navigator.clipboard.writeText(url).then(() => {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
@@ -24,7 +34,9 @@ const TopicActions: React.FC<TopicActionsProps> = ({ topic, onLike, onShare, isL
     }
   };
 
-  const handleLike = () => {
+  const handleLike = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     if (onLike && topic.id) {
       onLike(topic.id);
     }
@@ -34,13 +46,13 @@ const TopicActions: React.FC<TopicActionsProps> = ({ topic, onLike, onShare, isL
     return (
       <div className="flex items-center gap-4 text-sm">
         <button
+          type="button"
           onClick={handleLike}
-          disabled={!onLike}
           className={`flex items-center gap-1.5 transition-colors ${
             isLiked
               ? 'text-red-400 hover:text-red-300'
-              : 'text-gray-500 hover:text-red-400'
-          } ${!onLike ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+              : 'text-gray-400 hover:text-red-400'
+          } cursor-pointer`}
         >
           <svg className="w-4 h-4" fill={isLiked ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
@@ -49,6 +61,7 @@ const TopicActions: React.FC<TopicActionsProps> = ({ topic, onLike, onShare, isL
         </button>
 
         <button
+          type="button"
           onClick={handleShare}
           className="flex items-center gap-1.5 text-gray-500 hover:text-amber-400 transition-colors"
         >
@@ -71,13 +84,13 @@ const TopicActions: React.FC<TopicActionsProps> = ({ topic, onLike, onShare, isL
   return (
     <div className="flex items-center gap-4 pt-3 border-t border-gray-700">
       <button
+        type="button"
         onClick={handleLike}
-        disabled={!onLike}
         className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
           isLiked
             ? 'bg-red-900/30 text-red-400 hover:bg-red-900/50'
             : 'bg-gray-700/50 text-gray-400 hover:bg-gray-700 hover:text-red-400'
-        } ${!onLike ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+        } cursor-pointer`}
       >
         <svg className="w-5 h-5" fill={isLiked ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
@@ -86,6 +99,7 @@ const TopicActions: React.FC<TopicActionsProps> = ({ topic, onLike, onShare, isL
       </button>
 
       <button
+        type="button"
         onClick={handleShare}
         className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-700/50 text-gray-400 hover:bg-gray-700 hover:text-amber-400 transition-colors"
       >

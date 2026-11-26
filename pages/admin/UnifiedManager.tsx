@@ -1,21 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  getAllArtists, 
-  getAllSongs, 
-  getAllGenres, 
-  addArtist, 
-  addSong, 
-  addGenre,
-  updateArtist,
-  updateSong,
-  updateGenre,
-  deleteArtist,
-  deleteSong,
-  deleteGenre,
-  uploadArtistImage,
-  uploadSongImage,
-  uploadGenreImage
-} from '../../services/firebaseService';
+import { artistsApi, songsApi } from '../../services/api';
+import { normalizeArtist, normalizeSong } from '../../utils/apiHelpers';
+import { uploadImage } from '../../services/uploadService';
 import { 
   MusicNoteIcon, 
   ArtistIcon, 
@@ -33,7 +19,26 @@ import {
   ImageIcon
 } from '../../components/icons/FlatIcons';
 import { AdminTabbedPageSkeleton } from '../../components/PageSkeletons';
+import MediaImage from '../../components/MediaImage';
 import type { Artist, Song, Genre } from '../../types';
+
+const getAllGenres = async (): Promise<Genre[]> => {
+  console.warn('getAllGenres: Not yet implemented in backend API');
+  return [];
+};
+
+const addGenre = async (_data: any): Promise<string> => {
+  console.warn('addGenre: Not yet implemented in backend API');
+  return '';
+};
+
+const updateGenre = async (_id: string, _data: any) => {
+  console.warn('updateGenre: Not yet implemented in backend API');
+};
+
+const deleteGenre = async (_id: string) => {
+  console.warn('deleteGenre: Not yet implemented in backend API');
+};
 
 type ContentType = 'artists' | 'songs' | 'genres';
 type ViewMode = 'grid' | 'list';
@@ -80,13 +85,15 @@ const UnifiedManager: React.FC = () => {
   const fetchAllData = async () => {
     setLoading(true);
     try {
-      const [fetchedArtists, fetchedSongs, fetchedGenres] = await Promise.all([
-        getAllArtists(),
-        getAllSongs(),
+      const [artistsResult, songsResult, fetchedGenres] = await Promise.all([
+        artistsApi.getAll(),
+        songsApi.getAll(),
         getAllGenres()
       ]);
-      setArtists(fetchedArtists);
-      setSongs(fetchedSongs);
+      const fetchedArtists = Array.isArray(artistsResult) ? artistsResult : (artistsResult?.data || []);
+      const fetchedSongs = Array.isArray(songsResult) ? songsResult : (songsResult?.data || []);
+      setArtists(fetchedArtists.map(normalizeArtist));
+      setSongs(fetchedSongs.map(normalizeSong));
       setGenres(fetchedGenres);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -159,10 +166,10 @@ const UnifiedManager: React.FC = () => {
 
     try {
       if (activeTab === 'artists') {
-        await deleteArtist(item.id);
+        await artistsApi.delete(item.id);
         setArtists(artists.filter(a => a.id !== item.id));
       } else if (activeTab === 'songs') {
-        await deleteSong(item.id);
+        await songsApi.delete(item.id);
         setSongs(songs.filter(s => s.id !== item.id));
       } else if (activeTab === 'genres') {
         await deleteGenre(item.id);
@@ -179,14 +186,8 @@ const UnifiedManager: React.FC = () => {
 
   const handleImageUpload = async (file: File, type: ContentType) => {
     try {
-      let downloadURL = '';
-      if (type === 'artists') {
-        downloadURL = await uploadArtistImage(file);
-      } else if (type === 'songs') {
-        downloadURL = await uploadSongImage(file);
-      } else if (type === 'genres') {
-        downloadURL = await uploadGenreImage(file);
-      }
+      const itemId = editingItem?.id || 'new';
+      const downloadURL = await uploadImage(file, `${type}/${itemId}`);
       setFormData(prev => ({ ...prev, image: downloadURL }));
     } catch (error) {
       console.error('Error uploading image:', error);
@@ -206,10 +207,13 @@ const UnifiedManager: React.FC = () => {
         };
         
         if (editingItem) {
-          await updateArtist(editingItem.id, artistData);
+          await artistsApi.update(editingItem.id, artistData);
           setArtists(artists.map(a => a.id === editingItem.id ? { ...a, ...artistData } : a));
         } else {
-          const newId = await addArtist(artistData);
+          const newId = await artistsApi.create({
+            name: formData.name,
+            genres: formData.genre ? [formData.genre] : [],
+          });
           setArtists([...artists, { id: newId, ...artistData } as Artist]);
         }
       } else if (activeTab === 'songs') {
@@ -223,10 +227,14 @@ const UnifiedManager: React.FC = () => {
         };
         
         if (editingItem) {
-          await updateSong(editingItem.id, songData);
+          await songsApi.update(editingItem.id, songData);
           setSongs(songs.map(s => s.id === editingItem.id ? { ...s, ...songData } : s));
         } else {
-          const newId = await addSong(songData);
+          const newId = await songsApi.create({
+            title: formData.title,
+            artist: formData.artist,
+            artistId: formData.artistId,
+          });
           setSongs([...songs, { id: newId, ...songData } as Song]);
         }
       } else if (activeTab === 'genres') {
@@ -256,14 +264,10 @@ const UnifiedManager: React.FC = () => {
     const data = activeTab === 'artists' ? artists : activeTab === 'songs' ? songs : genres;
     return data.filter(item => {
       const searchTerm = searchQuery.toLowerCase();
-      if (activeTab === 'artists') {
-        return item.name.toLowerCase().includes(searchTerm);
-      } else if (activeTab === 'songs') {
+      if ('title' in item) {
         return item.title.toLowerCase().includes(searchTerm) || item.artist.toLowerCase().includes(searchTerm);
-      } else if (activeTab === 'genres') {
-        return item.name.toLowerCase().includes(searchTerm);
       }
-      return false;
+      return item.name.toLowerCase().includes(searchTerm);
     });
   };
 
@@ -271,7 +275,19 @@ const UnifiedManager: React.FC = () => {
     <div key={item.id} className="bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-white/10 hover:border-green-500/50 transition-all duration-300 group">
       <div className="aspect-square bg-gray-700 rounded-lg overflow-hidden mb-3">
         {item.image ? (
-          <img src={item.image} alt={item.name || item.title} className="w-full h-full object-cover" />
+          <MediaImage
+            src={item.image}
+            alt={item.name || item.title}
+            className="w-full h-full object-cover"
+            fallback={
+              <div className="w-full h-full flex items-center justify-center">
+                {activeTab === 'artists' && <ArtistIcon className="w-12 h-12 text-gray-400" />}
+                {activeTab === 'songs' && <MusicNoteIcon className="w-12 h-12 text-gray-400" />}
+                {activeTab === 'genres' && <GenreIcon className="w-12 h-12 text-gray-400" />}
+              </div>
+            }
+            fallbackClassName="bg-gray-700"
+          />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             {activeTab === 'artists' && <ArtistIcon className="w-12 h-12 text-gray-400" />}
@@ -315,7 +331,19 @@ const UnifiedManager: React.FC = () => {
       <div className="flex items-center space-x-4">
         <div className="w-16 h-16 bg-gray-700 rounded-lg overflow-hidden flex-shrink-0">
           {item.image ? (
-            <img src={item.image} alt={item.name || item.title} className="w-full h-full object-cover" />
+            <MediaImage
+              src={item.image}
+              alt={item.name || item.title}
+              className="w-full h-full object-cover"
+              fallback={
+                <div className="w-full h-full flex items-center justify-center">
+                  {activeTab === 'artists' && <ArtistIcon className="w-8 h-8 text-gray-400" />}
+                  {activeTab === 'songs' && <MusicNoteIcon className="w-8 h-8 text-gray-400" />}
+                  {activeTab === 'genres' && <GenreIcon className="w-8 h-8 text-gray-400" />}
+                </div>
+              }
+              fallbackClassName="bg-gray-700"
+            />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
               {activeTab === 'artists' && <ArtistIcon className="w-8 h-8 text-gray-400" />}
@@ -488,7 +516,17 @@ const UnifiedManager: React.FC = () => {
                   <div className="flex items-center space-x-4">
                     <div className="w-24 h-24 bg-gray-700 rounded-lg overflow-hidden">
                       {formData.image ? (
-                        <img src={formData.image} alt="Preview" className="w-full h-full object-cover" />
+                        <MediaImage
+                          src={formData.image}
+                          alt="Preview"
+                          className="w-full h-full object-cover"
+                          fallback={
+                            <div className="w-full h-full flex items-center justify-center">
+                              <ImageIcon className="w-8 h-8 text-gray-400" />
+                            </div>
+                          }
+                          fallbackClassName="bg-gray-700"
+                        />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
                           <ImageIcon className="w-8 h-8 text-gray-400" />

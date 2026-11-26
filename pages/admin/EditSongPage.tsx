@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { uploadSongImage } from '../../services/firebaseService';
+import { songsApi } from '../../services/api';
+import { uploadImage } from '../../services/uploadService';
 import { getAllLanguages, addLanguage } from '../../services/languageService';
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../context/AuthContext';
 import { getSongById, getSongTranslations, getArtists } from '../../lib/apiClient';
 import Notification from '../../components/Notification';
 import ArtistSearchSelect from '../../components/admin/ArtistSearchSelect';
+import MediaImage from '../../components/MediaImage';
 import { AdminFormPageSkeleton } from '../../components/PageSkeletons';
 import type { Song, Artist, Language } from '../../types';
 
@@ -49,9 +51,9 @@ const EditSongPage: React.FC = () => {
       setLoading(true);
       try {
         const [songResponse, artistsResponse, translationResponse, fetchedLanguages] = await Promise.all([
-          getSongById(id),
+          getSongById(id, authFetch),
           getArtists({ limit: 200 }),
-          getSongTranslations(id).catch(() => null),
+          getSongTranslations(id, authFetch).catch(() => null),
           getAllLanguages()
         ]);
 
@@ -84,7 +86,6 @@ const EditSongPage: React.FC = () => {
           genre: Array.isArray(artist.genres) ? artist.genres[0] || '' : artist.genre || '',
           image: artist.imageUrl || artist.image || '',
           genres: artist.genres || [],
-          spotifyId: artist.spotifyId,
           bio: artist.bio,
           popularity: artist.popularity,
           followers: artist.followers,
@@ -159,7 +160,7 @@ const EditSongPage: React.FC = () => {
 
       // Upload image if provided
       if (imageFile) {
-        imageUrl = await uploadSongImage(imageFile, id);
+        imageUrl = await uploadImage(imageFile, `songs/${id || 'new'}`);
       }
 
       await authFetch('/api/songs/' + id, {
@@ -479,7 +480,7 @@ const EditSongPage: React.FC = () => {
               <div className="mt-4">
                 <label className="block text-sm font-medium text-gray-300 mb-2">Preview</label>
                 <div className="w-32 h-32 rounded-lg overflow-hidden border border-gray-600">
-                  <img
+                  <MediaImage
                     src={imagePreview}
                     alt="Preview"
                     className="w-full h-full object-cover"
