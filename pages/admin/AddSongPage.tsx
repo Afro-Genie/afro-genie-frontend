@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { getArtists } from '../../lib/apiClient';
 import Notification from '../../components/Notification';
 import ArtistSearchSelect from '../../components/admin/ArtistSearchSelect';
+import MediaImage from '../../components/MediaImage';
 import type { Artist, Language } from '../../types';
 
 interface ManualArtistPolicy {
@@ -437,7 +438,7 @@ const AddSongPage: React.FC = () => {
               <div className="mt-4">
                 <label className="block text-sm font-medium text-gray-300 mb-2">Preview</label>
                 <div className="w-32 h-32 rounded-lg overflow-hidden border border-gray-600">
-                  <img
+                  <MediaImage
                     src={imagePreview}
                     alt="Preview"
                     className="w-full h-full object-cover"

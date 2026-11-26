@@ -1,9 +1,5 @@
 import type { Artist, Song } from '../types';
-import { API_BASE_URL } from '../lib/apiBase';
-
-const BROKEN_IMAGE_HOSTS = new Set(['images.afrogenie.dev']);
-const BACKEND_UPLOAD_HOSTS = new Set(['afro-genie-backend-production.up.railway.app']);
-const API_ORIGIN = /^https?:\/\/[^/]+/i.exec(API_BASE_URL)?.[0] ?? '';
+import { resolveMediaUrl } from '../lib/apiBase';
 
 export const toDisplayText = (value: unknown): string => {
   if (value == null) return '';
@@ -22,33 +18,7 @@ export const toDisplayText = (value: unknown): string => {
   return '';
 };
 
-export const sanitizeImageUrl = (raw: unknown): string => {
-  const trimmed = toDisplayText(raw).trim();
-  if (!trimmed) {
-    return '';
-  }
-
-  if (trimmed.startsWith('/')) {
-    return trimmed;
-  }
-
-  try {
-    const parsed = new URL(trimmed);
-    const host = parsed.hostname.toLowerCase();
-    if (BROKEN_IMAGE_HOSTS.has(host)) {
-      return '';
-    }
-    if (
-      parsed.pathname.startsWith('/uploads/') &&
-      (BACKEND_UPLOAD_HOSTS.has(host) || parsed.origin === API_ORIGIN)
-    ) {
-      return `${parsed.pathname}${parsed.search}`;
-    }
-    return trimmed;
-  } catch {
-    return '';
-  }
-};
+export const sanitizeImageUrl = (raw: unknown): string => resolveMediaUrl(raw);
 
 export const normalizeArtist = (a: any): Artist | null => {
   if (!a) return null;

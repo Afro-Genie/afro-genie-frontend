@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { toMediaUrl } from '../../lib/apiBase';
+import MediaImage from '../MediaImage';
 import UserIcon from '../icons/UserIcon';
 import UserBadges from './UserBadges';
 import { tokenApi, type UserProfile, getBadgeDisplay } from '../../services/tokenService';
@@ -22,19 +22,17 @@ const UserProfileCard: React.FC = () => {
     return (
         <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700 shadow-lg space-y-6">
             <div className="text-center">
-                {user.photoURL ? (
-                    <img
-                        src={toMediaUrl(user.photoURL)}
-                        alt="Profile"
-                        className="h-20 w-20 rounded-full mx-auto mb-4 ring-4 ring-amber-400"
-                    />
-                ) : (
-                    <div className="h-20 w-20 rounded-full mx-auto mb-4 bg-gradient-to-br from-green-600 to-green-800 flex items-center justify-center ring-4 ring-amber-400">
+                <MediaImage
+                    src={user.photoURL}
+                    alt="Profile"
+                    className="h-20 w-20 rounded-full mx-auto mb-4 ring-4 ring-amber-400"
+                    fallback={
                         <span className="text-3xl font-bold text-white">
                             {user.displayName?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || 'U'}
                         </span>
-                    </div>
-                )}
+                    }
+                    fallbackClassName="flex items-center justify-center bg-gradient-to-br from-green-600 to-green-800"
+                />
                 <h2 className="text-2xl font-bold text-white mb-1">
                     {user.displayName || 'Community Member'}
                 </h2>

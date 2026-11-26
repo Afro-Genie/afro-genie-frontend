@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
 import { useConfirm } from '../../hooks/useConfirm';
-import { toMediaUrl } from '../../lib/apiBase';
+import MediaImage from '../../components/MediaImage';
 import Notification from '../../components/Notification';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import AdminPagination from '../../components/admin/AdminPagination';
@@ -58,32 +58,19 @@ const getRoleBadgeColor = (role: string) => {
   }
 };
 
-const UserAvatar: React.FC<{ user: AdminUser }> = ({ user }) => {
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => setFailed(false), [user.photoUrl]);
-
-  const imageUrl = user.photoUrl && !failed ? toMediaUrl(user.photoUrl) : '';
-
-  if (imageUrl) {
-    return (
-      <img
-        src={imageUrl}
-        alt="User avatar"
-        className="h-12 w-12 rounded-full flex-shrink-0 object-cover"
-        onError={() => setFailed(true)}
-      />
-    );
-  }
-
-  return (
-    <div className="h-12 w-12 rounded-full bg-gray-600 flex items-center justify-center flex-shrink-0">
+const UserAvatar: React.FC<{ user: AdminUser }> = ({ user }) => (
+  <MediaImage
+    src={user.photoUrl}
+    alt="User avatar"
+    className="h-12 w-12 rounded-full flex-shrink-0 object-cover"
+    fallback={
       <span className="text-lg font-medium text-white">
         {user.displayName?.[0] || user.email?.[0] || 'U'}
       </span>
-    </div>
-  );
-};
+    }
+    fallbackClassName="h-12 w-12 rounded-full bg-gray-600 flex items-center justify-center flex-shrink-0"
+  />
+);
 
 const UsersManager: React.FC = () => {
   const { authFetch } = useAuth();

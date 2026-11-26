@@ -17,6 +17,7 @@ const updateGenieSettings = async (_settings: Partial<GenieSettings>) => {
   console.warn('updateGenieSettings: Not yet implemented in backend API');
 };
 import { AdminFormPageSkeleton } from '../../components/PageSkeletons';
+import MediaImage from '../../components/MediaImage';
 
 const GenieManager: React.FC = () => {
   const [settings, setSettings] = useState<GenieSettings>({
@@ -328,7 +329,7 @@ const GenieManager: React.FC = () => {
           <div className="relative bg-[#122118] rounded-lg h-[500px] flex items-center justify-center overflow-hidden">
             {/* Background Genie (blurred) */}
             <div className="absolute inset-0 flex items-center justify-center">
-              <img
+              <MediaImage
                 src={imagePreview || settings.imageUrl}
                 alt="Background Genie"
                 className="genie-preview"
@@ -342,7 +343,7 @@ const GenieManager: React.FC = () => {
 
             {/* Foreground Genie */}
             <div className="relative z-10">
-              <img
+              <MediaImage
                 src={imagePreview || settings.imageUrl}
                 alt="Genie Preview"
                 className="genie-preview"

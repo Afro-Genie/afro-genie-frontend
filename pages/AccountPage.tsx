@@ -7,6 +7,7 @@ import UserNotificationSettings, { NotificationToggles } from '../components/use
 import UserDataSettings from '../components/user/settings/UserDataSettings';
 import UserDangerZone from '../components/user/settings/UserDangerZone';
 import ImageUpload from '../components/ImageUpload';
+import MediaImage from '../components/MediaImage';
 import {
   User,
   CheckCircle,
@@ -21,7 +22,6 @@ import {
   Gift,
 } from 'lucide-react';
 import { tokenApi, type UserEntitlement } from '../services/tokenService';
-import { toMediaUrl } from '../lib/apiBase';
 
 interface HistoryEntry {
   songId: string;
@@ -52,7 +52,6 @@ const AccountPage: React.FC = () => {
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
   const [profileSaveError, setProfileSaveError] = useState('');
-  const [avatarFailed, setAvatarFailed] = useState(false);
 
   // History & favorites state
   const [history, setHistory] = useState<HistoryEntry[]>([]);
@@ -68,9 +67,7 @@ const AccountPage: React.FC = () => {
     setPhotoUrl(user?.photoURL || '');
   }, [user?.displayName, user?.photoURL]);
 
-  useEffect(() => {
-    setAvatarFailed(false);
-  }, [photoUrl]);
+
 
   const handleCancelArtistApplication = async () => {
     if (!artistApplication) return;
@@ -258,11 +255,16 @@ const AccountPage: React.FC = () => {
         <div className="px-6 pb-6 -mt-10">
           <div className="flex items-end gap-5">
             <div className={`w-20 h-20 rounded-full bg-gray-800 border-4 ${borderColor || 'border-gray-900'} overflow-hidden flex items-center justify-center flex-shrink-0 shadow-lg`}>
-              {photoUrl && !avatarFailed ? (
-                <img src={toMediaUrl(photoUrl)} alt="" onError={() => setAvatarFailed(true)} className="w-full h-full object-cover" />
-              ) : (
-                <User className="w-9 h-9 text-gray-500" />
-              )}
+              <MediaImage
+                src={photoUrl}
+                alt=""
+                className="w-full h-full object-cover"
+                fallback={
+                  <div className="w-full h-full flex items-center justify-center">
+                    <User className="w-9 h-9 text-gray-500" />
+                  </div>
+                }
+              />
             </div>
             <div className="pb-1 min-w-0">
               <div className="flex items-center flex-wrap gap-2">

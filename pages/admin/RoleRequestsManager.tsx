@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { adminRoleRequestsApi } from '../../services/api';
 import type { RoleRequestWithUser, RoleRequestStatus, RequestedRole } from '../../services/api';
+import MediaImage from '../../components/MediaImage';
 
 const RoleRequestsManager: React.FC = () => {
   const [requests, setRequests] = useState<RoleRequestWithUser[]>([]);
@@ -162,10 +163,16 @@ const RoleRequestsManager: React.FC = () => {
                   <div className="flex items-start gap-4 min-w-0">
                     <div className="flex-shrink-0">
                       {req.user.photoUrl ? (
-                        <img
+                        <MediaImage
                           src={req.user.photoUrl}
                           alt="User avatar"
                           className="h-12 w-12 rounded-full"
+                          fallback={
+                            <span className="text-lg font-medium text-white">
+                              {req.user.displayName?.[0] || req.user.email?.[0] || 'U'}
+                            </span>
+                          }
+                          fallbackClassName="h-12 w-12 rounded-full bg-gray-600 flex items-center justify-center"
                         />
                       ) : (
                         <div className="h-12 w-12 rounded-full bg-gray-600 flex items-center justify-center">

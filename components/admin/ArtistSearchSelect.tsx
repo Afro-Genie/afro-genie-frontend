@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react';
+import MediaImage from '../../components/MediaImage';
 import useClickOutside from '../../hooks/useClickOutside';
 import { getArtists } from '../../lib/apiClient';
 import type { Artist } from '../../types';
@@ -226,7 +227,13 @@ const ArtistSearchSelect: React.FC<ArtistSearchSelectProps> = ({
                     }`}
                   >
                     {artist.image ? (
-                      <img src={artist.image} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                      <MediaImage
+                        src={artist.image}
+                        alt=""
+                        className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                        fallback={artist.name.charAt(0).toUpperCase()}
+                        fallbackClassName="w-8 h-8 rounded-full bg-gray-600 flex-shrink-0 flex items-center justify-center text-xs text-gray-300"
+                      />
                     ) : (
                       <span className="w-8 h-8 rounded-full bg-gray-600 flex-shrink-0 flex items-center justify-center text-xs text-gray-300">
                         {artist.name.charAt(0).toUpperCase()}

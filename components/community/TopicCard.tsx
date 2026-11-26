@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, MessageCircle } from 'lucide-react';
 import { CommunityTopicExtended } from '../../types';
-import { toMediaUrl } from '../../lib/apiBase';
+import MediaImage from '../MediaImage';
 import Avatar from '../Avatar';
 import TopicActions from './TopicActions';
 
@@ -57,16 +57,13 @@ const TopicCard: React.FC<TopicCardProps> = React.memo(({ topic, onLike, onShare
     >
       <div className="relative h-64 shrink-0 bg-[#101715] p-3 md:h-auto md:w-[36%] md:min-w-[260px] md:max-w-[340px]">
         <div className="relative h-full min-h-[220px] overflow-hidden rounded-lg bg-gray-900/50">
-          {topic.imageUrl ? (
-            <img
-              src={toMediaUrl(topic.imageUrl)}
-              alt={topic.title}
-              loading="lazy"
-              className="h-full w-full object-contain p-2"
-            />
-          ) : (
-            <div className="h-full w-full bg-gradient-to-br from-green-950/60 via-gray-900 to-gray-950" />
-          )}
+          <MediaImage
+            src={topic.imageUrl}
+            alt={topic.title}
+            loading="lazy"
+            className="h-full w-full object-contain p-2"
+            fallbackClassName="bg-gradient-to-br from-green-950/60 via-gray-900 to-gray-950"
+          />
           {categoryName && (
             <span className="absolute left-3 top-3 max-w-[calc(100%-1.5rem)] truncate rounded-full border border-white/10 bg-[#151d1b]/90 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-200 backdrop-blur-sm">
               <span className="mr-1.5 text-amber-400">•</span>

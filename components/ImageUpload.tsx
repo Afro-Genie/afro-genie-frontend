@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Upload, ImageIcon, Loader2, AlertCircle } from 'lucide-react';
 import { uploadImage } from '../services/uploadService';
 import { toMediaUrl } from '../lib/apiBase';
+import MediaImage from './MediaImage';
 
 interface ImageUploadProps {
   label: string;
@@ -80,7 +81,14 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ label, currentUrl, onUploaded
             imageFailed ? (
               <ImageIcon className="w-6 h-6 text-gray-500" />
             ) : (
-              <img src={displayUrl} alt={label} onError={() => setImageFailed(true)} className="w-full h-full object-cover" />
+              <MediaImage
+                src={displayUrl}
+                alt={label}
+                onError={() => setImageFailed(true)}
+                className="w-full h-full object-cover"
+                fallback={<ImageIcon className="w-6 h-6 text-gray-500" />}
+                fallbackClassName="flex items-center justify-center"
+              />
             )
           ) : (
             <ImageIcon className="w-6 h-6 text-gray-500" />

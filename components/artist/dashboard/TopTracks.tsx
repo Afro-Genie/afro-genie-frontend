@@ -1,5 +1,6 @@
 import React from 'react';
 import { Music } from 'lucide-react';
+import MediaImage from '../../MediaImage';
 
 interface Track {
   id: string;
@@ -67,11 +68,13 @@ const TopTracks: React.FC<TopTracksProps> = ({ tracks, loading }) => {
                   <td className="py-4 px-4">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-green-500/20 rounded flex items-center justify-center flex-shrink-0">
-                        {track.imageUrl ? (
-                          <img src={track.imageUrl} alt="" className="w-8 h-8 rounded object-cover" />
-                        ) : (
-                          <Music className="w-4 h-4 text-green-400" />
-                        )}
+                        <MediaImage
+                          src={track.imageUrl}
+                          alt=""
+                          className="w-8 h-8 rounded object-cover"
+                          fallback={<Music className="w-4 h-4 text-green-400" />}
+                          fallbackClassName="flex items-center justify-center"
+                        />
                       </div>
                       <p className="font-medium text-white truncate">{track.title}</p>
                     </div>

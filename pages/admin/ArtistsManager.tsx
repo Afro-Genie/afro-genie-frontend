@@ -8,6 +8,7 @@ import { uploadImage } from '../../services/uploadService';
 import Notification from '../../components/Notification';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import AdminPagination from '../../components/admin/AdminPagination';
+import MediaImage from '../../components/MediaImage';
 import { AdminListPageSkeleton } from '../../components/PageSkeletons';
 
 interface AdminArtist {
@@ -55,32 +56,23 @@ const toQuery = (params: Record<string, string | number | undefined>) => {
   return query ? `?${query}` : '';
 };
 
-const ArtistImage: React.FC<{ src: string; name: string }> = ({ src, name }) => {
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => setFailed(false), [src]);
-
-  const imageUrl = src && !failed ? toMediaUrl(src) : '';
-
-  return (
-    <div className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-gray-700">
-      {imageUrl ? (
-        <img
-          src={imageUrl}
-          alt={name}
-          className="w-full h-full object-cover"
-          onError={() => setFailed(true)}
-        />
-      ) : (
+const ArtistImage: React.FC<{ src: string; name: string }> = ({ src, name }) => (
+  <div className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-gray-700">
+    <MediaImage
+      src={src}
+      alt={name}
+      className="w-full h-full object-cover"
+      fallback={
         <div className="w-full h-full flex items-center justify-center">
           <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
           </svg>
         </div>
-      )}
-    </div>
-  );
-};
+      }
+      fallbackClassName="bg-gray-700"
+    />
+  </div>
+);
 
 const ArtistsManager: React.FC = () => {
   const { authFetch } = useAuth();
@@ -824,7 +816,7 @@ const ArtistsManager: React.FC = () => {
                 />
                 {imagePreview && (
                   <div className="mt-2">
-                    <img src={imagePreview} alt="Preview" className="h-32 w-32 object-cover rounded-lg" />
+                    <MediaImage src={imagePreview} alt="Preview" className="h-32 w-32 object-cover rounded-lg" />
                   </div>
                 )}
               </div>

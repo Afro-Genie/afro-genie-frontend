@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { toMediaUrl } from '../lib/apiBase';
+import { resolveMediaUrl, toMediaUrl } from '../lib/apiBase';
 
 interface AvatarProps {
   src?: string | null;
@@ -9,9 +9,6 @@ interface AvatarProps {
   fallbackClassName?: string;
   initialsClassName?: string;
 }
-
-const isFacebookCdnUrl = (url: string): boolean =>
-  /^https?:\/\/[^/?#]+\.fbcdn\.net(?:[/?#]|$)/i.test(url);
 
 const Avatar: React.FC<AvatarProps> = ({
   src,
@@ -27,7 +24,8 @@ const Avatar: React.FC<AvatarProps> = ({
     setFailedUrl(null);
   }, [src]);
 
-  const imageUrl = src && !isFacebookCdnUrl(src) && failedUrl !== src ? toMediaUrl(src) : null;
+  const normalizedSrc = resolveMediaUrl(src);
+  const imageUrl = normalizedSrc && failedUrl !== src ? toMediaUrl(normalizedSrc) : null;
   const initial = name?.trim().charAt(0).toUpperCase() || 'U';
 
   return (

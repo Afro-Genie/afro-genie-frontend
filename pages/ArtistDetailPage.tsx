@@ -4,6 +4,7 @@ import { getArtistById, apiFetch } from '../lib/apiClient';
 import { normalizeArtistData } from '../lib/compat';
 import Notification from '../components/Notification';
 import { DetailPageSkeleton } from '../components/PageSkeletons';
+import MediaImage from '../components/MediaImage';
 import type { Artist, Song } from '../types';
 
 const formatCount = (value: number): string => {
@@ -148,20 +149,18 @@ const ArtistDetailPage: React.FC = () => {
             <div className="flex flex-col md:flex-row gap-6 md:gap-8">
               <div className="flex-shrink-0">
                 <div className="w-32 h-32 md:w-48 md:h-48 rounded-2xl overflow-hidden bg-gray-700 shadow-2xl">
-                  {displayImage ? (
-                    <img
-                      src={displayImage}
-                      alt={artist.name}
-                      className="w-full h-full object-cover"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-500">
-                      <svg className="w-16 h-16" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                  )}
+                  <MediaImage
+                    src={displayImage}
+                    alt={artist.name}
+                    className="w-full h-full object-cover"
+                    fallback={
+                      <div className="w-full h-full flex items-center justify-center text-gray-500">
+                        <svg className="w-16 h-16" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                    }
+                  />
                 </div>
               </div>
 
@@ -256,19 +255,18 @@ const ArtistDetailPage: React.FC = () => {
                   className="group flex flex-col bg-gray-700/50 hover:bg-gray-700 rounded-lg p-4 min-h-[48px] border border-gray-600 hover:border-green-500/50 transition-all"
                 >
                   <div className="aspect-square rounded-lg overflow-hidden mb-3 bg-gray-600">
-                    {song.image ? (
-                      <img
-                        src={song.image}
-                        alt={song.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-400">
-                        <svg className="w-12 h-12" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
-                        </svg>
-                      </div>
-                    )}
+                    <MediaImage
+                      src={song.image}
+                      alt={song.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      fallback={
+                        <div className="w-full h-full flex items-center justify-center text-gray-400">
+                          <svg className="w-12 h-12" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
+                          </svg>
+                        </div>
+                      }
+                    />
                   </div>
                   <h3 className="font-semibold text-white group-hover:text-green-400 transition-colors mb-1">
                     {song.title}

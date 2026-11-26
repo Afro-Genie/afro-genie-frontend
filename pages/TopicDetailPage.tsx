@@ -6,7 +6,7 @@ import Notification from '../components/Notification';
 import VoteButtons from '../components/community/VoteButtons';
 import CommentThread from '../components/community/CommentThread';
 import ReportModal from '../components/moderation/ReportModal';
-import { toMediaUrl } from '../lib/apiBase';
+import MediaImage from '../components/MediaImage';
 import type { CommunityTopic, CommunityComment } from '../types';
 
 const formatTimeAgo = (timestamp: string) => {
@@ -254,15 +254,18 @@ const TopicDetailPage: React.FC = () => {
                   <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-100 break-words mb-2">{topic.title}</h1>
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-2 text-xs sm:text-sm text-gray-400">
                     <div className="flex items-center gap-2 min-w-0 max-w-full">
-                      {authorAvatar ? (
-                        <img src={authorAvatar} alt={authorName} className="h-6 w-6 rounded-full flex-shrink-0" />
-                      ) : (
-                        <div className="h-6 w-6 rounded-full bg-gradient-to-br from-green-600 to-green-800 flex items-center justify-center flex-shrink-0">
-                          <span className="text-white font-bold text-xs">
-                            {authorName?.[0]?.toUpperCase() || 'U'}
-                          </span>
-                        </div>
-                      )}
+                      <MediaImage
+                        src={authorAvatar}
+                        alt={authorName}
+                        className="h-6 w-6 rounded-full flex-shrink-0 object-cover"
+                        fallback={
+                          <div className="h-6 w-6 rounded-full bg-gradient-to-br from-green-600 to-green-800 flex items-center justify-center flex-shrink-0">
+                            <span className="text-white font-bold text-xs">
+                              {authorName?.[0]?.toUpperCase() || 'U'}
+                            </span>
+                          </div>
+                        }
+                      />
                       <span className="font-semibold text-gray-300 truncate max-w-[10rem] sm:max-w-xs">{authorName}</span>
                     </div>
                     <span className="text-gray-600" aria-hidden="true">•</span>
@@ -324,8 +327,8 @@ const TopicDetailPage: React.FC = () => {
                 </div>
               </div>
               {topic.imageUrl && (
-                <img
-                  src={toMediaUrl(topic.imageUrl)}
+                <MediaImage
+                  src={topic.imageUrl}
                   alt={topic.title}
                   className="mb-4 h-auto w-full rounded-lg"
                 />

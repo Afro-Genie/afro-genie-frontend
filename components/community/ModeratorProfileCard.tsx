@@ -1,5 +1,6 @@
 import React from 'react';
 import type { RecommendedModerator } from '../../types';
+import MediaImage from '../MediaImage';
 
 interface ModeratorProfileCardProps {
   moderator: RecommendedModerator;
@@ -11,17 +12,13 @@ const ModeratorProfileCard: React.FC<ModeratorProfileCardProps> = React.memo(({ 
   return (
     <div className="bg-gray-800/50 hover:bg-gray-700/50 transition-colors duration-200 rounded-lg border border-gray-700 p-4">
       <div className="flex items-center gap-3 mb-3">
-        {moderator.photoUrl ? (
-          <img
-            src={moderator.photoUrl}
-            alt={moderator.displayName || 'Moderator'}
-            className="h-12 w-12 rounded-full object-cover"
-          />
-        ) : (
-          <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center">
-            <span className="text-white font-bold text-lg">{initial}</span>
-          </div>
-        )}
+        <MediaImage
+          src={moderator.photoUrl}
+          alt={moderator.displayName || 'Moderator'}
+          className="h-12 w-12 rounded-full object-cover"
+          fallback={<span className="text-white font-bold text-lg">{initial}</span>}
+          fallbackClassName="flex items-center justify-center bg-gradient-to-br from-blue-600 to-blue-800"
+        />
         <div className="min-w-0">
           <p className="text-white font-semibold text-sm truncate">{moderator.displayName || 'Moderator'}</p>
           <span className="px-2 py-0.5 bg-blue-900/50 text-blue-300 text-xs rounded-full font-medium">
