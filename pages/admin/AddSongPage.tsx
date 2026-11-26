@@ -7,6 +7,7 @@ import { getArtists } from '../../lib/apiClient';
 import Notification from '../../components/Notification';
 import ArtistSearchSelect from '../../components/admin/ArtistSearchSelect';
 import MediaImage from '../../components/MediaImage';
+import { uploadImage } from '../../services/uploadService';
 import type { Artist, Language } from '../../types';
 
 interface ManualArtistPolicy {
@@ -111,7 +112,9 @@ const AddSongPage: React.FC = () => {
 
     setSaving(true);
     try {
-      const coverImageUrl = formData.image || imagePreview || undefined;
+      const coverImageUrl = imageFile
+        ? await uploadImage(imageFile, 'songs/new')
+        : formData.image || undefined;
 
       await authFetch('/api/songs', {
         method: 'POST',
