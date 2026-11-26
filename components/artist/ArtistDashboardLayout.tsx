@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import Avatar from '../Avatar';
+import SearchBar from '../SearchBar';
 import {
   Home,
   Disc3,
@@ -151,23 +152,15 @@ const ArtistDashboardLayout: React.FC = () => {
           </button>
 
           {isSearchOpen ? (
-            <div className="flex-1 min-w-0 animate-slide-in-from-left">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  autoFocus
-                  type="text"
-                  placeholder="Search songs, releases..."
-                  className="w-full pl-10 pr-12 py-2.5 min-h-[44px] bg-[#1a1a1a] border border-white/10 rounded-full text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-green-500/30 hover:border-white/20 transition-colors"
-                />
-                <button
-                  onClick={() => setIsSearchOpen(false)}
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
-                  aria-label="Close search"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
+            <div className="flex-1 min-w-0 animate-slide-in-from-left flex items-center gap-2">
+              <SearchBar variant="homepage" onClose={() => setIsSearchOpen(false)} />
+              <button
+                onClick={() => setIsSearchOpen(false)}
+                className="shrink-0 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                aria-label="Close search"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           ) : (
             <div className="flex-1 min-w-0" />
