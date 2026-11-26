@@ -18,6 +18,7 @@ import {
   FileText,
   Eye,
   ArrowLeft,
+  type LucideIcon,
 } from 'lucide-react';
 
 export type SidebarPanel = 'library' | 'explore' | 'community' | 'settings' | 'now-playing' | null;
@@ -33,7 +34,7 @@ interface PlaybackSidebarProps {
 const NAV_ITEMS: Array<{
   id: SidebarPanel;
   label: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: LucideIcon;
   hasSubSidebar: boolean;
   href?: string;
 }> = [
@@ -113,12 +114,12 @@ const PlaybackSidebar: React.FC<PlaybackSidebarProps> = ({
   const initial = userName[0]?.toUpperCase() || 'G';
 
   return (
-    <div className="relative flex h-full flex-col overflow-hidden bg-[#08130f] text-white">
+        <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[#08130f] text-white">
       <div className="pointer-events-none absolute -left-24 top-24 h-56 w-56 rounded-full bg-emerald-500/10 blur-3xl" />
       <Link
         to="/"
         onClick={onNavigate}
-        className="relative flex h-[76px] shrink-0 items-center gap-3 border-b border-white/[0.07] px-5 transition-colors hover:bg-white/[0.03]"
+        className="relative flex h-[76px] shrink-0 items-center gap-3 border-b border-white/[0.07] px-5 transition-colors hover:bg-white/[0.03] [@media(max-height:640px)]:h-14"
       >
         <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-300 to-emerald-600 text-[#07110d] shadow-[0_0_24px_rgba(52,211,153,0.22)]">
           <Music className="size-[18px]" strokeWidth={2.5} />
@@ -129,9 +130,9 @@ const PlaybackSidebar: React.FC<PlaybackSidebarProps> = ({
         </div>
       </Link>
 
-      <nav aria-label="Playback navigation" className="relative flex-1 overflow-y-auto px-3.5 py-6">
-        <p className="mb-3 px-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/35">Your space</p>
-        <div className="flex flex-col gap-1.5">
+      <nav aria-label="Playback navigation" className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-3.5 py-6 [@media(max-height:640px)]:py-3">
+        <p className="mb-3 px-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/35 [@media(max-height:640px)]:mb-2">Your space</p>
+        <div className="flex flex-col gap-1.5 [@media(max-height:640px)]:gap-1">
           {NAV_ITEMS.map((item, index) => {
             const isActive = activePanel === item.id;
             return (
@@ -139,7 +140,7 @@ const PlaybackSidebar: React.FC<PlaybackSidebarProps> = ({
                 key={item.id ?? `nav-${index}`}
                 onClick={() => handleNavClick(item)}
                 aria-current={isActive ? 'page' : undefined}
-                className={`group relative flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-[13px] font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 ${
+                className={`group relative flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-[13px] font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 [@media(max-height:640px)]:min-h-9 ${
                   isActive
                     ? 'bg-emerald-300/[0.13] text-emerald-100 shadow-[inset_0_0_0_1px_rgba(110,231,183,0.12)]'
                     : 'text-white/60 hover:bg-white/[0.055] hover:text-white'
@@ -157,7 +158,7 @@ const PlaybackSidebar: React.FC<PlaybackSidebarProps> = ({
             );
           })}
         </div>
-        <div className="mt-7 rounded-2xl border border-white/[0.07] bg-gradient-to-br from-white/[0.055] to-white/[0.015] p-3.5">
+        <div className="mt-7 rounded-2xl border border-white/[0.07] bg-gradient-to-br from-white/[0.055] to-white/[0.015] p-3.5 [@media(max-height:640px)]:mt-4 [@media(max-height:640px)]:p-2.5">
           <div className="mb-3 flex items-center gap-2">
             <span className="flex size-6 items-center justify-center rounded-lg bg-emerald-300/10 text-emerald-200"><Globe className="size-3.5" /></span>
             <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/45">Made for the culture</span>
@@ -166,7 +167,7 @@ const PlaybackSidebar: React.FC<PlaybackSidebarProps> = ({
         </div>
       </nav>
 
-      <div className="relative shrink-0 border-t border-white/[0.07] p-3.5">
+      <div className="relative shrink-0 border-t border-white/[0.07] p-3.5 [@media(max-height:640px)]:p-2">
         <div className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.035] p-2.5">
           <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-emerald-300 to-emerald-700 ring-1 ring-white/10">
             <MediaImage

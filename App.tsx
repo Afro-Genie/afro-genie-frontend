@@ -100,8 +100,8 @@ function AppRoutes() {
     <>
       <ScrollToTop />
       {showChrome && <Header />}
-      <div className="text-white font-sans bg-[#122118] min-h-screen flex flex-col">
-        <main className={`flex-grow ${isCommunityRedesign || isSongPlayback ? '' : 'pb-16'}`}>
+      <div className={`text-white font-sans bg-[#122118] flex flex-col ${isSongPlayback ? 'h-dvh overflow-hidden' : 'min-h-screen'}`}>
+        <main className={`flex-grow ${isSongPlayback ? 'flex min-h-0 overflow-hidden' : ''} ${isCommunityRedesign || isSongPlayback ? '' : 'pb-16'}`}>
             <Routes>
               <Route path="/terms" element={<TermsOfUsePage />} />
               <Route path="/privacy" element={<PrivacyPolicyPage />} />
