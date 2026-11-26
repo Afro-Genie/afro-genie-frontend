@@ -9,6 +9,7 @@ import ConfirmDialog from '../../components/ConfirmDialog';
 import AdminPagination from '../../components/admin/AdminPagination';
 import MediaImage from '../../components/MediaImage';
 import { AdminListPageSkeleton } from '../../components/PageSkeletons';
+import GenreBackfillPanel from '../../components/admin/GenreBackfillPanel';
 
 interface AdminGenre {
   id: string;
@@ -271,6 +272,8 @@ const GenresManager: React.FC = () => {
           <p className="text-xl sm:text-2xl font-bold text-white">{totalSongLinks}</p>
         </div>
       </div>
+
+      <GenreBackfillPanel onCompleted={() => void fetchData(true)} />
 
       {/* Search and Filters */}
       <div className="bg-gray-800 rounded-lg p-4 sm:p-6 border border-gray-700">
