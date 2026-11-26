@@ -7,6 +7,7 @@ import { getSongById, getSongTranslations } from '../lib/apiClient';
 import { SUPPORTED_LANGUAGES } from '../constants';
 import HeartIcon from './icons/HeartIcon';
 import ShareIcon from './icons/ShareIcon';
+import MediaImage from './MediaImage';
 import SongPlayer from './SongPlayer';
 import CulturalContextCarousel from './CulturalContextCarousel';
 import ReportModal from './moderation/ReportModal';
@@ -722,19 +723,17 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
                 <div className="mb-4 flex flex-col md:flex-row md:items-center md:gap-4">
                     {/* Small Song Image */}
                     <div className="flex-shrink-0">
-                        {song.image ? (
-                            <img
-                                src={song.image}
-                                alt={`${title} by ${artist}`}
-                                className="w-32 h-32 md:w-40 md:h-40 rounded-lg object-cover border border-gray-700"
-                            />
-                        ) : (
-                            <div className="w-32 h-32 md:w-40 md:h-40 rounded-lg bg-gradient-to-br from-green-600/30 to-amber-600/30 flex items-center justify-center border border-gray-700">
+                        <MediaImage
+                            src={song.image}
+                            alt={`${title} by ${artist}`}
+                            className="w-32 h-32 md:w-40 md:h-40 rounded-lg object-cover border border-gray-700"
+                            fallback={
                                 <svg className="w-16 h-16 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
                                     <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
                                 </svg>
-                            </div>
-                        )}
+                            }
+                            fallbackClassName="flex items-center justify-center bg-gradient-to-br from-green-600/30 to-amber-600/30"
+                        />
                     </div>
 
                     {/* Song Info - Compact */}

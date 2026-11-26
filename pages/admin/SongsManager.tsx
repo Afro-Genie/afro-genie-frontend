@@ -4,7 +4,7 @@ import { useNotification } from '../../hooks/useNotification';
 import { useConfirm } from '../../hooks/useConfirm';
 import { useAuth } from '../../context/AuthContext';
 import { getArtists, getGenres } from '../../lib/apiClient';
-import { toMediaUrl } from '../../lib/apiBase';
+import MediaImage from '../../components/MediaImage';
 import { normalizeSong } from '../../utils/apiHelpers';
 import Notification from '../../components/Notification';
 import ConfirmDialog from '../../components/ConfirmDialog';
@@ -24,29 +24,23 @@ const toQuery = (params: Record<string, string | number | undefined>) => {
 };
 
 const SongCover: React.FC<{ src: string; title: string; size: 'sm' | 'lg' }> = ({ src, title, size }) => {
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => setFailed(false), [src]);
-
-  const imageUrl = src && !failed ? toMediaUrl(src) : '';
   const iconSize = size === 'sm' ? 'w-6 h-6' : 'w-8 h-8';
 
   return (
     <div className={`flex-shrink-0 rounded-lg overflow-hidden bg-gray-700 ${size === 'sm' ? 'w-12 h-12' : 'w-16 h-16'}`}>
-      {imageUrl ? (
-        <img
-          src={imageUrl}
-          alt={title}
-          className="w-full h-full object-cover"
-          onError={() => setFailed(true)}
-        />
-      ) : (
-        <div className="w-full h-full flex items-center justify-center">
-          <svg className={`${iconSize} text-gray-500`} fill="currentColor" viewBox="0 0 20 20">
-            <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
-          </svg>
-        </div>
-      )}
+      <MediaImage
+        src={src}
+        alt={title}
+        className="w-full h-full object-cover"
+        fallback={
+          <div className="w-full h-full flex items-center justify-center">
+            <svg className={`${iconSize} text-gray-500`} fill="currentColor" viewBox="0 0 20 20">
+              <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
+            </svg>
+          </div>
+        }
+        fallbackClassName="bg-gray-700"
+      />
     </div>
   );
 };

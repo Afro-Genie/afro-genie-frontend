@@ -4,6 +4,7 @@ import { apiFetch } from '../lib/apiClient';
 import { useAudioPlayer } from '../context/AudioContext';
 import { SongListSkeleton, SquareGridSkeleton } from '../components/PageSkeletons';
 import MediaCard from '../components/MediaCard';
+import MediaImage from '../components/MediaImage';
 import type { Song, Artist } from '../types';
 
 interface GenreInfo {
@@ -125,24 +126,18 @@ const GenreResultPage: React.FC = () => {
       <section className="bg-gradient-to-br from-[#122118] via-[#1a2b22] to-[#122118] py-10 sm:py-16 border-b border-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row sm:items-center gap-6">
-            {genre?.imageUrl ? (
-              <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-2xl overflow-hidden flex-shrink-0 shadow-lg border border-gray-700">
-                <img
-                  src={genre.imageUrl}
-                  alt={genre.name}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = 'none';
-                  }}
-                />
-              </div>
-            ) : (
-              <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-2xl bg-gradient-to-br from-green-500/30 to-amber-500/30 flex items-center justify-center flex-shrink-0 border border-gray-700">
-                <svg className="w-12 h-12 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
-                </svg>
-              </div>
-            )}
+            <MediaImage
+              src={genre?.imageUrl}
+              alt={genre?.name || decodedName}
+              className="w-24 h-24 sm:w-32 sm:h-32 rounded-2xl object-cover flex-shrink-0 shadow-lg border border-gray-700"
+              fallback={
+                <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-2xl bg-gradient-to-br from-green-500/30 to-amber-500/30 flex items-center justify-center flex-shrink-0 border border-gray-700">
+                  <svg className="w-12 h-12 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
+                  </svg>
+                </div>
+              }
+            />
             <div>
               <p className="text-sm text-green-400 font-semibold mb-1">Genre</p>
               <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-2">
@@ -205,15 +200,18 @@ const GenreResultPage: React.FC = () => {
                     </div>
                     <Link to={`/songs/${song.id}`} className="flex-1 min-w-0 flex items-center gap-3">
                       <div className="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-green-500/20 to-amber-500/20 rounded-lg overflow-hidden">
-                        {song.image ? (
-                          <img src={song.image} alt={song.title} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <svg className="w-6 h-6 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                              <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
-                            </svg>
-                          </div>
-                        )}
+                        <MediaImage
+                          src={song.image}
+                          alt={song.title}
+                          className="w-full h-full object-cover"
+                          fallback={
+                            <div className="w-full h-full flex items-center justify-center">
+                              <svg className="w-6 h-6 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
+                              </svg>
+                            </div>
+                          }
+                        />
                       </div>
                       <div className="flex-1 min-w-0">
                         <h3 className="text-sm sm:text-base font-bold text-white group-hover:text-green-400 transition-colors line-clamp-1">

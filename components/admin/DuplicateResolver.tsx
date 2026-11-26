@@ -1,4 +1,5 @@
 import React from 'react';
+import MediaImage from '../../components/MediaImage';
 import type { Song, FullSongData, DuplicateCheckResult } from '../../types';
 
 interface DuplicateResolverProps {
@@ -66,7 +67,7 @@ const DuplicateResolver: React.FC<DuplicateResolverProps> = ({
               {existingSong.image && (
                 <div>
                   <span className="text-gray-400">Image:</span>
-                  <img src={existingSong.image} alt={existingSong.title} className="mt-2 w-32 h-32 object-cover rounded" />
+                  <MediaImage src={existingSong.image} alt={existingSong.title} className="mt-2 w-32 h-32 object-cover rounded" />
                 </div>
               )}
             </div>
@@ -90,7 +91,7 @@ const DuplicateResolver: React.FC<DuplicateResolverProps> = ({
               {newData.song.image && (
                 <div>
                   <span className="text-gray-400">Image:</span>
-                  <img src={newData.song.image} alt={newData.song.title} className="mt-2 w-32 h-32 object-cover rounded" />
+                  <MediaImage src={newData.song.image} alt={newData.song.title} className="mt-2 w-32 h-32 object-cover rounded" />
                 </div>
               )}
               {newData.metadata.album && (

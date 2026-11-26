@@ -225,7 +225,7 @@ describe('ArtistsManager', () => {
     });
     await waitFor(() => {
       const deleteCall = mockAuthFetch.mock.calls.find(([url, options]) =>
-        String(url) === '/api/artists/artist-page-1' && options?.method === 'DELETE');
+        String(url) === '/api/admin/artists/artist-page-1' && options?.method === 'DELETE');
       expect(deleteCall).toBeTruthy();
     });
   });

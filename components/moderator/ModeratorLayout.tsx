@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { toMediaUrl } from '../../lib/apiBase';
+import MediaImage from '../MediaImage';
 import LogoIcon from '../icons/LogoIcon';
 import { Menu, X } from 'lucide-react';
 
@@ -81,15 +81,17 @@ const ModeratorLayout: React.FC = () => {
       <div className="px-3 py-4 border-t border-gray-700 flex-shrink-0">
         <div className="flex items-center mb-4 px-1">
           <div className="flex-shrink-0">
-            {user?.photoURL ? (
-              <img className="h-8 w-8 rounded-full" src={toMediaUrl(user.photoURL)} alt="User avatar" />
-            ) : (
-              <div className="h-8 w-8 rounded-full bg-gray-600 flex items-center justify-center">
+            <MediaImage
+              src={user?.photoURL}
+              alt="User avatar"
+              className="h-8 w-8 rounded-full"
+              fallback={
                 <span className="text-sm font-medium text-white">
                   {user?.displayName?.[0] || user?.email?.[0] || 'U'}
                 </span>
-              </div>
-            )}
+              }
+              fallbackClassName="flex items-center justify-center bg-gray-600"
+            />
           </div>
           <div className="ml-3 flex-1 min-w-0">
             <p className="text-sm font-medium text-white truncate">{user?.displayName || 'Moderator'}</p>

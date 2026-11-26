@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { tokenApi, type ReferralInfo } from '../services/tokenService';
+import MediaImage from '../components/MediaImage';
 
 const ReferralsPage: React.FC = () => {
   const [data, setData] = useState<ReferralInfo | null>(null);
@@ -184,13 +185,16 @@ const ReferralsPage: React.FC = () => {
                 <div className="space-y-3">
                   {data.referrals.map((ref) => (
                     <div key={ref.id} className="flex items-center gap-3 p-3 bg-gray-700/30 rounded-lg">
-                      {ref.photoUrl ? (
-                        <img src={ref.photoUrl} alt="" className="w-8 h-8 rounded-full" />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center">
-                          <span className="text-xs text-white">{ref.displayName?.[0] || '?'}</span>
-                        </div>
-                      )}
+                      <MediaImage
+                        src={ref.photoUrl}
+                        alt=""
+                        className="w-8 h-8 rounded-full object-cover"
+                        fallback={
+                          <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center">
+                            <span className="text-xs text-white">{ref.displayName?.[0] || '?'}</span>
+                          </div>
+                        }
+                      />
                       <div className="flex-1">
                         <p className="text-sm text-white">{ref.displayName || 'Anonymous'}</p>
                         <p className="text-xs text-gray-500">

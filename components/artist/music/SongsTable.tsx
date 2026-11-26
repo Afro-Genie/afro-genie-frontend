@@ -1,6 +1,6 @@
 import React from 'react';
 import { Music, Trash2, Edit3 } from 'lucide-react';
-import { toMediaUrl } from '../../../lib/apiBase';
+import MediaImage from '../../MediaImage';
 
 interface Song {
   id: string;
@@ -88,13 +88,13 @@ const SongsTable: React.FC<SongsTableProps> = ({ songs, loading, onAdd, onEdit, 
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className="flex items-center gap-3 min-w-0">
-                        {song.imageUrl ? (
-                          <img src={toMediaUrl(song.imageUrl)} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />
-                        ) : (
-                          <div className="w-8 h-8 bg-gray-700 rounded flex items-center justify-center flex-shrink-0">
-                            <Music size={14} className="text-gray-500" />
-                          </div>
-                        )}
+                        <MediaImage
+                          src={song.imageUrl}
+                          alt=""
+                          className="w-8 h-8 rounded object-cover flex-shrink-0"
+                          fallback={<Music size={14} className="text-gray-500" />}
+                          fallbackClassName="flex items-center justify-center bg-gray-700"
+                        />
                         <span className="font-medium text-white truncate">{song.title}</span>
                       </div>
                     </div>

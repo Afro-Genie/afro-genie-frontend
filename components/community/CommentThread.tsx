@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import VoteButtons from './VoteButtons';
 import ReportModal from '../moderation/ReportModal';
+import MediaImage from '../MediaImage';
 import type { CommunityComment } from '../../types';
 
 interface CommentThreadProps {
@@ -63,15 +64,17 @@ const CommentItem: React.FC<{
     <div className={depth > 0 ? `mt-4 ${indentClass}` : 'mt-4'}>
       <div className="flex gap-3">
         <div className="flex-shrink-0">
-          {avatar ? (
-            <img src={avatar} alt={displayName} className="h-8 w-8 rounded-full" />
-          ) : (
-            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-green-600 to-green-800 flex items-center justify-center">
+          <MediaImage
+            src={avatar}
+            alt={displayName}
+            className="h-8 w-8 rounded-full"
+            fallback={
               <span className="text-white font-bold text-xs">
                 {displayName[0]?.toUpperCase() || 'U'}
               </span>
-            </div>
-          )}
+            }
+            fallbackClassName="flex items-center justify-center bg-gradient-to-br from-green-600 to-green-800"
+          />
         </div>
         <div className="flex-1 min-w-0">
           <div className="bg-gray-800/50 rounded-lg p-3">

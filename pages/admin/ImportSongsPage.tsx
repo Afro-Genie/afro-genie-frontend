@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import MediaImage from '../../components/MediaImage';
 
 type ImportSource = 'playlist' | 'artist' | 'genre' | 'song';
 type JobOperation = 'preview' | 'resume' | 'apply';
@@ -1473,7 +1474,7 @@ const ImportSongsPage: React.FC = () => {
                             />
                           )}
                           {candidate.imageUrl && (
-                            <img
+                            <MediaImage
                               src={candidate.imageUrl}
                               alt=""
                               loading="lazy"

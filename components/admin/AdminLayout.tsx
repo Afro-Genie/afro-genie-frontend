@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { toMediaUrl } from '../../lib/apiBase';
+import MediaImage from '../../components/MediaImage';
 import LogoIcon from '../icons/LogoIcon';
 import { Menu, X } from 'lucide-react';
 import { 
@@ -101,9 +101,9 @@ const AdminLayout: React.FC = () => {
         <div className="flex items-center mb-4 px-1">
           <div className="flex-shrink-0">
             {user?.photoURL ? (
-              <img
+              <MediaImage
                 className="h-8 w-8 rounded-full"
-                src={toMediaUrl(user.photoURL)}
+                src={user.photoURL}
                 alt="User avatar"
               />
             ) : (

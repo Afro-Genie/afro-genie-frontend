@@ -9,6 +9,7 @@ import {
   type SeasonalSnapshot,
 } from '../services/tokenService';
 import { featureFlags } from '../config/featureFlags';
+import MediaImage from '../components/MediaImage';
 
 const RANK_STYLES: Record<number, string> = {
   1: 'bg-amber-500/20 border-amber-500/50 text-amber-300',
@@ -207,19 +208,18 @@ const LeaderboardPage: React.FC = () => {
                         )}
                       </div>
 
-                      {entry.photoUrl ? (
-                        <img
-                          src={entry.photoUrl}
-                          alt={entry.displayName}
-                          className="w-10 h-10 rounded-full object-cover flex-shrink-0"
-                        />
-                      ) : (
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-600 to-green-800 flex items-center justify-center flex-shrink-0">
-                          <span className="text-sm font-bold text-white">
-                            {entry.displayName?.[0]?.toUpperCase() || '?'}
-                          </span>
-                        </div>
-                      )}
+                      <MediaImage
+                        src={entry.photoUrl}
+                        alt={entry.displayName}
+                        className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                        fallback={
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-600 to-green-800 flex items-center justify-center flex-shrink-0">
+                            <span className="text-sm font-bold text-white">
+                              {entry.displayName?.[0]?.toUpperCase() || '?'}
+                            </span>
+                          </div>
+                        }
+                      />
 
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold truncate">

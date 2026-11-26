@@ -39,7 +39,7 @@ const NewUsers: React.FC = () => {
       setFeedback({
         type: 'success',
         message: result.emailSent
-          ? `Welcome message sent to ${welcomedName}.`
+          ? `${result.alreadyWelcomed ? 'Welcome email re-sent' : 'Welcome message sent'} to ${welcomedName}.`
           : `Welcome notification sent to ${welcomedName}, but the email could not be sent.`,
       });
       const updatedData = await fetch();
@@ -50,7 +50,9 @@ const NewUsers: React.FC = () => {
       console.error('Failed to send welcome message:', err);
       setFeedback({
         type: 'error',
-        message: err instanceof Error ? err.message : 'Failed to send welcome message. Please try again.',
+        message: err instanceof Error && err.name === 'AbortError'
+          ? 'The welcome request timed out. Please try again.'
+          : err instanceof Error ? err.message : 'Failed to send welcome message. Please try again.',
       });
     } finally {
       setSending(false);

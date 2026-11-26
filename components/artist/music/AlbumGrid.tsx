@@ -1,6 +1,6 @@
 import React from 'react';
 import { Music, Pencil, Trash2, Globe } from 'lucide-react';
-import { toMediaUrl } from '../../../lib/apiBase';
+import MediaImage from '../../MediaImage';
 
 interface Release {
   id: string;
@@ -50,11 +50,13 @@ const AlbumGrid: React.FC<AlbumGridProps> = ({ releases, loading, onEdit, onDele
             className="group bg-gray-800/50 border border-gray-700/50 rounded-lg p-4 hover:border-green-500/30 hover:bg-gray-800/80 transition-all"
           >
             <div className="relative w-full aspect-square bg-gradient-to-br from-green-500 to-green-700 rounded-lg flex items-center justify-center mb-4 group-hover:shadow-lg transition-all overflow-hidden">
-              {release.coverImageUrl ? (
-                <img src={toMediaUrl(release.coverImageUrl)} alt={release.title} className="w-full h-full object-cover" />
-              ) : (
-                <Music size={48} className="text-white/50" />
-              )}
+              <MediaImage
+                src={release.coverImageUrl}
+                alt={release.title}
+                className="w-full h-full object-cover"
+                fallback={<Music size={48} className="text-white/50" />}
+                fallbackClassName="flex items-center justify-center bg-gradient-to-br from-green-500 to-green-700"
+              />
               <div className="absolute top-2 right-2 flex gap-2">
                 <button
                   type="button"

@@ -4,6 +4,7 @@ import { apiRequest } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { SearchResultsSkeleton } from '../components/PageSkeletons';
 import MediaCard from '../components/MediaCard';
+import MediaImage from '../components/MediaImage';
 import { featureFlags } from '../config/featureFlags';
 import { trackEvent } from '../services/telemetryService';
 import { searchCatalog } from '../lib/apiClient';
@@ -386,13 +387,18 @@ const SearchResultsPage: React.FC = () => {
                           <>
                             <div className="flex gap-4 p-4">
                               <div className="flex-shrink-0 w-16 h-16 bg-gradient-to-br from-green-500/20 to-amber-500/20 rounded-lg flex items-center justify-center overflow-hidden">
-                                {r.image ? (
-                                  <img src={r.image} alt={r.title} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                                ) : (
-                                  <svg className="w-8 h-8 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                                    <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
-                                  </svg>
-                                )}
+                                <MediaImage
+                                  src={r.image}
+                                  alt={r.title}
+                                  className="w-full h-full object-cover"
+                                  fallback={
+                                    <div className="w-full h-full flex items-center justify-center">
+                                      <svg className="w-8 h-8 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
+                                      </svg>
+                                    </div>
+                                  }
+                                />
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1.5">
