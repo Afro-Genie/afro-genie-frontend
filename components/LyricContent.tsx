@@ -717,38 +717,40 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
     };
 
     return (
-        <div className="px-8 md:px-12 py-4 relative">
+        <div className="px-4 py-6 relative sm:px-6 lg:px-8">
             {/* Compact Song Header */}
             {!loading && !error && song && (
-                <div className="mb-4 flex flex-col md:flex-row md:items-center md:gap-4">
-                    {/* Small Song Image */}
-                    <div className="flex-shrink-0">
+                <div className="relative isolate mb-6 grid grid-cols-[112px_minmax(0,1fr)] items-center gap-x-5 gap-y-5 overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-br from-[#1a3328] via-[#12221b] to-[#0b1712] p-4 shadow-2xl shadow-black/20 sm:p-6 md:grid-cols-[168px_minmax(0,1fr)]">
+                    <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-28 h-72 w-72 rounded-full bg-emerald-300/10 blur-3xl" />
+                    {/* Album artwork */}
+                    <div className="relative z-10 row-span-2">
                         <MediaImage
                             src={song.image}
                             alt={`${title} by ${artist}`}
-                            className="w-32 h-32 md:w-40 md:h-40 rounded-lg object-cover border border-gray-700"
+                            className="aspect-square w-28 rounded-2xl border border-white/15 object-cover shadow-2xl shadow-black/50 sm:w-32 md:w-44"
                             fallback={
                                 <svg className="w-16 h-16 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
                                     <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
                                 </svg>
                             }
-                            fallbackClassName="flex items-center justify-center bg-gradient-to-br from-green-600/30 to-amber-600/30"
+                            fallbackClassName="flex aspect-square w-28 items-center justify-center rounded-2xl border border-white/15 bg-gradient-to-br from-emerald-300/20 via-[#183b2b] to-amber-400/20 shadow-2xl shadow-black/50 sm:w-32 md:w-44"
                         />
                     </div>
 
                     {/* Song Info - Compact */}
-                    <div className="flex-1 min-w-0 mt-3 md:mt-0">
-                        <h1 className="text-xl md:text-2xl font-bold text-white mb-1 break-words" data-testid="song-title">
+                    <div className="relative z-10 min-w-0">
+                        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-emerald-200/70">Now playing</p>
+                        <h1 className="break-words text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl" data-testid="song-title">
                             {title || 'Loading...'}
                         </h1>
                         <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-sm md:text-base text-gray-300">
+                            <p className="text-sm font-medium text-white/70 sm:text-base">
                                 {artist || 'Unknown Artist'}
                             </p>
                             {song.artistId && (
                                 <Link
                                     to={`/artists/${song.artistId}`}
-                                    className="text-green-400 hover:text-green-300 text-xs underline"
+                                    className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-emerald-200 transition hover:border-emerald-300/40 hover:bg-emerald-300/10 hover:text-white"
                                 >
                                     View Catalog
                                 </Link>
@@ -757,7 +759,7 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
                     </div>
 
                     {/* Like & Share Buttons */}
-                    <div className="flex items-center gap-1 flex-shrink-0 mt-3 md:mt-0">
+                    <div className="relative z-10 col-start-2 flex items-center gap-1 self-start">
                         <button
                             onClick={handleFavoriteToggle}
                             disabled={favoriteLoading}
@@ -786,17 +788,10 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
 
                     {/* Song Player */}
                     {title && artist && (
-                        <div className="flex-shrink-0 hidden md:block">
+                        <div className="relative z-10 col-span-2 w-full">
                             <SongPlayer songId={songId} title={title} artist={artist} />
                         </div>
                     )}
-                </div>
-            )}
-
-            {/* Mobile Song Player */}
-            {!loading && !error && song && title && artist && (
-                <div className="mb-4 md:hidden">
-                    <SongPlayer songId={songId} title={title} artist={artist} />
                 </div>
             )}
 
