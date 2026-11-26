@@ -18,9 +18,9 @@ const CulturalContextList: React.FC<CulturalContextListProps> = ({
   const items = parseCulturalContext(culturalContext);
 
   return (
-    <div className="flex flex-col h-full bg-[#1a1a1a] text-white">
+    <div className="flex flex-col h-full bg-[#0d1612] text-white">
       {/* Header */}
-      <div className="flex items-center gap-3 h-16 px-4 border-b border-[#282828] flex-shrink-0">
+      <div className="flex items-center gap-3 h-16 px-4 border-b border-white/[0.07] flex-shrink-0">
         <button
           onClick={onBack}
           className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"

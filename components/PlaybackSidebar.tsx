@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import MediaImage from './MediaImage';
+import LogoIcon from './icons/LogoIcon';
 import {
   Heart,
   Search,
@@ -9,7 +10,6 @@ import {
   Users,
   Settings,
   LogOut,
-  Music,
   ChevronRight,
   History,
   Star,
@@ -121,13 +121,8 @@ const PlaybackSidebar: React.FC<PlaybackSidebarProps> = ({
         onClick={onNavigate}
         className="relative flex h-[76px] shrink-0 items-center gap-3 border-b border-white/[0.07] px-5 transition-colors hover:bg-white/[0.03] [@media(max-height:640px)]:h-14"
       >
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-300 to-emerald-600 text-[#07110d] shadow-[0_0_24px_rgba(52,211,153,0.22)]">
-          <Music className="size-[18px]" strokeWidth={2.5} />
-        </div>
-        <div className="min-w-0">
-          <span className="block text-[15px] font-bold tracking-tight">AfroGenie</span>
-          <span className="mt-0.5 block text-[9px] font-semibold uppercase tracking-[0.2em] text-emerald-300/65">Sound. Culture. Connection.</span>
-        </div>
+        <LogoIcon className="h-5 w-5 shrink-0 text-green-400" />
+        <span className="text-lg font-bold text-white">AfroGenie</span>
       </Link>
 
       <nav aria-label="Playback navigation" className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-3.5 py-6 [@media(max-height:640px)]:py-3">

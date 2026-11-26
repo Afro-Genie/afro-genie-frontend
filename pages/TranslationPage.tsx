@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import PlaybackSidebar, { SidebarPanel } from '../components/PlaybackSidebar';
 import SubSidebarLibrary from '../components/SubSidebarLibrary';
 import SubSidebarExplore from '../components/SubSidebarExplore';
@@ -7,6 +7,7 @@ import SubSidebarCommunity from '../components/SubSidebarCommunity';
 import SubSidebarSettings from '../components/SubSidebarSettings';
 import LyricContent from '../components/LyricContent';
 import { PlaybackSettingsProvider } from '../context/PlaybackSettingsContext';
+import LogoIcon from '../components/icons/LogoIcon';
 import { Menu, X } from 'lucide-react';
 
 const SUB_SIDEBAR_IDS: SidebarPanel[] = ['library', 'explore', 'community', 'settings'];
@@ -134,12 +135,10 @@ const TranslationPage: React.FC = () => {
                 <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
                     {/* Mobile Sidebar Toggle Button */}
                     <div className="sticky top-0 z-20 flex shrink-0 items-center justify-between border-b border-white/[0.07] bg-[#08130f]/95 px-4 py-3 backdrop-blur-xl lg:hidden">
-                        <div className="flex items-center gap-2.5">
-                            <span className="flex size-8 items-center justify-center rounded-xl bg-emerald-300/10 text-emerald-200">
-                                <Menu className="size-4" aria-hidden="true" />
-                            </span>
-                            <span className="text-xs font-semibold uppercase tracking-[0.16em] text-white/65">Playback</span>
-                        </div>
+                        <Link to="/" className="flex items-center gap-2" aria-label="AfroGenie home">
+                            <LogoIcon className="h-5 w-5 text-green-400" />
+                            <span className="text-lg font-bold text-white">AfroGenie</span>
+                        </Link>
                         <button
                             type="button"
                             onClick={() => {
