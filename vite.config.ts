@@ -58,8 +58,8 @@ function getHttpsConfig() {
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
     // Backend API origin for the dev proxy. Must match PORT in
-    // afro-genie-backend/.env (default 3001).
-    const apiProxyTarget = env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:3001';
+    // afro-genie-backend/.env (default 4000).
+    const apiProxyTarget = env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:4000';
     return {
       server: {
         port: 3000,

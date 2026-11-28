@@ -57,6 +57,60 @@ describe('game interaction components', () => {
     expect(screen.getByRole('button', { name: /Reveal a hint/ })).toBeEnabled();
   });
 
+  it('matches Star Seeker artist names without requiring accent marks', async () => {
+    const user = userEvent.setup();
+    const onAction = vi.fn().mockResolvedValue(undefined);
+    const puzzle: DailyGamePuzzle = {
+      game: 'STAR_SEEKER',
+      level: 1,
+      puzzleDate: '2026-11-04',
+      candidates: [{ artistId: 'artist-1', name: 'Angélique Kidjo' }],
+    };
+
+    render(<StarSeeker puzzle={puzzle} play={activePlay} busy={false} onAction={onAction} />);
+    await user.type(screen.getByRole('textbox', { name: 'Artist name guess' }), 'Angelique Kidjo{Enter}');
+
+    expect(onAction).toHaveBeenCalledWith({ type: 'guess', artistId: 'artist-1' });
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('matches a Star Seeker artist when the typed name omits its leading number', async () => {
+    const user = userEvent.setup();
+    const onAction = vi.fn().mockResolvedValue(undefined);
+    const puzzle: DailyGamePuzzle = {
+      game: 'STAR_SEEKER',
+      level: 1,
+      puzzleDate: '2026-11-04',
+      candidates: [{ artistId: 'artist-1', name: '2Baba' }],
+    };
+
+    render(<StarSeeker puzzle={puzzle} play={activePlay} busy={false} onAction={onAction} />);
+    await user.type(screen.getByRole('textbox', { name: 'Artist name guess' }), 'baba{Enter}');
+
+    expect(onAction).toHaveBeenCalledWith({ type: 'guess', artistId: 'artist-1' });
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('rejects a Star Seeker name when removing its leading number is ambiguous', async () => {
+    const user = userEvent.setup();
+    const onAction = vi.fn().mockResolvedValue(undefined);
+    const puzzle: DailyGamePuzzle = {
+      game: 'STAR_SEEKER',
+      level: 1,
+      puzzleDate: '2026-11-04',
+      candidates: [
+        { artistId: 'artist-1', name: '2Baba' },
+        { artistId: 'artist-2', name: 'Baba' },
+      ],
+    };
+
+    render(<StarSeeker puzzle={puzzle} play={activePlay} busy={false} onAction={onAction} />);
+    await user.type(screen.getByRole('textbox', { name: 'Artist name guess' }), 'baba{Enter}');
+
+    expect(onAction).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent('Enter an artist from today’s game.');
+  });
+
   it('shows an error when a typed Star Seeker artist is not in the game', async () => {
     const user = userEvent.setup();
     const onAction = vi.fn().mockResolvedValue(undefined);
