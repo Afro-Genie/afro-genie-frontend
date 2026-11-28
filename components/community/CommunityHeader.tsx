@@ -1,4 +1,5 @@
 import React from 'react';
+import MediaImage from '../MediaImage';
 
 interface Chip {
   label: string;
@@ -17,11 +18,12 @@ interface CommunityHeaderProps {
 const CommunityHeader: React.FC<CommunityHeaderProps> = React.memo(({ title, description, bannerImage, chips, action, actionPlacement }) => {
   return (
     <div className="relative w-full min-h-[200px] sm:min-h-52 rounded-xl overflow-hidden mb-6 flex items-end">
-      {bannerImage ? (
-        <img src={bannerImage} alt="" className="absolute inset-0 w-full h-full object-cover" />
-      ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-green-900 via-green-800 to-gray-900" />
-      )}
+      <MediaImage
+        src={bannerImage}
+        alt=""
+        className="absolute inset-0 w-full h-full object-cover"
+        fallbackClassName="bg-gradient-to-br from-green-900 via-green-800 to-gray-900"
+      />
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
       {action && (
         <div className="hidden sm:block absolute top-1/2 -translate-y-1/2 right-6 z-10">

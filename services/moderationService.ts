@@ -202,8 +202,18 @@ export const moderationApi = {
   updateGuidelines: (content: string) =>
     apiRequest<Guideline>('/admin/moderation/guidelines', { method: 'PUT', body: JSON.stringify({ content }) }),
 
-  sendWelcomeMessage: (userId: string, message: string) =>
-    apiRequest<{ ok: boolean }>(`/admin/moderation/users/${userId}/welcome`, { method: 'POST', body: JSON.stringify({ message }) }),
+  sendWelcomeMessage: async (userId: string, message: string) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 25_000);
+    try {
+      return await apiRequest<{ ok: boolean; emailSent: boolean; alreadyWelcomed?: boolean }>(
+        `/admin/moderation/users/${userId}/welcome`,
+        { method: 'POST', body: JSON.stringify({ message }), signal: controller.signal },
+      );
+    } finally {
+      clearTimeout(timeout);
+    }
+  },
 
   submitCorrectionRequest: (translationId: string, title: string, description: string) =>
     apiRequest<CorrectionRequestItem>(`/translations/${translationId}/correction-request`, { method: 'POST', body: JSON.stringify({ title, description }) }),

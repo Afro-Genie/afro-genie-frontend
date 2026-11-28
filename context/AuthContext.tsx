@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import {
   authApi,
+  apiRequest,
   setTokens,
   clearTokens,
   getAccessToken,
@@ -39,6 +40,7 @@ interface UserProfile {
     stageName: string;
     genre: string;
     bio: string;
+    profileImageUrl?: string | null;
     location?: string;
     website?: string;
     socialLinks?: {
@@ -101,6 +103,8 @@ interface AuthContextType {
   signInWithGoogle: () => Promise<void>;
   signInAnonymously: () => Promise<void>;
   logout: () => Promise<void>;
+  updateUserProfile: (profile: { displayName: string | null; photoUrl: string | null }) => void;
+  updateArtistProfileImage: (profileImageUrl: string | null) => void;
   authFetch: (url: string, options?: RequestInit) => Promise<any>;
   isAdmin: boolean;
   isArtist: boolean;
@@ -122,12 +126,13 @@ const buildUser = (data: {
   email: string;
   displayName: string;
   role: string;
+  photoUrl?: string | null;
 }): AuthUser => ({
   uid: data.id,
   id: data.id,
   email: data.email,
   displayName: data.displayName,
-  photoURL: null,
+  photoURL: data.photoUrl ?? null,
   role: data.role,
 });
 
@@ -136,12 +141,13 @@ const buildProfile = (data: {
   email: string;
   displayName: string;
   role: string;
+  photoUrl?: string | null;
 }): UserProfile => ({
   uid: data.id,
   id: data.id,
   email: data.email,
   displayName: data.displayName,
-  photoURL: null,
+  photoURL: data.photoUrl ?? null,
   role: mapRole(data.role),
 });
 
@@ -163,6 +169,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         email: string;
         displayName: string;
         role: string;
+        photoUrl: string | null;
       };
       accessToken: string;
       refreshToken: string;
@@ -208,6 +215,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         const email = params.get("email");
         const displayName = params.get("displayName");
         const role = params.get("role");
+        const photoUrl = params.get("photoUrl");
 
         if (accessTokenParam && refreshTokenParam && userId) {
           setTokens(accessTokenParam, refreshTokenParam);
@@ -216,6 +224,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             email: email || "",
             displayName: displayName || email?.split("@")[0] || "User",
             role: role || "USER",
+            photoUrl,
           };
           setUser(buildUser(authUser));
           setUserProfile(buildProfile(authUser));
@@ -245,6 +254,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     init();
   }, [initFromAuthResult]);
+
+  useEffect(() => {
+    if (user?.role !== 'ARTIST') return;
+
+    let cancelled = false;
+    apiRequest<{
+      stageName?: string;
+      bio?: string | null;
+      genres?: string[];
+      verified?: boolean;
+      imageUrl?: string | null;
+      profileImageUrl?: string | null;
+    }>('/artists/me/profile')
+      .then((profile) => {
+        if (cancelled) return;
+        setUserProfile((current) => current ? {
+          ...current,
+          artistProfile: {
+            stageName: profile.stageName ?? current.artistProfile?.stageName ?? current.displayName ?? 'Artist',
+            genre: profile.genres?.[0] ?? current.artistProfile?.genre ?? '',
+            bio: profile.bio ?? current.artistProfile?.bio ?? '',
+            verified: profile.verified ?? current.artistProfile?.verified ?? false,
+            profileImageUrl: current.artistProfile?.profileImageUrl ?? profile.profileImageUrl ?? profile.imageUrl,
+          },
+        } : current);
+      })
+      .catch((error) => {
+        if (!cancelled) console.error('Error loading artist profile image:', error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, user?.role]);
 
   const signIn = async (email: string, password: string) => {
     const result = await authApi.login(email, password);
@@ -393,6 +436,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const isAdmin = userProfile?.role === "admin";
   const isArtist = userProfile?.role === "artist";
   const isModerator = userProfile?.role === "moderator" || userProfile?.role === "admin";
+  const updateUserProfile = (profile: { displayName: string | null; photoUrl: string | null }) => {
+    setUser((current) => current ? { ...current, displayName: profile.displayName, photoURL: profile.photoUrl } : current);
+    setUserProfile((current) => current ? { ...current, displayName: profile.displayName, photoURL: profile.photoUrl } : current);
+  };
+  const updateArtistProfileImage = (profileImageUrl: string | null) => {
+    setUserProfile((current) => current ? {
+      ...current,
+      artistProfile: {
+        stageName: current.artistProfile?.stageName ?? current.displayName ?? 'Artist',
+        genre: current.artistProfile?.genre ?? '',
+        bio: current.artistProfile?.bio ?? '',
+        verified: current.artistProfile?.verified ?? false,
+        ...current.artistProfile,
+        profileImageUrl,
+      },
+    } : current);
+  };
 
   const value = {
     user,
@@ -409,6 +469,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     signInWithGoogle,
     signInAnonymously,
     logout,
+    updateUserProfile,
+    updateArtistProfileImage,
     authFetch,
     isAdmin,
     isArtist,

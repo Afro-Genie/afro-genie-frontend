@@ -1,5 +1,6 @@
 import React from 'react';
 import { Music } from 'lucide-react';
+import MediaImage from '../../MediaImage';
 
 interface Track {
   id: string;
@@ -16,7 +17,7 @@ interface TopTracksProps {
 }
 
 function formatDuration(ms?: number): string {
-  if (!ms) return '—';
+  if (!ms) return '--:--';
   const totalSec = Math.round(ms / 1000);
   const min = Math.floor(totalSec / 60);
   const sec = totalSec % 60;
@@ -67,17 +68,19 @@ const TopTracks: React.FC<TopTracksProps> = ({ tracks, loading }) => {
                   <td className="py-4 px-4">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-green-500/20 rounded flex items-center justify-center flex-shrink-0">
-                        {track.imageUrl ? (
-                          <img src={track.imageUrl} alt="" className="w-8 h-8 rounded object-cover" />
-                        ) : (
-                          <Music className="w-4 h-4 text-green-400" />
-                        )}
+                        <MediaImage
+                          src={track.imageUrl}
+                          alt=""
+                          className="w-8 h-8 rounded object-cover"
+                          fallback={<Music className="w-4 h-4 text-green-400" />}
+                          fallbackClassName="flex items-center justify-center"
+                        />
                       </div>
                       <p className="font-medium text-white truncate">{track.title}</p>
                     </div>
                   </td>
-                  <td className="py-4 px-4 text-gray-300">{track.views.toLocaleString()}</td>
-                  <td className="py-4 px-4 text-gray-300">{track.requestCount.toLocaleString()}</td>
+                  <td className="py-4 px-4 text-gray-300">{(track.views ?? 0).toLocaleString()}</td>
+                  <td className="py-4 px-4 text-gray-300">{(track.requestCount ?? 0).toLocaleString()}</td>
                   <td className="py-4 px-4 text-gray-300">{formatDuration(track.durationMs)}</td>
                 </tr>
               ))}

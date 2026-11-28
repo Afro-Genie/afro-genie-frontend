@@ -15,6 +15,7 @@ import {
 } from '../../components/icons/FlatIcons';
 import APIManager from '../../services/apiManager';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import MediaImage from '../../components/MediaImage';
 import { useAuth } from '../../context/AuthContext';
 import { artistsApi, songsApi } from '../../services/api';
 import { saveFullSongPackage } from '../../utils/songPackage';
@@ -1056,7 +1057,7 @@ const APIManagement: React.FC<APIManagementProps> = ({ onDataImported }) => {
               {/* Song Info */}
               <div className="flex items-start gap-4">
                 {previewItem.image && (
-                  <img
+                  <MediaImage
                     src={previewItem.image}
                     alt={previewItem.title}
                     className="w-24 h-24 object-cover rounded"

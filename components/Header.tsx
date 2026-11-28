@@ -12,6 +12,8 @@ import {
   type BackendNotification,
 } from '../services/notificationService';
 import type { AppNotification } from '../types';
+import { getAccessToken } from '../services/api';
+import { toApiUrl } from '../lib/apiBase';
 
 const markNotificationAsRead = async (notificationId: string) => {
   try {
@@ -21,45 +23,66 @@ const markNotificationAsRead = async (notificationId: string) => {
   }
 };
 
-let knownNotifIds = new Set<string>();
-let notifSeeded = false;
-
 const subscribeToUnreadNotifications = (
   _userId: string,
   onUpdate: (items: AppNotification[]) => void
 ) => {
   let cancelled = false;
-  let timer: ReturnType<typeof setInterval> | null = null;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let stream: EventSource | null = null;
+  const knownNotifIds = new Set<string>();
+  let seeded = false;
+
+  const deliver = (notification: BackendNotification) => {
+    if (cancelled || notification.read || knownNotifIds.has(notification.id)) return;
+    knownNotifIds.add(notification.id);
+    onUpdate([notificationApi.mapToApp(notification)]);
+  };
+
+  const connectStream = () => {
+    const token = getAccessToken();
+    if (!token || cancelled) return;
+    stream = new EventSource(
+      toApiUrl(`/users/me/notifications/stream?token=${encodeURIComponent(token)}`)
+    );
+    stream.addEventListener('notification', (event) => {
+      try {
+        deliver(JSON.parse((event as MessageEvent).data) as BackendNotification);
+      } catch (err) {
+        console.error('Failed to parse notification event:', err);
+      }
+    });
+  };
 
   const poll = async () => {
     if (cancelled) return;
     try {
-      const feed = await notificationApi.getFeed(1, 10);
-      const items = feed.data.map((n) => notificationApi.mapToApp(n));
-
+      const feed = await notificationApi.getFeed(1, 50);
       // First poll seeds the "already seen" set so history is not toasted.
-      if (!notifSeeded) {
-        knownNotifIds = new Set(items.map((item) => item.id as string));
-        notifSeeded = true;
+      if (!seeded) {
+        for (const notification of feed.data) {
+          knownNotifIds.add(notification.id);
+        }
+        seeded = true;
         onUpdate([]);
-        return;
-      }
-
-      const fresh = items.filter((item) => item.id && !knownNotifIds.has(item.id));
-      if (fresh.length > 0) {
-        knownNotifIds = new Set(items.map((item) => item.id as string));
-        onUpdate(fresh);
+      } else {
+        for (const notification of feed.data) deliver(notification);
       }
     } catch (err) {
       // Poll failures are transient; ignore and retry on the next interval.
+    } finally {
+      if (!cancelled) {
+        if (!stream) connectStream();
+        timer = setTimeout(poll, 15000);
+      }
     }
   };
 
   poll();
-  timer = setInterval(poll, 15000);
   return () => {
     cancelled = true;
-    if (timer) clearInterval(timer);
+    if (timer) clearTimeout(timer);
+    stream?.close();
   };
 };
 
@@ -103,13 +126,11 @@ const Header: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (loading) return;
-    if (!user?.uid) return;
-    let seen = new Set<string>();
+    setToast(null);
+    if (loading || !user?.uid) return;
     const unsubscribe = subscribeToUnreadNotifications(user.uid, (items: AppNotification[]) => {
-      const next = items.find((item) => item.id && !seen.has(item.id));
+      const next = items[0];
       if (!next || !next.id) return;
-      seen.add(next.id);
       trackEvent('request_notification_received', { source: next.sourceCollection || 'backend' });
       setToast({ message: `${next.title}\n${next.message}`, type: 'info', duration: 6000 });
     });

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import MediaImage from '../MediaImage';
 import {
   MessageSquare,
   TrendingUp,
@@ -106,11 +107,13 @@ const CommunitySidebar: React.FC<CommunitySidebarProps> = React.memo(({ activeTa
       <div className="px-3 pb-4 flex-shrink-0">
         <div className="flex items-center gap-3 px-3 py-3 rounded-lg">
           <div className="w-9 h-9 rounded-full bg-gradient-to-br from-green-500 to-green-700 flex items-center justify-center flex-shrink-0 ring-2 ring-transparent">
-            {user?.photoURL ? (
-              <img src={user.photoURL} alt="" className="w-9 h-9 rounded-full object-cover" />
-            ) : (
-              <span className="text-sm font-bold text-white">{initial}</span>
-            )}
+            <MediaImage
+              src={user?.photoURL}
+              alt=""
+              className="w-9 h-9 rounded-full object-cover"
+              fallback={<span className="text-sm font-bold text-white">{initial}</span>}
+              fallbackClassName="flex items-center justify-center"
+            />
           </div>
           <div className="flex-1 min-w-0">
             {authLoading ? (

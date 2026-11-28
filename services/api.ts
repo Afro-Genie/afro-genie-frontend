@@ -106,6 +106,7 @@ type AuthUserResponse = {
   email: string;
   displayName: string;
   role: string;
+  photoUrl: string | null;
 };
 type AuthResultResponse = {
   user: AuthUserResponse;
@@ -202,9 +203,17 @@ export const songsApi = {
 
   get: (id: string) => apiRequest<any>(`/songs/${id}`),
 
-  getByLanguage: (languageCode: string, limit?: number) => {
-    const q = limit ? `?limit=${limit}` : "";
-    return apiRequest<any>(`/songs/by-language/${languageCode}${q}`);
+  getByLanguage: (
+    languageCode: string,
+    params?: { limit?: number; page?: number },
+  ) => {
+    const q = new URLSearchParams();
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.page) q.set("page", String(params.page));
+    const qs = q.toString();
+    return apiRequest<any>(
+      `/songs/by-language/${encodeURIComponent(languageCode)}${qs ? `?${qs}` : ""}`,
+    );
   },
 
   getTranslations: (id: string) => apiRequest<any>(`/songs/${id}/translations`),
@@ -452,4 +461,78 @@ export const lyricsApi = {
    */
   getForSong: (songId: string) =>
     apiRequest<StructuredLyrics>(`/lyrics/${songId}`),
+};
+
+// Admin Genres API
+export const adminGenres = (params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: string;
+}) => {
+  const q = new URLSearchParams();
+  if (params?.page) q.set('page', String(params.page));
+  if (params?.limit) q.set('limit', String(params.limit));
+  if (params?.search) q.set('search', params.search);
+  if (params?.sortBy) q.set('sortBy', params.sortBy);
+  if (params?.sortOrder) q.set('sortOrder', params.sortOrder);
+  const qs = q.toString();
+  return apiRequest<any>(`/admin/genres${qs ? `?${qs}` : ''}`);
+};
+
+// Admin Users API
+export const adminUsers = (params?: {
+  cursor?: string;
+  page?: number;
+  limit?: number;
+  search?: string;
+  role?: string;
+  sortBy?: string;
+  sortOrder?: string;
+}) => {
+  const q = new URLSearchParams();
+  if (params?.cursor) q.set('cursor', params.cursor);
+  if (params?.page) q.set('page', String(params.page));
+  if (params?.limit) q.set('limit', String(params.limit));
+  if (params?.search) q.set('search', params.search);
+  if (params?.role) q.set('role', params.role);
+  if (params?.sortBy) q.set('sortBy', params.sortBy);
+  if (params?.sortOrder) q.set('sortOrder', params.sortOrder);
+  const qs = q.toString();
+  return apiRequest<any>(`/admin/users${qs ? `?${qs}` : ''}`);
+};
+
+// Admin Topics API
+export const adminTopics = (params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  categoryId?: string;
+  sortBy?: string;
+  sortOrder?: string;
+}) => {
+  const q = new URLSearchParams();
+  if (params?.page) q.set('page', String(params.page));
+  if (params?.limit) q.set('limit', String(params.limit));
+  if (params?.categoryId) q.set('categoryId', params.categoryId);
+  if (params?.search) q.set('search', params.search);
+  if (params?.sortBy) q.set('sortBy', params.sortBy);
+  if (params?.sortOrder) q.set('sortOrder', params.sortOrder);
+  const qs = q.toString();
+  return apiRequest<any>(`/community/topics${qs ? `?${qs}` : ''}`);
+};
+
+// Admin Categories API
+export const adminCategories = (params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+}) => {
+  const q = new URLSearchParams();
+  if (params?.page) q.set('page', String(params.page));
+  if (params?.limit) q.set('limit', String(params.limit));
+  if (params?.search) q.set('search', params.search);
+  const qs = q.toString();
+  return apiRequest<any>(`/community/categories${qs ? `?${qs}` : ''}`);
 };

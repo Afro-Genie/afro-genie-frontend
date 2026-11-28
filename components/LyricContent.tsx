@@ -7,6 +7,7 @@ import { getSongById, getSongTranslations } from '../lib/apiClient';
 import { SUPPORTED_LANGUAGES } from '../constants';
 import HeartIcon from './icons/HeartIcon';
 import ShareIcon from './icons/ShareIcon';
+import MediaImage from './MediaImage';
 import SongPlayer from './SongPlayer';
 import CulturalContextCarousel from './CulturalContextCarousel';
 import ReportModal from './moderation/ReportModal';
@@ -22,7 +23,7 @@ interface LyricContentProps {
 }
 
 const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) => {
-    const { user: currentUser, authFetch } = useAuth();
+    const { user: currentUser, authFetch, refreshBalance } = useAuth();
     const { fontSize, resetTranslationSignal } = usePlaybackSettings();
     const { setCurrentSongId } = useAudioPlayer();
     const [showLoginPrompt, setShowLoginPrompt] = useState(false);
@@ -60,7 +61,7 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
         return culturalContext
             // Normalize markdown-like symbols that sometimes leak from AI output
             .replace(/^\s*#{1,6}\s*/gm, '')
-            .replace(/^\s*[-*]\s+/gm, '• ')
+            .replace(/^\s*[-*]\s+/gm, 'â€¢ ')
             .replace(/\*\*(.*?)\*\*/g, '$1')
             .replace(/\*(.*?)\*/g, '$1')
             .replace(/\n{3,}/g, '\n\n')
@@ -123,8 +124,11 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
                 const fetchedLanguages = await authFetch('/api/languages').catch(() => []);
 
                 const rawLangs = Array.isArray(fetchedLanguages) ? fetchedLanguages : fetchedLanguages?.languages ?? [];
+                const approvedCodes = new Set(SUPPORTED_LANGUAGES.filter(l => l.isActive).map(l => l.code));
                 const nameMap = new Map();
                 rawLangs.forEach((lang: any) => {
+                    const normalizedCode = (lang.code || '').trim().toLowerCase();
+                    if (!approvedCodes.has(normalizedCode)) return;
                     const normalizedName = (lang.name || '').trim().toLowerCase();
                     if (!nameMap.has(normalizedName)) {
                         nameMap.set(normalizedName, lang);
@@ -157,7 +161,7 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
             setLoading(true);
             setError('');
             try {
-                const songResponse = await getSongById(songId);
+                const songResponse = await getSongById(songId, authFetch);
                 const normalizedSong: Song | null = songResponse
                     ? {
                         id: songResponse.id,
@@ -199,7 +203,7 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
                     setSourceProvider(lyricsSource);
                 }
 
-                const translationResponse = await getSongTranslations(songId).catch(() => null);
+                const translationResponse = await getSongTranslations(songId, authFetch).catch(() => null);
                 const availableTranslations = normalizeAndRankTranslations(extractTranslations(translationResponse));
                 // Pick the best translation: one with non-empty translated text preferred
                 const bestTranslation = availableTranslations.find((t: any) => pickTranslationText(t)) || availableTranslations[0] || null;
@@ -209,6 +213,8 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
                     setTranslatedLyrics(pickTranslationText(bestTranslation) || 'No translation available yet. Use "Translate Lyrics" to generate one.');
                     setCulturalContext(bestTranslation.culturalContext || '');
                     setExistingTranslationId(bestTranslation.id || bestTranslation.translationId || null);
+                    const viewId = bestTranslation.id || bestTranslation.translationId;
+                    if (viewId) { authFetch('/api/translations/' + viewId + '/view', { method: 'POST', body: JSON.stringify({ sessionId: sessionStorage.getItem('ag_session_id') || undefined }) }).catch(() => {}); }
 
                     // Resolve source language: translation metadata > song metadata > 'en'
                     setSourceLang(resolveSourceLang(bestTranslation, normalizedSong));
@@ -450,9 +456,10 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
                     }),
                 });
             } catch (requestError: any) {
-                // If the translation service is unavailable, offer the request path instead
+                // Keep the server's explanation for limits, budget, credits and
+                // insufficient balance — those are actions the user can take.
                 const errorMsg = String(requestError?.message || '').toLowerCase();
-                if (errorMsg.includes('500') || errorMsg.includes('internal server') || errorMsg.includes('budget') || errorMsg.includes('capacity')) {
+                if (errorMsg.includes('500') || errorMsg.includes('internal server')) {
                     setNotification({
                         message: 'AI translation is temporarily unavailable. You can request a translation and our team will process it.',
                         type: 'error'
@@ -479,7 +486,7 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
                 '';
 
             if (!resolvedTranslationText && jobId) {
-                // Poll up to 90 attempts × 2s = 3 minutes for background AI translation
+                // Poll up to 90 attempts Ã— 2s = 3 minutes for background AI translation
                 const MAX_POLL_ATTEMPTS = 90;
                 const POLL_INTERVAL_MS = 2000;
 
@@ -488,7 +495,7 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
                     try {
                         pollResult = await authFetch('/api/translations/status/' + jobId);
                     } catch (pollError) {
-                        // Polling failure is not fatal — retry on next attempt
+                        // Polling failure is not fatal â€” retry on next attempt
                         await sleep(POLL_INTERVAL_MS);
                         continue;
                     }
@@ -500,7 +507,7 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
 
                     // When job is completed, fetch the translation directly
                     if (jobState === 'completed' || jobState === 'finished') {
-                        const songTranslations = await getSongTranslations(songId).catch(() => null);
+                        const songTranslations = await getSongTranslations(songId, authFetch).catch(() => null);
                         const allTranslations = normalizeAndRankTranslations(extractTranslations(songTranslations));
                         const matching = allTranslations.find((t: any) => {
                             const text = pickTranslationText(t);
@@ -514,10 +521,10 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
                         if (resolvedTranslationText) break;
                     }
 
-                    // Still processing — show status update at progress milestones
+                    // Still processing â€” show status update at progress milestones
                     if (attempt === 15) {
                         setNotification({
-                            message: 'Translation is still processing… this may take a minute for longer songs.',
+                            message: 'Translation is still processingâ€¦ this may take a minute for longer songs.',
                             type: 'info'
                         });
                     }
@@ -527,7 +534,7 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
             }
 
             if (!resolvedTranslationText) {
-                // Don't throw — show a non-error status so the user can retry later
+                // Don't throw â€” show a non-error status so the user can retry later
                 setNotification({
                     message: 'Translation is still being generated. Please check back in a few minutes.',
                     type: 'info'
@@ -537,6 +544,10 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
             }
 
             setExistingTranslationId(resolvedTranslationId || existingTranslationId);
+
+            // The GT debit and completion reward are committed by the API; make
+            // sure the header balance reflects them even if SSE is unavailable.
+            await refreshBalance().catch(() => {});
 
             // Update local state
             setTranslatedLyrics(resolvedTranslationText);
@@ -554,16 +565,23 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
         } catch (err: any) {
             console.error('Translation generation error:', err);
             stopElapsedTimer();
+            await refreshBalance().catch(() => {});
             if (String(err?.message || '').toLowerCase().includes('session expired')) {
                 setShowLoginPrompt(true);
             }
             // Provide specific error messages based on failure reason
             const msg = String(err?.message || '').toLowerCase();
             let userMessage = 'Failed to generate translation';
-            if (msg.includes('rate') || msg.includes('429') || msg.includes('quota')) {
+            if (
+                msg.includes('daily translation limit') ||
+                msg.includes('insufficient token balance') ||
+                msg.includes('translation credit') ||
+                msg.includes('at capacity') ||
+                msg.includes('budget')
+            ) {
+                userMessage = err.message;
+            } else if (msg.includes('rate') || msg.includes('429') || msg.includes('quota')) {
                 userMessage = 'Translation service is experiencing high demand. Please try again in a few minutes.';
-            } else if (msg.includes('budget') || msg.includes('token') || msg.includes('capacity')) {
-                userMessage = 'Translation service has reached its usage limit. Please try again later or request a human translation.';
             } else if (msg.includes('no lyrics') || msg.includes('lyrics required')) {
                 userMessage = 'No lyrics found for this song. Please ensure lyrics are available before translating.';
             } else if (msg.includes('failed after') || msg.includes('timeout')) {
@@ -705,19 +723,17 @@ const LyricContent: React.FC<LyricContentProps> = ({ onCulturalContextLoaded }) 
                 <div className="mb-4 flex flex-col md:flex-row md:items-center md:gap-4">
                     {/* Small Song Image */}
                     <div className="flex-shrink-0">
-                        {song.image ? (
-                            <img
-                                src={song.image}
-                                alt={`${title} by ${artist}`}
-                                className="w-32 h-32 md:w-40 md:h-40 rounded-lg object-cover border border-gray-700"
-                            />
-                        ) : (
-                            <div className="w-32 h-32 md:w-40 md:h-40 rounded-lg bg-gradient-to-br from-green-600/30 to-amber-600/30 flex items-center justify-center border border-gray-700">
+                        <MediaImage
+                            src={song.image}
+                            alt={`${title} by ${artist}`}
+                            className="w-32 h-32 md:w-40 md:h-40 rounded-lg object-cover border border-gray-700"
+                            fallback={
                                 <svg className="w-16 h-16 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
                                     <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
                                 </svg>
-                            </div>
-                        )}
+                            }
+                            fallbackClassName="flex items-center justify-center bg-gradient-to-br from-green-600/30 to-amber-600/30"
+                        />
                     </div>
 
                     {/* Song Info - Compact */}

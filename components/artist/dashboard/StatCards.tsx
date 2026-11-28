@@ -35,7 +35,7 @@ const StatCards: React.FC<StatCardsProps> = ({
       icon: <Play className="w-5 h-5" />,
     },
     {
-      label: 'Listeners',
+      label: 'Readers',
       value: formatValue(totalListeners),
       change: 'Unique listeners',
       icon: <Users className="w-5 h-5" />,

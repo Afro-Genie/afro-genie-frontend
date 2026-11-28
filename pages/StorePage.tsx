@@ -23,6 +23,9 @@ const StorePage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [purchaseLoading, setPurchaseLoading] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [shippingItem, setShippingItem] = useState<StoreItem | null>(null);
+  const [shippingName, setShippingName] = useState('');
+  const [shippingAddress, setShippingAddress] = useState('');
 
   const purchasedIds = new Set(purchases.map((p) => p.item.id));
 
@@ -65,7 +68,7 @@ const StorePage: React.FC = () => {
     };
   }, [user, hasPendingPurchases]);
 
-  const handlePurchase = async (itemId: string) => {
+  const handlePurchase = async (itemId: string, name?: string, address?: string) => {
     if (!user) {
       navigate('/');
       return;
@@ -73,7 +76,7 @@ const StorePage: React.FC = () => {
     setPurchaseLoading(itemId);
     setMessage(null);
     try {
-      const result = await tokenApi.purchaseItem(itemId);
+      const result = await tokenApi.purchaseItem(itemId, name, address);
       setMessage({ type: 'success', text: result.message || 'Purchase successful' });
       fetchData();
     } catch (err: any) {
@@ -81,6 +84,16 @@ const StorePage: React.FC = () => {
     } finally {
       setPurchaseLoading(null);
     }
+  };
+
+  const handleItemPurchase = (item: StoreItem) => {
+    if (item.category === 'merch') {
+      setShippingItem(item);
+      setShippingName('');
+      setShippingAddress('');
+      return;
+    }
+    handlePurchase(item.id);
   };
 
   return (
@@ -99,6 +112,50 @@ const StorePage: React.FC = () => {
           </div>
         )}
 
+        {shippingItem && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true">
+            <div className="w-full max-w-md rounded-xl border border-gray-700 bg-[#17251d] p-6 shadow-2xl">
+              <h2 className="text-xl font-bold text-white">Shipping details</h2>
+              <p className="mt-1 text-sm text-gray-400">{shippingItem.name}</p>
+              <label className="mt-5 block text-sm font-medium text-gray-300" htmlFor="shipping-name">Recipient name</label>
+              <input
+                id="shipping-name"
+                value={shippingName}
+                onChange={(event) => setShippingName(event.target.value)}
+                className="mt-2 w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white outline-none focus:border-amber-500"
+              />
+              <label className="mt-4 block text-sm font-medium text-gray-300" htmlFor="shipping-address">Full shipping address</label>
+              <textarea
+                id="shipping-address"
+                value={shippingAddress}
+                onChange={(event) => setShippingAddress(event.target.value)}
+                rows={3}
+                className="mt-2 w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white outline-none focus:border-amber-500"
+              />
+              <div className="mt-5 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShippingItem(null)}
+                  className="rounded-lg border border-gray-600 px-4 py-2 text-sm text-gray-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={!shippingName.trim() || !shippingAddress.trim() || purchaseLoading === shippingItem.id}
+                  onClick={async () => {
+                    await handlePurchase(shippingItem.id, shippingName.trim(), shippingAddress.trim());
+                    setShippingItem(null);
+                  }}
+                  className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                >
+                  {purchaseLoading === shippingItem.id ? 'Buying...' : `Buy for ${shippingItem.discountedPrice ?? shippingItem.tokenCost} GT`}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {loading && (
           <div className="flex justify-center py-16">
             <div className="w-8 h-8 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
@@ -107,7 +164,7 @@ const StorePage: React.FC = () => {
 
         {!loading && items.length === 0 && (
           <div className="text-center py-16">
-            <p className="text-4xl mb-4">🏪</p>
+            <p className="text-4xl mb-4">Store</p>
             <p className="text-gray-400">Store is empty. Check back later!</p>
           </div>
         )}
@@ -115,14 +172,14 @@ const StorePage: React.FC = () => {
         {!loading && featured.length > 0 && (
           <div className="mb-10">
             <h2 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
-              <span>⭐</span> Featured
+              <span>Ã¢Ëœâ€¦</span> Featured
             </h2>
             <div className="flex gap-4 overflow-x-auto pb-2">
               {featured.map((item) => (
                 <button
                   key={item.id}
-                  onClick={() => handlePurchase(item.id)}
-                  disabled={purchaseLoading === item.id || !user}
+                  onClick={() => handleItemPurchase(item)}
+                  disabled={purchaseLoading === item.id || !user || item.eligible === false}
                   className="flex-shrink-0 w-56 text-left bg-gradient-to-br from-amber-500/15 to-gray-800/40 border border-amber-500/30 rounded-xl p-4 hover:border-amber-400/60 transition-all disabled:opacity-60"
                 >
                   <p className="text-lg font-bold text-white">{item.name}</p>
@@ -139,7 +196,7 @@ const StorePage: React.FC = () => {
         {!loading && offers.length > 0 && (
           <div className="mb-10">
             <h2 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
-              <span>⏳</span> Limited-Time Offers
+              <span>Ã¢ÂÂ³</span> Limited-Time Offers
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {offers.map((offer) => (
@@ -173,7 +230,7 @@ const StorePage: React.FC = () => {
                       </p>
                     </div>
                     <button
-                      onClick={() => handlePurchase(offer.id)}
+                      onClick={() => handleItemPurchase(offer)}
                       disabled={purchaseLoading === offer.id || !user}
                       className="px-4 py-2 text-sm font-medium rounded-lg bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-50"
                     >
@@ -188,7 +245,7 @@ const StorePage: React.FC = () => {
 
         {!loading && items.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {items.map((item) => {
+            {[...items].sort((a,b)=> (a.category==="artist_badge"?0:1)-(b.category==="artist_badge"?0:1) || Number(b.eligible)-Number(a.eligible) || Number(a.owned)-Number(b.owned)).map((item) => {
               const owned = item.owned || purchasedIds.has(item.id);
               return (
                 <div
@@ -202,11 +259,19 @@ const StorePage: React.FC = () => {
                       Owned
                     </div>
                   )}
-                  <div className="text-3xl mb-3">
-                    {item.category === 'avatar' ? '🎨' : item.category === 'title' ? '🏷️' : item.category === 'merch' ? '📦' : '🎁'}
+                  <div className="inline-flex items-center mb-3 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-[11px] font-semibold uppercase tracking-wider text-amber-400">
+                    {item.category === 'avatar' ? 'Avatar' : item.category === 'title' ? 'Title' : item.category === 'merch' ? 'Merch' : item.category === 'artist_badge' ? 'Badge' : 'Item'}
                   </div>
                   <h3 className="text-lg font-bold text-white mb-1">{item.name}</h3>
-                  <p className="text-sm text-gray-400 mb-4">{item.description}</p>
+                  <p className="text-sm text-gray-400 mb-2">{item.description}</p>
+                  {item.category === 'artist_badge' && (
+                    <div className="mb-4 rounded-lg border border-gray-700/60 bg-gray-900/60 p-3 text-xs">
+                      <p className="text-emerald-300 font-semibold mb-1">How to earn</p>
+                      <p className="text-gray-200 leading-relaxed">{item.howToEarn}</p>
+                      <p className="text-amber-300 mt-2">{item.progressLabel}</p>
+                      <p className={`mt-2 font-medium ${item.owned ? 'text-green-300' : item.eligible ? 'text-amber-300' : 'text-gray-400'}`}>{item.owned ? 'Owned on profile' : item.eligible ? 'Eligible - claim in store' : 'Locked until milestone reached'}</p>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1 text-amber-400 font-bold">
                       <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
@@ -220,15 +285,15 @@ const StorePage: React.FC = () => {
                       )}
                     </div>
                     <button
-                      onClick={() => handlePurchase(item.id)}
-                      disabled={owned || purchaseLoading === item.id || !user}
+                      onClick={() => handleItemPurchase(item)}
+                      disabled={owned || purchaseLoading === item.id || !user || (item.category === 'artist_badge' && item.eligible === false)}
                       className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                         owned
                           ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
                           : 'bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-50'
                       }`}
                     >
-                      {purchaseLoading === item.id ? 'Buying...' : owned ? 'Owned' : 'Buy'}
+                      {purchaseLoading === item.id ? 'Claiming...' : owned ? 'Owned' : item.category === 'artist_badge' ? (item.eligible ? 'Claim Badge' : 'Locked') : 'Buy'}
                     </button>
                   </div>
                 </div>

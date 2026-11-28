@@ -12,7 +12,7 @@ const STEPS = [
 
 const ModeratorRequestPage: React.FC = () => {
   const { user } = useAuth();
-  const { roleRequests, loading: pendingLoading, refresh } = usePendingRequests();
+  const { roleRequests, loading: pendingLoading, roleRequestsError, refresh } = usePendingRequests();
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -90,6 +90,7 @@ const ModeratorRequestPage: React.FC = () => {
         contentAreas: formData.contentAreas,
         additionalInfo: formData.additionalInfo,
       });
+      await refresh();
       setSuccess(true);
     } catch (err: any) {
       setError(err.message || 'Failed to submit request. Please try again.');
@@ -109,21 +110,38 @@ const ModeratorRequestPage: React.FC = () => {
     );
   }
 
+  if (roleRequestsError) {
+    return (
+      <div className="min-h-screen bg-[#122118] flex items-center justify-center px-4">
+        <div className="bg-gray-800 rounded-2xl p-8 max-w-lg w-full border border-gray-700 text-center">
+          <p role="alert" className="text-gray-300 mb-2">We couldn’t check your moderator application status.</p>
+          <p className="text-gray-500 text-sm mb-6">{roleRequestsError}</p>
+          <button
+            onClick={refresh}
+            className="bg-amber-500 hover:bg-amber-600 text-gray-900 font-semibold py-3 px-6 rounded-xl transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (pendingModeratorRequest) {
     return (
       <div className="min-h-screen bg-[#122118] flex items-center justify-center px-4">
         <div className="bg-gray-800 rounded-2xl p-8 max-w-lg w-full border border-gray-700 text-center">
-          <div className="w-20 h-20 mx-auto bg-blue-500/20 rounded-full flex items-center justify-center mb-6">
-            <svg className="w-10 h-10 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="w-20 h-20 mx-auto bg-amber-500/20 rounded-full flex items-center justify-center mb-6">
+            <svg className="w-10 h-10 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <h1 className="text-3xl font-bold text-white mb-3">Moderator Request Under Review</h1>
+          <h1 className="text-3xl font-bold text-white mb-3">Moderator Request Pending</h1>
           <p className="text-gray-300 mb-2">
             Your moderator request is currently being reviewed by our admin team.
           </p>
           <p className="text-gray-400 mb-6">
-            Status: <span className="text-blue-400 font-medium">{pendingModeratorRequest.status.replace('_', ' ')}</span>.
+            Status: <span className="text-amber-400 font-medium">{pendingModeratorRequest.status.replace('_', ' ')}</span>.
             You'll be notified once a decision is made.
           </p>
           {error && (

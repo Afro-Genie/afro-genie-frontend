@@ -1,22 +1,37 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Upload, ImageIcon, Loader2, AlertCircle } from 'lucide-react';
 import { uploadImage } from '../services/uploadService';
 import { toMediaUrl } from '../lib/apiBase';
+import MediaImage from './MediaImage';
 
 interface ImageUploadProps {
   label: string;
   currentUrl?: string;
   onUploaded: (url: string) => void;
+  onRemove?: () => void;
   className?: string;
 }
 
-const ImageUpload: React.FC<ImageUploadProps> = ({ label, currentUrl, onUploaded, className }) => {
+const ImageUpload: React.FC<ImageUploadProps> = ({ label, currentUrl, onUploaded, onRemove, className }) => {
   const [preview, setPreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [imageFailed, setImageFailed] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const displayUrl = toMediaUrl(preview || currentUrl || '');
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [displayUrl]);
+
+  const handleRemove = () => {
+    setPreview(null);
+    setError(null);
+    setImageFailed(false);
+    if (inputRef.current) inputRef.current.value = '';
+    onRemove?.();
+  };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -35,7 +50,10 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ label, currentUrl, onUploaded
     }
 
     const reader = new FileReader();
-    reader.onloadend = () => setPreview(reader.result as string);
+    reader.onloadend = () => {
+      setImageFailed(false);
+      setPreview(reader.result as string);
+    };
     reader.readAsDataURL(file);
 
     setUploading(true);
@@ -60,7 +78,18 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ label, currentUrl, onUploaded
       <div className="bg-gray-800/60 border border-gray-700 rounded-lg p-3 flex items-center gap-4">
         <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-700/50 border border-gray-600 flex items-center justify-center flex-shrink-0">
           {displayUrl ? (
-            <img src={displayUrl} alt={label} className="w-full h-full object-cover" />
+            imageFailed ? (
+              <ImageIcon className="w-6 h-6 text-gray-500" />
+            ) : (
+              <MediaImage
+                src={displayUrl}
+                alt={label}
+                onError={() => setImageFailed(true)}
+                className="w-full h-full object-cover"
+                fallback={<ImageIcon className="w-6 h-6 text-gray-500" />}
+                fallbackClassName="flex items-center justify-center"
+              />
+            )
           ) : (
             <ImageIcon className="w-6 h-6 text-gray-500" />
           )}
@@ -74,6 +103,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ label, currentUrl, onUploaded
             className="hidden"
           />
           <button
+            type="button"
             onClick={() => inputRef.current?.click()}
             disabled={uploading}
             className="flex items-center gap-2 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
@@ -90,6 +120,16 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ label, currentUrl, onUploaded
               </>
             )}
           </button>
+          {displayUrl && onRemove && (
+            <button
+              type="button"
+              onClick={handleRemove}
+              disabled={uploading}
+              className="ml-2 px-3 py-1.5 text-red-400 hover:text-red-300 disabled:opacity-50 text-sm font-medium transition-colors"
+            >
+              Remove image
+            </button>
+          )}
         </div>
       </div>
       {error && (

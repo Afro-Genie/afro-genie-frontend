@@ -67,21 +67,6 @@ export default defineConfig(({ mode }) => {
         host: '127.0.0.1',
         https: getHttpsConfig(),
         proxy: {
-          // Proxy Genius API with Authorization header injected from env
-          '/proxy/genius': {
-            target: 'https://api.genius.com',
-            changeOrigin: true,
-            secure: true,
-            rewrite: (path) => path.replace(/^\/proxy\/genius/, ''),
-            configure: (proxy) => {
-              proxy.on('proxyReq', (proxyReq) => {
-                const token = env.GENIUS_ACCESS_TOKEN || '';
-                if (token) {
-                  proxyReq.setHeader('Authorization', `Bearer ${token}`);
-                }
-              });
-            }
-          },
           // Proxy MusicBrainz (no special headers, just CORS bypass)
           '/proxy/musicbrainz': {
             target: 'https://musicbrainz.org',
@@ -106,40 +91,6 @@ export default defineConfig(({ mode }) => {
                     proxyReq.path = `${proxyReq.path}${joiner}api_key=${encodeURIComponent(apiKey)}`;
                   }
                 } catch {}
-              });
-            }
-          },
-          // Proxy LyricFind API and inject API key/username as query params
-          '/proxy/lyricfind': {
-            target: 'https://api.lyricfind.com',
-            changeOrigin: true,
-            secure: true,
-            rewrite: (path) => path.replace(/^\/proxy\/lyricfind/, ''),
-            configure: (proxy) => {
-              proxy.on('proxyReq', (proxyReq: any) => {
-                const apiKey = env.LYRICFIND_API_KEY || '';
-                const username = env.LYRICFIND_USERNAME || '';
-                
-                if (apiKey || username) {
-                  try {
-                    const hasApiKey = typeof proxyReq.path === 'string' && proxyReq.path.includes('apikey=');
-                    const hasUsername = typeof proxyReq.path === 'string' && proxyReq.path.includes('username=');
-                    
-                    if (!hasApiKey && apiKey) {
-                      const joiner = proxyReq.path.includes('?') ? '&' : '?';
-                      proxyReq.path = `${proxyReq.path}${joiner}apikey=${encodeURIComponent(apiKey)}`;
-                    }
-                    
-                    if (!hasUsername && username) {
-                      const joiner = proxyReq.path.includes('?') ? '&' : '?';
-                      proxyReq.path = `${proxyReq.path}${joiner}username=${encodeURIComponent(username)}`;
-                    }
-                  } catch (e) {
-                    console.error('Error injecting LyricFind credentials:', e);
-                  }
-                }
-                
-                proxyReq.setHeader('User-Agent', 'AfroGenie/1.0');
               });
             }
           },
@@ -192,9 +143,6 @@ export default defineConfig(({ mode }) => {
       define: {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
         'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'import.meta.env.VITE_LYRICFIND_API_KEY': JSON.stringify(env.LYRICFIND_API_KEY || ''),
-        'import.meta.env.VITE_LYRICFIND_USERNAME': JSON.stringify(env.LYRICFIND_USERNAME || ''),
-        'import.meta.env.VITE_GENIUS_ACCESS_TOKEN': JSON.stringify(env.GENIUS_ACCESS_TOKEN || '')
       },
       resolve: {
         alias: {

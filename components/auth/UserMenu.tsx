@@ -9,14 +9,15 @@ import { useNotification } from '../../hooks/useNotification';
 import Notification from '../Notification';
 import { moderationApi } from '../../services/moderationService';
 import { featureFlags } from '../../config/featureFlags';
+import Avatar from '../Avatar';
 
 interface UserMenuProps {
   onLoginClick: () => void;
 }
 
 const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
-  const { user, loading: authLoading, isAdmin, isArtist, isModerator, logout } = useAuth();
-  const { artistApplication, roleRequests, loading: pendingLoading } = usePendingRequests();
+  const { user, userProfile, loading: authLoading, isAdmin, isArtist, isModerator, logout } = useAuth();
+  const { artistApplication, roleRequests, loading: pendingLoading, roleRequestsError, refresh: refreshPending } = usePendingRequests();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [pendingReports, setPendingReports] = useState(0);
@@ -50,6 +51,7 @@ const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
 
   const hasPendingArtistApplication = !isArtist && !!artistApplication;
   const hasPendingModeratorRequest = !isAdmin && roleRequests.some((r) => r.role === 'MODERATOR');
+  const avatarUrl = isArtist ? userProfile?.artistProfile?.profileImageUrl : user?.photoURL;
 
   const handleLogout = async () => {
     try {
@@ -116,23 +118,21 @@ const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
         </div>
         <div className="relative" ref={menuRef}>
           <button
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            onClick={() => {
+              const opening = !isMenuOpen;
+              setIsMenuOpen(opening);
+              if (opening) void refreshPending();
+            }}
             className="flex items-center justify-center min-h-[44px] min-w-[44px] rounded-md text-gray-300 hover:text-white focus:outline-none focus:ring-2 focus:ring-green-400"
             aria-label="User menu"
           >
-            {user.photoURL ? (
-              <img
-                src={user.photoURL}
-                alt="Profile"
-                className="h-8 w-8 sm:h-9 sm:w-9 rounded-full ring-2 ring-transparent hover:ring-green-400 transition-all"
-              />
-            ) : (
-              <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-gradient-to-br from-green-600 to-green-800 flex items-center justify-center ring-2 ring-transparent hover:ring-green-400 transition-all">
-                <span className="text-sm font-medium text-white">
-                  {user.displayName?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || 'U'}
-                </span>
-              </div>
-            )}
+            <Avatar
+              src={avatarUrl}
+              name={user.displayName || user.email}
+              alt="Profile"
+              className="h-8 w-8 sm:h-9 sm:w-9 ring-2 ring-transparent transition-all hover:ring-green-400"
+              initialsClassName="text-sm font-medium text-white"
+            />
             <svg
               className={`w-4 h-4 ml-1 hidden sm:block transition-transform ${isMenuOpen ? 'rotate-180' : ''}`}
               fill="none"
@@ -233,12 +233,12 @@ const UserMenu: React.FC<UserMenuProps> = ({ onLoginClick }) => {
                   )}
 
                   {!isAdmin && !isArtist && !isModerator && (
-                    hasPendingModeratorRequest ? (
+                    hasPendingModeratorRequest || pendingLoading || roleRequestsError ? (
                       <div className="flex items-center min-h-[44px] px-4 py-3 text-sm text-gray-500 cursor-not-allowed">
                         <svg className="w-4 h-4 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                         </svg>
-                        <span>Moderator Request Pending</span>
+                        <span>Moderator Application Pending</span>
                         <span className="ml-auto w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
                       </div>
                     ) : (

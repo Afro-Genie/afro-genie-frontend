@@ -19,6 +19,7 @@ import {
   ImageIcon
 } from '../../components/icons/FlatIcons';
 import { AdminTabbedPageSkeleton } from '../../components/PageSkeletons';
+import MediaImage from '../../components/MediaImage';
 import type { Artist, Song, Genre } from '../../types';
 
 const getAllGenres = async (): Promise<Genre[]> => {
@@ -274,7 +275,19 @@ const UnifiedManager: React.FC = () => {
     <div key={item.id} className="bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-white/10 hover:border-green-500/50 transition-all duration-300 group">
       <div className="aspect-square bg-gray-700 rounded-lg overflow-hidden mb-3">
         {item.image ? (
-          <img src={item.image} alt={item.name || item.title} className="w-full h-full object-cover" />
+          <MediaImage
+            src={item.image}
+            alt={item.name || item.title}
+            className="w-full h-full object-cover"
+            fallback={
+              <div className="w-full h-full flex items-center justify-center">
+                {activeTab === 'artists' && <ArtistIcon className="w-12 h-12 text-gray-400" />}
+                {activeTab === 'songs' && <MusicNoteIcon className="w-12 h-12 text-gray-400" />}
+                {activeTab === 'genres' && <GenreIcon className="w-12 h-12 text-gray-400" />}
+              </div>
+            }
+            fallbackClassName="bg-gray-700"
+          />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             {activeTab === 'artists' && <ArtistIcon className="w-12 h-12 text-gray-400" />}
@@ -318,7 +331,19 @@ const UnifiedManager: React.FC = () => {
       <div className="flex items-center space-x-4">
         <div className="w-16 h-16 bg-gray-700 rounded-lg overflow-hidden flex-shrink-0">
           {item.image ? (
-            <img src={item.image} alt={item.name || item.title} className="w-full h-full object-cover" />
+            <MediaImage
+              src={item.image}
+              alt={item.name || item.title}
+              className="w-full h-full object-cover"
+              fallback={
+                <div className="w-full h-full flex items-center justify-center">
+                  {activeTab === 'artists' && <ArtistIcon className="w-8 h-8 text-gray-400" />}
+                  {activeTab === 'songs' && <MusicNoteIcon className="w-8 h-8 text-gray-400" />}
+                  {activeTab === 'genres' && <GenreIcon className="w-8 h-8 text-gray-400" />}
+                </div>
+              }
+              fallbackClassName="bg-gray-700"
+            />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
               {activeTab === 'artists' && <ArtistIcon className="w-8 h-8 text-gray-400" />}
@@ -491,7 +516,17 @@ const UnifiedManager: React.FC = () => {
                   <div className="flex items-center space-x-4">
                     <div className="w-24 h-24 bg-gray-700 rounded-lg overflow-hidden">
                       {formData.image ? (
-                        <img src={formData.image} alt="Preview" className="w-full h-full object-cover" />
+                        <MediaImage
+                          src={formData.image}
+                          alt="Preview"
+                          className="w-full h-full object-cover"
+                          fallback={
+                            <div className="w-full h-full flex items-center justify-center">
+                              <ImageIcon className="w-8 h-8 text-gray-400" />
+                            </div>
+                          }
+                          fallbackClassName="bg-gray-700"
+                        />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
                           <ImageIcon className="w-8 h-8 text-gray-400" />

@@ -5,15 +5,17 @@ import ProfileHeader from '../../components/artist/profile/ProfileHeader';
 import ProfileAbout from '../../components/artist/profile/ProfileAbout';
 import ProfileContact from '../../components/artist/profile/ProfileContact';
 import ProfileSocial from '../../components/artist/profile/ProfileSocial';
-import Achievements from '../../components/artist/profile/Achievements';
+import ArtistBadges, { type ArtistBadge } from '../../components/artist/profile/ArtistBadges';
 import RecentActivity from '../../components/artist/profile/RecentActivity';
 import ImageUpload from '../../components/ImageUpload';
+import { useAuth } from '../../context/AuthContext';
 
 interface ArtistProfile {
   id: string;
   stageName: string;
   bio: string;
   genres: string[];
+  imageUrl?: string;
   profileImageUrl?: string;
   bannerImageUrl?: string;
   verified: boolean;
@@ -39,24 +41,30 @@ interface AnalyticsData {
 }
 
 const ArtistProfileSettingsPage: React.FC = () => {
+  const { updateArtistProfileImage } = useAuth();
   const [profile, setProfile] = useState<ArtistProfile | null>(null);
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [badges, setBadges] = useState<ArtistBadge[]>([]);
+  const [badgesLoading, setBadgesLoading] = useState(true);
 
   useEffect(() => {
     const fetchAll = async () => {
       setLoading(true);
       try {
-        const [profileData, analyticsData] = await Promise.all([
+                const [profileData, analyticsData, badgeData] = await Promise.all([
           apiRequest<ArtistProfile>('/artists/me/profile'),
           apiRequest<AnalyticsData>('/artists/me/analytics?rangeDays=90').catch(() => null),
+          apiRequest<{ badges: ArtistBadge[] }>('/artists/me/badges').catch(() => ({ badges: [] })),
         ]);
         setProfile(profileData);
         setAnalytics(analyticsData);
+        setBadges(badgeData?.badges ?? []);
       } catch (error) {
         console.error('Error fetching profile:', error);
       } finally {
-        setLoading(false);
+                setLoading(false);
+        setBadgesLoading(false);
       }
     };
     fetchAll();
@@ -92,6 +100,7 @@ const ArtistProfileSettingsPage: React.FC = () => {
       body: JSON.stringify({ profileImageUrl: url }),
     });
     setProfile((prev) => (prev ? { ...prev, profileImageUrl: url } : prev));
+    updateArtistProfileImage(url);
   };
 
   const handleUploadBannerImage = async (url: string) => {
@@ -109,7 +118,7 @@ const ArtistProfileSettingsPage: React.FC = () => {
         stageName={profile?.stageName ?? ''}
         bio={profile?.bio ?? ''}
         genres={profile?.genres ?? []}
-        profileImageUrl={profile?.profileImageUrl}
+        profileImageUrl={profile?.profileImageUrl || profile?.imageUrl}
         bannerImageUrl={profile?.bannerImageUrl}
         verified={profile?.verified ?? false}
         totalStreams={profile?.totalStreams ?? 0}
@@ -159,12 +168,7 @@ const ArtistProfileSettingsPage: React.FC = () => {
       </div>
 
       {/* Achievements */}
-      <Achievements
-        totalStreams={profile?.totalStreams ?? 0}
-        totalListeners={profile?.totalListeners ?? 0}
-        totalFollowers={profile?.totalFollowers ?? 0}
-        loading={loading}
-      />
+            <ArtistBadges badges={badges} loading={loading || badgesLoading} />
 
       {/* Recent Activity */}
       <RecentActivity loading={loading} />

@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { artistsApi, songsApi } from '../../services/api';
+import { artistsApi, songsApi, adminGenres, adminUsers, adminTopics, adminCategories } from '../../services/api';
 import { normalizeArtist, normalizeSong } from '../../utils/apiHelpers';
-import { apiFetch } from '../../lib/apiClient';
 import { tokenApi, type AdminRewardStats } from '../../services/tokenService';
 import { 
   MusicNoteIcon, 
@@ -33,30 +32,37 @@ const AdminDashboard: React.FC = () => {
   const [showAPIManagement, setShowAPIManagement] = useState(false);
   const [recentTranslationRequests, setRecentTranslationRequests] = useState<any[]>([]);
   const [recentSongRequests, setRecentSongRequests] = useState<any[]>([]);
-  const [syncDashboard, setSyncDashboard] = useState<any>(null);
-  const [syncLoading, setSyncLoading] = useState(true);
-  const [syncingPopularTracks, setSyncingPopularTracks] = useState(false);
   const [rewardStats, setRewardStats] = useState<AdminRewardStats | null>(null);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const [artistsResult, songsResult] = await Promise.all([
+        const [artistsResult, songsResult, genresResult, usersResult, topicsResult, categoriesResult] = await Promise.all([
           artistsApi.getAll({ limit: 200 }),
           songsApi.getAll({ limit: 500 }),
+          adminGenres(),
+          adminUsers(),
+          adminTopics(),
+          adminCategories(),
         ]);
 
+        const artistsTotal = artistsResult.total || (artistsResult.data || []).length;
+        const songsTotal = songsResult.total || (songsResult.songs || songsResult.data || []).length;
         const artists = (artistsResult.data || []).map((a: any) => normalizeArtist(a)).filter(Boolean);
         const songs = (songsResult.songs || songsResult.data || []).map((s: any) => normalizeSong(s)).filter(Boolean);
+        const genres = Number(genresResult?.total) || (genresResult?.data || []).length;
+        const users = (usersResult.total || 0);
+        const topics = (topicsResult.total || 0);
+        const categories = (categoriesResult || []).length;
 
         setStats({
-          artists: artists.length,
-          songs: songs.length,
-          genres: 0,
-          users: 0,
+          artists: artistsTotal,
+          songs: songsTotal,
+          genres: genres,
+          users: users,
           translations: 0,
-          topics: 0,
-          categories: 0,
+          topics: topics,
+          categories: categories,
           pendingTranslationRequests: 0,
           pendingSongRequests: 0
         });
@@ -69,19 +75,7 @@ const AdminDashboard: React.FC = () => {
       }
     };
 
-    const fetchSyncDashboard = async () => {
-      try {
-        const data = await apiFetch('/api/admin/sync/dashboard');
-        setSyncDashboard(data);
-      } catch (err) {
-        console.error('Failed to load sync dashboard:', err);
-      } finally {
-        setSyncLoading(false);
-      }
-    };
-
     fetchStats();
-    fetchSyncDashboard();
 
     tokenApi.adminGetRewardStats().then(setRewardStats).catch(() => {});
   }, []);
@@ -89,22 +83,32 @@ const AdminDashboard: React.FC = () => {
   const handleImportComplete = () => {
     const fetchStats = async () => {
       try {
-        const [artistsResult, songsResult] = await Promise.all([
+        const [artistsResult, songsResult, genresResult, usersResult, topicsResult, categoriesResult] = await Promise.all([
           artistsApi.getAll({ limit: 200 }),
           songsApi.getAll({ limit: 500 }),
+          adminGenres(),
+          adminUsers(),
+          adminTopics(),
+          adminCategories(),
         ]);
 
+        const artistsTotal = artistsResult.total || (artistsResult.data || []).length;
+        const songsTotal = songsResult.total || (songsResult.songs || songsResult.data || []).length;
         const artists = (artistsResult.data || []).map((a: any) => normalizeArtist(a)).filter(Boolean);
         const songs = (songsResult.songs || songsResult.data || []).map((s: any) => normalizeSong(s)).filter(Boolean);
-        
+        const genres = Number(genresResult?.total) || (genresResult?.data || []).length;
+        const users = (usersResult.total || 0);
+        const topics = (topicsResult.total || 0);
+        const categories = (categoriesResult || []).length;
+
         setStats({
-          artists: artists.length,
-          songs: songs.length,
-          genres: 0,
-          users: 0,
+          artists: artistsTotal,
+          songs: songsTotal,
+          genres: genres,
+          users: users,
           translations: 0,
-          topics: 0,
-          categories: 0,
+          topics: topics,
+          categories: categories,
           pendingTranslationRequests: 0,
           pendingSongRequests: 0
         });
@@ -115,28 +119,6 @@ const AdminDashboard: React.FC = () => {
       }
     };
     fetchStats();
-  };
-
-  const handleSyncPopularTracks = async () => {
-    setSyncingPopularTracks(true);
-    try {
-      await apiFetch('/api/admin/sync/run', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'sync-popular-tracks' }),
-      });
-      // Refresh sync dashboard after triggering
-      setTimeout(async () => {
-        try {
-          const data = await apiFetch('/api/admin/sync/dashboard');
-          setSyncDashboard(data);
-        } catch { /* non-fatal */ }
-      }, 2000);
-    } catch (err) {
-      console.error('Failed to trigger popular tracks sync:', err);
-    } finally {
-      setSyncingPopularTracks(false);
-    }
   };
 
   if (loading) {
@@ -294,9 +276,9 @@ const AdminDashboard: React.FC = () => {
           <div className="bg-gradient-to-r from-amber-600/20 to-amber-700/20 rounded-xl p-6 border border-amber-500/30">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-amber-300">Reward System Overview</h3>
-              <Link to="/admin/rewards" className="text-sm text-amber-400 hover:text-amber-300 transition-colors">
+              <a href="/admin/rewards" className="text-sm text-amber-400 hover:text-amber-300 transition-colors">
                 Manage →
-              </Link>
+              </a>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
@@ -488,99 +470,30 @@ const AdminDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Sync Status Panel */}
+        {/* Catalog operations */}
         <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-white/10">
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
-            <h2 className="text-xl sm:text-2xl font-bold text-white">Sync Status</h2>
-            <div className="flex items-center space-x-2">
-              <div className={`w-2.5 h-2.5 rounded-full ${syncDashboard ? 'bg-green-400 animate-pulse' : 'bg-gray-500'}`} />
-              <span className={`text-sm font-medium ${syncDashboard ? 'text-green-400' : 'text-gray-400'}`}>
-                {syncLoading ? 'Loading...' : syncDashboard ? 'Connected' : 'Unavailable'}
-              </span>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-xl sm:text-2xl font-bold text-white">African catalog operations</h2>
+              <p className="mt-1 text-sm text-gray-300">
+                Import songs from YouTube and monitor confirmed or scheduled lyrics backfills.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                to="/admin/songs/import"
+                className="inline-flex min-h-[40px] items-center rounded-md bg-gray-700 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-600"
+              >
+                Import songs
+              </Link>
+              <Link
+                to="/admin/lyrics-backfill"
+                className="inline-flex min-h-[40px] items-center rounded-md bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700"
+              >
+                Lyrics backfill monitor
+              </Link>
             </div>
           </div>
-
-          {syncDashboard ? (
-            <div className="space-y-4">
-              {/* Sync overview cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
-                  <p className="text-gray-400 text-xs font-medium uppercase tracking-wider mb-1">Total Artists</p>
-                  <p className="text-2xl font-bold text-white">{syncDashboard.totalArtists ?? 0}</p>
-                  <p className="text-xs text-gray-500 mt-1">{syncDashboard.artistsWithSpotify ?? 0} with Spotify</p>
-                </div>
-                <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
-                  <p className="text-gray-400 text-xs font-medium uppercase tracking-wider mb-1">Stale Artists</p>
-                  <p className="text-2xl font-bold text-white">{syncDashboard.staleCount ?? 0}</p>
-                  <p className="text-xs text-gray-500 mt-1">Threshold: {syncDashboard.staleThresholdHours ?? 72}h</p>
-                </div>
-                <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
-                  <p className="text-gray-400 text-xs font-medium uppercase tracking-wider mb-1">Queue Depth</p>
-                  <p className="text-2xl font-bold text-white">
-                    {(syncDashboard.queueDepth?.waiting ?? 0) + (syncDashboard.queueDepth?.active ?? 0)}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {syncDashboard.queueDepth?.completed ?? 0} completed, {syncDashboard.queueDepth?.failed ?? 0} failed
-                  </p>
-                </div>
-                <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
-                  <p className="text-gray-400 text-xs font-medium uppercase tracking-wider mb-1">Last Full Sync</p>
-                  <p className="text-sm font-bold text-white truncate">
-                    {syncDashboard.lastSync?.syncAll
-                      ? new Date(syncDashboard.lastSync.syncAll).toLocaleDateString()
-                      : 'Never'}
-                  </p>
-                  {syncDashboard.lastSyncDuration?.syncAll != null && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      Took {Math.round(syncDashboard.lastSyncDuration.syncAll / 1000)}s
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Popular Tracks Sync */}
-              <div className="bg-gradient-to-r from-green-600/20 to-green-700/20 rounded-lg p-4 border border-green-600/30">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <div className="min-w-0">
-                    <h3 className="text-lg font-bold text-white mb-1">Popular African Tracks</h3>
-                    <p className="text-green-200 text-sm">
-                      Weekly sync across 10 genres (Afrobeats, Amapiano, Afropop, etc.)
-                    </p>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-gray-400">
-                      <span>
-                        Last sync:{' '}
-                        {syncDashboard.popularTracksStats?.lastSync
-                          ? new Date(syncDashboard.popularTracksStats.lastSync).toLocaleString()
-                          : 'Never'}
-                      </span>
-                      {syncDashboard.popularTracksStats?.durationMs != null && (
-                        <span>Duration: {Math.round(syncDashboard.popularTracksStats.durationMs / 1000)}s</span>
-                      )}
-                      <span>Schedule: Sundays 2am</span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleSyncPopularTracks}
-                    disabled={syncingPopularTracks}
-                    className="flex-shrink-0 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-800 disabled:opacity-50 text-white font-semibold rounded-lg transition-colors text-sm"
-                  >
-                    {syncingPopularTracks ? (
-                      <span className="flex items-center gap-2">
-                        <span className="h-3 w-3 rounded-full border-2 border-white/60 border-t-transparent animate-pulse" />
-                        Syncing...
-                      </span>
-                    ) : (
-                      'Sync Now'
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="text-center py-8 text-gray-500">
-              {syncLoading ? 'Loading sync status...' : 'Sync dashboard unavailable'}
-            </div>
-          )}
         </div>
 
         {/* API Management Section */}
@@ -646,6 +559,11 @@ const AdminDashboard: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* API Management Modal */}
+        {showAPIManagement && (
+          <APIManagement onDataImported={handleImportComplete} />
+        )}
       </div>
     </div>
   );

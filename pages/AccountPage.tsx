@@ -7,6 +7,7 @@ import UserNotificationSettings, { NotificationToggles } from '../components/use
 import UserDataSettings from '../components/user/settings/UserDataSettings';
 import UserDangerZone from '../components/user/settings/UserDangerZone';
 import ImageUpload from '../components/ImageUpload';
+import MediaImage from '../components/MediaImage';
 import {
   User,
   CheckCircle,
@@ -38,7 +39,7 @@ interface FavoriteEntry {
 }
 
 const AccountPage: React.FC = () => {
-  const { user, userProfile, logout } = useAuth();
+  const { user, userProfile, logout, updateUserProfile } = useAuth();
   const navigate = useNavigate();
   const { artistApplication, roleRequests, refresh: refreshPending } = usePendingRequests();
   const [cancellingArtist, setCancellingArtist] = useState(false);
@@ -50,6 +51,7 @@ const AccountPage: React.FC = () => {
   const [photoUrl, setPhotoUrl] = useState(user?.photoURL || '');
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
+  const [profileSaveError, setProfileSaveError] = useState('');
 
   // History & favorites state
   const [history, setHistory] = useState<HistoryEntry[]>([]);
@@ -64,6 +66,8 @@ const AccountPage: React.FC = () => {
     setDisplayName(user?.displayName || '');
     setPhotoUrl(user?.photoURL || '');
   }, [user?.displayName, user?.photoURL]);
+
+
 
   const handleCancelArtistApplication = async () => {
     if (!artistApplication) return;
@@ -153,15 +157,20 @@ const AccountPage: React.FC = () => {
   const handleSaveProfile = async () => {
     setSavingProfile(true);
     setProfileSaved(false);
+    setProfileSaveError('');
     try {
-      await apiRequest('/users/me', {
+      const updated = await apiRequest<{ displayName: string | null; photoUrl: string | null }>('/users/me', {
         method: 'PUT',
-        body: JSON.stringify({ displayName, photoUrl }),
+        body: JSON.stringify({ displayName, photoUrl: photoUrl.trim() || null }),
       });
+      setDisplayName(updated.displayName ?? '');
+      setPhotoUrl(updated.photoUrl ?? '');
+      updateUserProfile(updated);
       setProfileSaved(true);
       setTimeout(() => setProfileSaved(false), 3000);
     } catch (err) {
       console.error('Failed to save profile:', err);
+      setProfileSaveError(err instanceof Error ? err.message : 'Failed to save profile.');
     } finally {
       setSavingProfile(false);
     }
@@ -246,11 +255,16 @@ const AccountPage: React.FC = () => {
         <div className="px-6 pb-6 -mt-10">
           <div className="flex items-end gap-5">
             <div className={`w-20 h-20 rounded-full bg-gray-800 border-4 ${borderColor || 'border-gray-900'} overflow-hidden flex items-center justify-center flex-shrink-0 shadow-lg`}>
-              {user.photoURL ? (
-                <img src={user.photoURL} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <User className="w-9 h-9 text-gray-500" />
-              )}
+              <MediaImage
+                src={photoUrl}
+                alt=""
+                className="w-full h-full object-cover"
+                fallback={
+                  <div className="w-full h-full flex items-center justify-center">
+                    <User className="w-9 h-9 text-gray-500" />
+                  </div>
+                }
+              />
             </div>
             <div className="pb-1 min-w-0">
               <div className="flex items-center flex-wrap gap-2">
@@ -302,6 +316,7 @@ const AccountPage: React.FC = () => {
                 label="Profile Photo"
                 currentUrl={photoUrl || undefined}
                 onUploaded={(url) => setPhotoUrl(url)}
+                onRemove={() => setPhotoUrl('')}
               />
               <div className="flex items-center gap-3 pt-1">
                 <button
@@ -323,6 +338,9 @@ const AccountPage: React.FC = () => {
                 </button>
                 {profileSaved && (
                   <span className="text-green-400 text-sm">Profile updated!</span>
+                )}
+                {profileSaveError && (
+                  <span role="alert" className="text-red-400 text-sm">{profileSaveError}</span>
                 )}
               </div>
             </div>

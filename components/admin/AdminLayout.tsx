@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import MediaImage from '../../components/MediaImage';
 import LogoIcon from '../icons/LogoIcon';
 import { Menu, X } from 'lucide-react';
 import { 
@@ -26,6 +27,7 @@ const AdminLayout: React.FC = () => {
     { name: 'Artist Applications', href: '/admin/artist-applications', icon: ArtistIcon },
     { name: 'Artists', href: '/admin/artists', icon: ArtistIcon },
     { name: 'Songs', href: '/admin/songs', icon: MusicNoteIcon },
+    { name: 'Lyrics Backfill', href: '/admin/lyrics-backfill', icon: MusicNoteIcon },
     { name: 'Genres', href: '/admin/genres', icon: GenreIcon },
     { name: 'Languages', href: '/admin/languages', icon: GlobeIcon },
     { name: 'Community', href: '/admin/community', icon: ChatIcon },
@@ -99,7 +101,7 @@ const AdminLayout: React.FC = () => {
         <div className="flex items-center mb-4 px-1">
           <div className="flex-shrink-0">
             {user?.photoURL ? (
-              <img
+              <MediaImage
                 className="h-8 w-8 rounded-full"
                 src={user.photoURL}
                 alt="User avatar"

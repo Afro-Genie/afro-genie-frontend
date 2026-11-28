@@ -94,8 +94,6 @@ const CommunityPage: React.FC = () => {
     );
   }
 
-  const showCreateAction = activeTab === 'recommended-moderators';
-
   const handleExploreSearch = () => {
     const q = exploreSearch.trim();
     if (!q) return;
@@ -105,7 +103,7 @@ const CommunityPage: React.FC = () => {
   const header = (
     <CommunityHeader
       {...bannerData[activeTab]}
-      actionPlacement={activeTab === 'explore' ? 'before-title' : activeTab === 'recommended-moderators' ? 'after-chips' : undefined}
+      actionPlacement={activeTab === 'explore' ? 'before-title' : undefined}
       action={activeTab === 'explore' ? (
         <div className="relative w-full">
           <input
@@ -125,16 +123,6 @@ const CommunityPage: React.FC = () => {
             </svg>
           </button>
         </div>
-      ) : showCreateAction ? (
-        <Link
-          to="/community/create"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-gray-900 font-semibold rounded-lg transition-colors text-sm shadow-lg"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Create Topic
-        </Link>
       ) : undefined}
     />
   );

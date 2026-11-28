@@ -188,7 +188,7 @@ const AddReleaseModal: React.FC<AddReleaseModalProps> = ({
             <select
               value={form.type}
               onChange={(e) => handleTypeChange(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full select-chevron px-3 pr-10 py-2.5 text-base bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
             >
               <option value="SINGLE">Single</option>
               <option value="EP">EP</option>

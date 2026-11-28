@@ -87,7 +87,7 @@ export interface APISearchResult {
   year?: number;
   image?: string;
   lyrics?: string;
-  source: 'lyricfind' | 'genius' | 'musicbrainz' | 'lastfm';
+  source: 'lrclib' | 'lyricfind' | 'genius' | 'musicbrainz' | 'lastfm';
   confidence: number;
   metadata: {
     genre?: string;

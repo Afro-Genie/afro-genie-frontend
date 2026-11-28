@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { tokenApi, getBadgeDisplay, type AdminRewardEntry, type AdminRewardStats } from '../../services/tokenService';
+import MediaImage from '../../components/MediaImage';
 
 const RewardsManager: React.FC = () => {
   const [stats, setStats] = useState<AdminRewardStats | null>(null);
@@ -205,7 +206,13 @@ const RewardsManager: React.FC = () => {
                       <td className="py-3">
                         <div className="flex items-center gap-2">
                           {reward.user.photoUrl ? (
-                            <img src={reward.user.photoUrl} alt="" className="w-6 h-6 rounded-full" />
+                            <MediaImage
+                              src={reward.user.photoUrl}
+                              alt=""
+                              className="w-6 h-6 rounded-full"
+                              fallback={reward.user.displayName?.[0] || '?'}
+                              fallbackClassName="w-6 h-6 rounded-full bg-gray-600 flex items-center justify-center text-xs text-white"
+                            />
                           ) : (
                             <div className="w-6 h-6 rounded-full bg-gray-600 flex items-center justify-center">
                               <span className="text-xs text-white">{reward.user.displayName?.[0] || '?'}</span>

@@ -1,4 +1,5 @@
 import React from 'react';
+import FeaturedImage from './FeaturedImage';
 
 interface StatItem {
   label: string;
@@ -32,9 +33,7 @@ const CommunityContentCard: React.FC<CommunityContentCardProps> = React.memo(({
   return (
     <Wrapper {...wrapperProps}>
       {imageUrl && (
-        <div className="w-full h-36 overflow-hidden">
-          <img src={imageUrl} alt={title} className="w-full h-full object-cover" />
-        </div>
+        <FeaturedImage src={imageUrl} alt={title} />
       )}
       <div className="p-4">
         <h3 className="text-white font-semibold text-sm truncate">{title}</h3>

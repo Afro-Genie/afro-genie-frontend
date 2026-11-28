@@ -6,6 +6,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import MediaImage from './MediaImage';
 
 export interface YouTubePlaybackState {
   isPlaying: boolean;
@@ -302,11 +303,12 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
 
         {showControls && (
           <div className="relative w-full aspect-square rounded-2xl overflow-hidden bg-black/40">
-            {coverImageUrl ? (
-              <img src={coverImageUrl} alt={title ?? 'Cover art'} className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full bg-gradient-to-br from-green-900/40 to-gray-900" />
-            )}
+            <MediaImage
+              src={coverImageUrl}
+              alt={title ?? 'Cover art'}
+              className="w-full h-full object-cover"
+              fallbackClassName="bg-gradient-to-br from-green-900/40 to-gray-900"
+            />
 
             <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent p-4">
               {error ? (
